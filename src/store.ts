@@ -20,7 +20,9 @@ function load(): Db {
   if (!existsSync(FILE)) return { calls: [], jobs: [], ledger: [] };
   return JSON.parse(readFileSync(FILE, 'utf8'));
 }
-export const db: Db = load();
+// Shared through globalThis: the Node server (voice, WhatsApp) and the TanStack Start routes run in one process
+// but may load this module twice (Vite's SSR runner in dev, the built server bundle in prod).
+export const db: Db = ((globalThis as any).__callhandDb ??= load());
 export function save() {
   mkdirSync(FILE.replace(/\/[^/]+$/, ''), { recursive: true });
   writeFileSync(FILE, JSON.stringify(db, null, 1));

@@ -103,7 +103,7 @@ async function verifyLater(p: Proof, pre: Attested | null) {
 export async function transcribe(audio: Uint8Array, mime = 'audio/wav'): Promise<string> {
   const fd = new FormData();
   fd.set('model', env.sttModel);
-  fd.set('file', new Blob([audio], { type: mime }), mime.includes('webm') ? 'a.webm' : 'a.wav');
+  fd.set('file', new Blob([audio as BlobPart], { type: mime }), mime.includes('webm') ? 'a.webm' : 'a.wav');
   const r = await fetch(`${BASE}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${env.nearAiKey}` }, body: fd });
   if (!r.ok) throw new Error(`stt ${r.status}: ${(await r.text()).slice(0, 200)}`);
   return ((await r.json()) as any).text?.trim() ?? '';
