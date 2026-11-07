@@ -4,6 +4,7 @@ import { copyFileSync, readFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { checkTicker, checkName, checkAuction, checkTeam, filterClaims } from '../src/desks/launch.ts';
+import { isFiller } from '../src/agent.ts';
 import { planChange, applyDiff } from '../src/desks/owner.ts';
 import { priceFor } from '../src/desks/business.ts';
 import { route } from '../src/agent.ts';
@@ -14,6 +15,11 @@ import { launchpad, owner } from '../src/config.ts';
 let n = 0;
 const t = (name: string, f: () => void) => { f(); n++; console.log('ok', name); };
 const lp = launchpad();
+
+t('thinking noises are not turns', () => {
+  for (const s of ['Um...', 'uh', 'Hmm.', 'Erm, uh', 'mm']) assert.ok(isFiller(s), s);
+  for (const s of ['um, a cat coin', 'yes', 'Umbrella']) assert.ok(!isFiller(s), s);
+});
 
 t('ticker format', () => {
   assert.equal(checkTicker('$doge2', lp).ok, true);

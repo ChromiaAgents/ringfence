@@ -5,7 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { RTCPeerConnection, RtpHeader, RtpPacket, useOPUS, MediaStreamTrack } from 'werift';
 import OpusScript from 'opusscript';
 import { env } from './config.ts';
-import { startCall, reply, endCall, setOnLink, photo } from './agent.ts';
+import { isFiller, startCall, reply, endCall, setOnLink, photo } from './agent.ts';
 import { transcribe } from './ai.ts';
 import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
@@ -149,7 +149,12 @@ async function onCallEvent(c: any) {
       try { audio.hear(rtp.payload); maxRms = Math.max(maxRms, audio.lastRms); } catch (e) { console.error('wa hear', e); }
     });
   };
-  tr.onTrack.subscribe(onTrack);
+  // The remote track is created during setRemoteDescription, before this point, so onTrack alone misses it.
+  let hooked = false;
+  const hook = (t: any) => { if (!t || hooked) return; hooked = true; onTrack(t); };
+  tr.onTrack.subscribe(hook);
+  pc.onTrack.subscribe(hook);
+  hook(tr.receiver.track);
   pc.connectionStateChange.subscribe((s) => { console.log('wa pc', s); if (s === 'closed' || s === 'failed') clearInterval(dbg); });
 
   audio.onUtterance = async (pcm16k) => {
@@ -157,7 +162,7 @@ async function onCallEvent(c: any) {
     const text = await transcribe(wav(pcm16k, 16000));
     timing.sttMs = Date.now() - timing.start!;
     console.log(`wa heard (${timing.sttMs} ms): "${text}"`);
-    if (!text || text.length < 2) return;
+    if (!text || text.length < 2 || isFiller(text)) return;
     line.ackSoon();
     try {
       await reply(call.id, text, { signal, timing, onSentence: (s) => line.say(s), onSlowTool: () => line.filler('draw') });
@@ -206,7 +211,7 @@ function callAudio(out: MediaStreamTrack, pt: number) {
       if (!loud) floor = floor * 0.98 + rms * 0.02;
       if (loud) { voiced++; silent = 0; buf.push(f); }
       else if (voiced) { silent++; buf.push(f); }
-      if (voiced && silent > 35) {
+      if (voiced && silent > 45) { // ~900 ms of silence ends the utterance
         console.log(`wa utterance: ${voiced} voiced frames, floor ${floor.toFixed(3)}`); // ~700 ms of silence ends the utterance
         const frames = buf; const enough = voiced > 15;
         buf = []; voiced = 0; silent = 0;

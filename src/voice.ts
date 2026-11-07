@@ -2,7 +2,7 @@
 // and the WhatsApp webhook (which starts WebRTC calls). Mounted on the same HTTP server as the UI.
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { WebSocketServer } from 'ws';
-import { startCall, reply, endCall, photo, DESKS } from './agent.ts';
+import { isFiller, startCall, reply, endCall, photo, DESKS } from './agent.ts';
 import type { Desk } from './store.ts';
 import { transcribe } from './ai.ts';
 import { wav, warmUp } from './tts.ts';
@@ -78,7 +78,7 @@ export function attachVoice(server: Server) {
         const { signal, timing } = line.begin();
         const text = isBinary ? await transcribe(new Uint8Array(data as Buffer)) : String(data);
         timing.sttMs = Date.now() - timing.start!;
-        if (!text || text.length < 2) return;
+        if (!text || text.length < 2 || isFiller(text)) return;
         ws.send(JSON.stringify({ type: 'caller', text }));
         line.ackSoon();
         await reply(call.id, text, hooks(signal, timing));

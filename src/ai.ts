@@ -169,6 +169,7 @@ export async function transcribe(audio: Uint8Array, mime = 'audio/wav'): Promise
   if (env.mockLlm) { await new Promise((ok) => setTimeout(ok, Number(process.env.MOCK_STT_MS ?? 350))); return 'I want to launch a memecoin about sleepy otters.'; }
   const fd = new FormData();
   fd.set('model', env.sttModel);
+  fd.set('prompt', 'A phone call about launching a memecoin on NEAR or meme.cooking, a ticker, a coin name, or building work.'); // vocabulary hint
   fd.set('file', new Blob([audio as BlobPart], { type: mime }), mime.includes('webm') ? 'a.webm' : 'a.wav');
   const r = await fetch(`${BASE}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${env.nearAiKey}` }, body: fd });
   if (!r.ok) throw new Error(`stt ${r.status}: ${(await r.text()).slice(0, 200)}`);
