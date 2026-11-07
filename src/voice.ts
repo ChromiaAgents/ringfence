@@ -2,8 +2,8 @@
 // and the WhatsApp webhook (which starts WebRTC calls). Mounted on the same HTTP server as the UI.
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { WebSocketServer } from 'ws';
-import { env } from './config.ts';
-import { startCall, reply, endCall } from './agent.ts';
+import { startCall, reply, endCall, photo, DESKS } from './agent.ts';
+import type { Desk } from './store.ts';
 import { transcribe } from './ai.ts';
 import { speak, wav } from './tts.ts';
 import { whatsappWebhook } from './whatsapp.ts';
@@ -34,18 +34,37 @@ export function attachVoice(server: Server) {
     if (new URL(req.url ?? '/', 'http://x').pathname !== '/ws/call') return; // leave others (Vite HMR) alone
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
   });
-  wss.on('connection', (ws) => {
-    const { call, greeting } = startCall('web');
+  wss.on('connection', (ws, req: IncomingMessage) => {
+    // ?desk=launch|business picks the desk up front; without it the router asks. The owner desk is not reachable from here.
+    const q = new URL(req.url ?? '/', 'http://x').searchParams.get('desk');
+    const { call, greeting } = startCall('web', undefined, q === 'launch' || q === 'business' ? (q as Desk) : undefined);
     const say = async (text: string) => {
       ws.send(JSON.stringify({ type: 'agent', text }));
       const { pcm, rate } = await speak(text);
       ws.send(wav(pcm, rate));
+    };
+    const sendLink = () => {
+      const l = call.desk ? DESKS[call.desk].link?.(call) : null;
+      ws.send(JSON.stringify({ type: 'desk', desk: call.desk ?? null }));
+      if (l) ws.send(JSON.stringify({ type: 'link', ...l }));
     };
     say(greeting).catch(console.error);
     let busy = false;
     ws.on('message', async (data, isBinary) => {
       if (!isBinary) {
         const msg = JSON.parse(String(data));
+        if (msg.type === 'photo' && !busy) { // data URL from the upload button
+          busy = true;
+          try {
+            const img = Buffer.from(String(msg.dataUrl).split(',')[1] ?? '', 'base64');
+            if (img.length > 8_000_000) throw new Error('Photo too large (8 MB max).');
+            ws.send(JSON.stringify({ type: 'caller', text: '[sent a photo]' }));
+            const answer = await photo(call.id, img);
+            sendLink();
+            await say(answer);
+          } catch (e: any) { ws.send(JSON.stringify({ type: 'error', text: e.message })); } finally { busy = false; }
+          return;
+        }
         if (msg.type === 'text') data = Buffer.from(msg.text); // typed fallback
         else return;
       }
@@ -56,7 +75,7 @@ export function attachVoice(server: Server) {
         if (!text || text.length < 2) return;
         ws.send(JSON.stringify({ type: 'caller', text }));
         const answer = await reply(call.id, text);
-        if (call.jobId) ws.send(JSON.stringify({ type: 'link', url: `${env.publicUrl}/pay/${call.jobId}` }));
+        sendLink();
         await say(answer);
       } catch (e: any) {
         console.error(e);

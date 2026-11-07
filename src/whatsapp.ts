@@ -1,14 +1,13 @@
-// WhatsApp: customers call (or text) the business number; the same agent answers.
+// WhatsApp: callers ring (or text, or send a photo to) one number; the router hands them to a desk.
 // Calls are WebRTC (ICE + DTLS-SRTP, Opus) signalled through Graph API webhooks.
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { RTCPeerConnection, RtpHeader, RtpPacket, useOPUS, MediaStreamTrack } from 'werift';
 import OpusScript from 'opusscript';
 import { env } from './config.ts';
-import { startCall, reply, endCall, setOnBooked } from './agent.ts';
+import { startCall, reply, endCall, setOnLink, photo } from './agent.ts';
 import { transcribe } from './ai.ts';
 import { speak, wav } from './tts.ts';
-import { db } from './store.ts';
 
 const GRAPH = 'https://graph.facebook.com/v23.0';
 
@@ -26,13 +25,16 @@ async function graph(path: string, body: unknown) {
 export const sendText = (to: string, text: string) =>
   graph(`${env.waPhoneId}/messages`, { messaging_product: 'whatsapp', to, type: 'text', text: { body: text, preview_url: true } });
 
-// Deposit links go out as a WhatsApp message to whoever booked, on any channel that knows their number.
-setOnBooked((call, _jobId, link) => {
-  const to = call.from;
-  const job = db.jobs.find((j) => j.id === call.jobId);
-  if (!to || !env.waToken) return;
-  sendText(to, `Thanks ${job?.caller.name ?? ''}! Your ${job?.serviceName ?? 'job'} site visit is booked. Hold it with a $${job?.depositUsd} deposit, pay with any token on any chain: ${link}`).catch(console.error);
+// Links (launch page, deposit page) go out as a WhatsApp message to whoever is on the line, on any channel that knows their number.
+setOnLink((call, link) => {
+  if (!call.from || !env.waToken || call.channel === 'dashboard') return;
+  const text = call.desk === 'launch'
+    ? `Your launch is ready to check and sign with your own NEAR wallet: ${link.url}\nNothing is launched until you sign. Memecoins are risky; most lose value.`
+    : `${link.label}: ${link.url}`;
+  sendText(call.from, text).catch(console.error);
 });
+
+const isOwner = (from: string) => !!env.ownerWhatsapp && from.replace(/\D/g, '') === env.ownerWhatsapp;
 
 function validSignature(req: IncomingMessage, body: Buffer) {
   if (!env.waAppSecret) return true; // ponytail: local testing only; set WHATSAPP_APP_SECRET in any real deploy
@@ -61,15 +63,27 @@ export async function whatsappWebhook(req: IncomingMessage, res: ServerResponse,
 }
 
 async function onMessage(m: any) {
-  if (m.type !== 'text') return;
+  if (m.type !== 'text' && m.type !== 'image') return;
   let callId = chats.get(m.from);
   if (!callId) {
-    const { call, greeting } = startCall('whatsapp', m.from);
+    // The owner's own number reaches the settings desk; everyone else gets the router.
+    const { call, greeting } = startCall('whatsapp', m.from, isOwner(m.from) ? 'owner' : undefined);
     callId = call.id;
     chats.set(m.from, callId);
-    if (/^(hi|hello|hey)\b/i.test(m.text.body.trim())) return sendText(m.from, greeting);
+    if (m.type === 'text' && /^(hi|hello|hey)\b/i.test(m.text.body.trim())) return sendText(m.from, greeting);
   }
+  if (m.type === 'image') return sendText(m.from, await photo(callId, await media(m.image.id)));
   sendText(m.from, await reply(callId, m.text.body));
+}
+
+// Graph API media: look up the short-lived URL, then download with the same token. Kept on this machine only.
+async function media(mediaId: string): Promise<Buffer> {
+  const auth = { authorization: `Bearer ${env.waToken}` };
+  const meta: any = await (await fetch(`${GRAPH}/${mediaId}`, { headers: auth })).json();
+  if (!meta.url) throw new Error('media: no url');
+  const r = await fetch(meta.url, { headers: auth });
+  if (!r.ok) throw new Error(`media ${r.status}`);
+  return Buffer.from(await r.arrayBuffer());
 }
 
 // ---------------- calls ----------------
@@ -93,7 +107,7 @@ async function onCallEvent(c: any) {
   const sdp = pc.localDescription!.sdp;
   await graph(`${env.waPhoneId}/calls`, { messaging_product: 'whatsapp', call_id: c.id, action: 'pre_accept', session: { sdp_type: 'answer', sdp } });
 
-  const { call, greeting } = startCall('whatsapp', c.from);
+  const { call, greeting } = startCall('whatsapp', c.from, isOwner(c.from) ? 'owner' : undefined);
   const audio = callAudio(out, payloadType(c.session.sdp));
   let stopped = false;
   const stop = () => {

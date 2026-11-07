@@ -3,22 +3,36 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import type { Proof } from './ai.ts';
 import type { Quote } from './pay.ts';
+import type { LaunchParams } from './memecook.ts';
 
+export type Desk = 'launch' | 'business' | 'owner';
 export type Turn = { at: number; who: 'caller' | 'agent' | 'tool'; text: string; proof?: Proof };
-export type Call = { id: string; channel: 'web' | 'whatsapp'; from?: string; startedAt: number; endedAt?: number; turns: Turn[]; caller?: Record<string, string>; jobId?: string };
+export type Call = {
+  id: string; channel: 'web' | 'whatsapp' | 'dashboard'; desk?: Desk; from?: string; startedAt: number; endedAt?: number; turns: Turn[];
+  caller?: Record<string, string>; jobId?: string; launchId?: string; photos?: string[];
+};
 export type Job = {
   id: string; callId: string; serviceId: string; serviceName: string; quotedUsd: number; discountPct: number;
-  depositUsd: number; preferredDate?: string; notes?: string; caller: Record<string, string>; createdAt: number;
+  depositUsd: number; preferredDate?: string; notes?: string; caller: Record<string, string>; createdAt: number; photo?: string;
   payment?: { quote: Quote; status: string; updatedAt: number; originSymbol: string; chain: string };
 };
-export type LedgerEntry = { at: number; kind: 'quote' | 'refused' | 'booking' | 'deposit_link' | 'payment' | 'message'; jobId?: string; callId?: string; detail: string };
+export type Launch = {
+  id: string; callId: string; createdAt: number; network: 'mainnet' | 'testnet'; params: LaunchParams;
+  logoModel?: string; status: 'prepared' | 'signed' | 'live' | 'failed';
+  signer?: string; txHash?: string; memeId?: number; reason?: string;
+};
+export type LedgerEntry = {
+  at: number;
+  kind: 'quote' | 'refused' | 'booking' | 'deposit_link' | 'payment' | 'message' | 'launch_prepared' | 'launch_signed' | 'logo' | 'photo' | 'rules_proposed' | 'rules_changed' | 'filtered';
+  desk?: Desk; jobId?: string; callId?: string; launchId?: string; detail: string;
+};
 
-type Db = { calls: Call[]; jobs: Job[]; ledger: LedgerEntry[] };
+type Db = { calls: Call[]; jobs: Job[]; launches: Launch[]; ledger: LedgerEntry[] };
 const FILE = process.env.DB_FILE ?? 'data/db.json';
 
 function load(): Db {
-  if (!existsSync(FILE)) return { calls: [], jobs: [], ledger: [] };
-  return JSON.parse(readFileSync(FILE, 'utf8'));
+  const d = existsSync(FILE) ? JSON.parse(readFileSync(FILE, 'utf8')) : {};
+  return { calls: [], jobs: [], launches: [], ledger: [], ...d };
 }
 // Shared through globalThis: the Node server (voice, WhatsApp) and the TanStack Start routes run in one process
 // but may load this module twice (Vite's SSR runner in dev, the built server bundle in prod).

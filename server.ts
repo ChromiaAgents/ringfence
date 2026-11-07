@@ -50,11 +50,11 @@ function ownerOnly(req: IncomingMessage) {
 server.on('request', async (req, res) => {
   if (await handleWebhook(req, res)) return;
   const p = (req.url ?? '/').split('?')[0];
-  if ((p === '/dashboard' || p === '/api/state') && !ownerOnly(req)) return res.writeHead(401, { 'www-authenticate': 'Basic realm="owner"' }).end();
+  if ((p === '/dashboard' || p === '/api/state' || p === '/api/owner') && !ownerOnly(req)) return res.writeHead(401, { 'www-authenticate': 'Basic realm="owner"' }).end();
   app(req, res);
 });
 attachVoice(server);
 server.listen(env.port, () => {
-  console.log(`callhand on ${env.publicUrl}  (call: /  owner: /dashboard)`);
+  console.log(`callhand on ${env.publicUrl}  (call: /  launches: /launch/:id  dashboard: /dashboard)  network: ${env.network}`);
   warmUp().then(() => console.log('voice ready'));
 });

@@ -13,11 +13,14 @@ function wav16(f32: Float32Array) {
   return b.buffer;
 }
 
-export function useCall() {
+export type Desk = 'launch' | 'business';
+
+export function useCall(deskPick: Desk | 'auto' = 'auto') {
   const [lines, setLines] = useState<Line[]>([]);
   const [state, setState] = useState('Not connected');
   const [live, setLive] = useState(false);
-  const [link, setLink] = useState<string | null>(null);
+  const [link, setLink] = useState<{ url: string; label: string } | null>(null);
+  const [desk, setDesk] = useState<Desk | 'owner' | null>(null);
   const r = useRef<{ ws?: WebSocket; ctx?: AudioContext; stream?: MediaStream; playing: boolean }>({ playing: false });
   const add = (who: Line['who'], text: string) => setLines((l) => [...l, { who, text }]);
 
@@ -32,7 +35,7 @@ export function useCall() {
   }
 
   async function start() {
-    setLines([]); setLink(null); setLive(true); setState('Connecting…');
+    setLines([]); setLink(null); setDesk(deskPick === 'auto' ? null : deskPick); setLive(true); setState('Connecting…');
     const s = r.current;
     s.ctx = new AudioContext({ sampleRate: 16000 });
     // Mic is optional: without it (or if refused) the call continues with typed lines.
@@ -60,7 +63,7 @@ export function useCall() {
     } catch (e: any) {
       add('tool', `No microphone (${e.message}). Type your side of the call below.`);
     }
-    const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/call');
+    const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/call' + (deskPick === 'auto' ? '' : `?desk=${deskPick}`));
     s.ws = ws;
     ws.binaryType = 'arraybuffer';
     ws.onopen = () => setState('Ringing…');
@@ -78,7 +81,8 @@ export function useCall() {
       if (d.type === 'agent') add('agent', d.text);
       if (d.type === 'caller') add('caller', d.text);
       if (d.type === 'error') { add('tool', d.text); setState('Your turn'); }
-      if (d.type === 'link') setLink(d.url);
+      if (d.type === 'link') setLink({ url: d.url, label: d.label });
+      if (d.type === 'desk' && d.desk) setDesk(d.desk);
     };
     ws.onclose = () => stop();
   }
@@ -91,7 +95,21 @@ export function useCall() {
     return true;
   }
 
+  // A photo of the job, downscaled in the browser before it is sent (the server keeps it locally only).
+  async function sendPhoto(file: File) {
+    const ws = r.current.ws;
+    if (ws?.readyState !== 1) return false;
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
+    ws.send(JSON.stringify({ type: 'photo', dataUrl: c.toDataURL('image/jpeg', 0.85) }));
+    setState('Looking at your photo…');
+    return true;
+  }
+
   // On unmount only release the mic and socket (no state updates).
   useEffect(() => () => { const s = r.current; s.ws?.close(); s.stream?.getTracks().forEach((t) => t.stop()); s.ctx?.close().catch(() => {}); }, []);
-  return { lines, state, live, link, start: () => start().catch((e) => { add('tool', e.message); stop(); }), stop, say };
+  return { lines, state, live, link, desk, sendPhoto, start: () => start().catch((e) => { add('tool', e.message); stop(); }), stop, say };
 }

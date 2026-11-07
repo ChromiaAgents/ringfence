@@ -1,11 +1,12 @@
-# The owner's rules. The agent reads this, but the code enforces it:
+# The business desk's rules. The agent reads this, but the code enforces it:
 # a quote, discount or deposit outside these limits is refused no matter what the model asks for.
+# The owner can also change rules by talking to the owner desk; hard bounds in src/desks/owner.ts still apply.
 
 business:
   name: "Hart & Sons Builders"
   owner: "James"
   area: "Greater London"
-  greeting: "Hi, you've reached Hart & Sons Builders, this is the booking assistant. How can I help?"
+  greeting: "Hi, you've reached Hart and Sons Builders. You can describe the job, or send me a photo of it. How can I help?"
 
 services:
   - id: kitchen
@@ -32,6 +33,7 @@ rules:
   max_deposit_usd: 2000       # anything larger goes to the owner
   accept_jobs_outside_area: false
   kill_switch: false          # true = agent takes messages only, no quotes, no payment links
+  refuse_work: []             # kinds of work the owner won't take, e.g. [roofs]
 
 payout:
   # Where deposits settle. NEAR Intents swaps whatever the customer pays into this asset.

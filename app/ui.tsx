@@ -1,4 +1,4 @@
-// Small pieces shared by the three screens.
+// Small pieces shared by the screens.
 import type { ReactNode } from 'react';
 
 export const Phone = () => (
@@ -27,3 +27,13 @@ export function Signed({ proof }: { proof?: Proof }): ReactNode {
 
 export const usd = (n: number) => `$${n.toLocaleString('en-US')}`;
 export const time = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+// A drawn sticker coin, used as the launch desk's picture (no stock imagery for something that doesn't exist yet).
+export const Coin = ({ label, className }: { label: string; className?: string }) => (
+  <svg className={className} viewBox="0 0 240 240" role="img" aria-label={`A sticker coin marked ${label}`}>
+    <circle cx="128" cy="128" r="104" fill="var(--ink)" />
+    <circle cx="116" cy="116" r="104" fill="var(--white)" stroke="var(--ink)" strokeWidth="6" />
+    <circle cx="116" cy="116" r="80" fill="none" stroke="var(--ink)" strokeWidth="4" strokeDasharray="2 12" strokeLinecap="round" />
+    <text x="116" y="116" dy=".35em" textAnchor="middle" fontFamily="var(--display)" fontSize={label.length > 4 ? 32 : 44} fill="var(--ink)">${label}</text>
+  </svg>
+);

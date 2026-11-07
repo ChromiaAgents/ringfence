@@ -1,0 +1,31 @@
+# The launch desk's rules. The agent reads this, but the code enforces it:
+# a ticker, cap, duration or team allocation outside these limits is refused no matter what the model asks for.
+# Re-read on every call, so changes apply without a restart.
+
+desk:
+  name: "the launch desk"
+  greeting: "Launch desk here. Tell me about the coin you want to launch on meme dot cooking."
+
+rules:
+  kill_switch: false           # true = the desk talks but prepares no launches
+  ticker_min: 2
+  ticker_max: 8                # A-Z and 0-9 only
+  name_max: 32
+  duration_min_minutes: 5      # meme.cooking's contract allows 5 min to 1 day
+  duration_max_minutes: 1440
+  soft_cap_min_near: 10
+  soft_cap_max_near: 5000
+  max_team_allocation_pct: 10  # creator's share of supply, if any
+  min_cliff_days: 7            # any team allocation must be locked at least this long...
+  min_vesting_days: 30         # ...then vest linearly over at least this long
+  total_supply: "1000000000"   # whole tokens (the meme.cooking app's default)
+  decimals: 18
+
+# Tickers that would pass as an existing asset. Compared after removing a leading $ and case.
+blocked_tickers: [NEAR, WNEAR, BTC, WBTC, ETH, WETH, USDC, USDT, DAI, SOL, BNB, XRP, ADA, DOGE, SHIB, PEPE, TRUMP, MELANIA, WIF, BONK, TON, TRX, AVAX, DOT, LINK, MATIC, POL, ARB, OP, SUI, APT, ZEC, LTC, BCH, XLM, HOT, AURORA, REF, BLACKDRAGON, SHITZU, NEKO]
+
+# Brands and people the desk will not name a coin after (substring match on name and ticker).
+blocked_names: [near protocol, bitcoin, ethereum, tether, circle, binance, coinbase, solana, tesla, spacex, apple, google, nvidia, openai, anthropic, meta, microsoft, amazon, disney, nike, elon, musk, trump, melania, biden, obama, kamala, vitalik, satoshi, illia, taylor swift, beyonce, drake, kanye, messi, ronaldo, mrbeast, pope]
+
+# Phrases the desk must never say. Replies containing them are replaced before they are spoken.
+forbidden_claims: ["guaranteed", "guarantee", "100x", "1000x", "to the moon", "risk-free", "risk free", "can't lose", "cannot lose", "will go up", "will pump", "passive income", "financial advice", "get rich", "sure thing", "easy money"]

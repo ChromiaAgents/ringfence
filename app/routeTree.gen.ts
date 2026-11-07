@@ -11,12 +11,19 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ApiOwnerRouteImport } from './routes/api/owner'
 import { Route as ApiPriceRouteImport } from './routes/api/price'
 import { Route as ApiQrRouteImport } from './routes/api/qr'
 import { Route as ApiStateRouteImport } from './routes/api/state'
+import { Route as ApiTickerRouteImport } from './routes/api/ticker'
 import { Route as ApiTokensRouteImport } from './routes/api/tokens'
+import { Route as LaunchIdRouteImport } from './routes/launch.$id'
 import { Route as PayJobIdRouteImport } from './routes/pay.$jobId'
+import { Route as ApiFundIdRouteImport } from './routes/api/fund/$id'
+import { Route as ApiLaunchIdRouteImport } from './routes/api/launch/$id'
 import { Route as ApiPayJobIdRouteImport } from './routes/api/pay/$jobId'
+import { Route as ApiLaunchIdSignedRouteImport } from './routes/api/launch/$id.signed'
+import { Route as ApiLaunchIdTxRouteImport } from './routes/api/launch/$id.tx'
 import { Route as ApiPayJobIdQuoteRouteImport } from './routes/api/pay/$jobId.quote'
 import { Route as ApiPayJobIdStatusRouteImport } from './routes/api/pay/$jobId.status'
 
@@ -28,6 +35,11 @@ const IndexRoute = IndexRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOwnerRoute = ApiOwnerRouteImport.update({
+  id: '/api/owner',
+  path: '/api/owner',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPriceRoute = ApiPriceRouteImport.update({
@@ -45,9 +57,19 @@ const ApiStateRoute = ApiStateRouteImport.update({
   path: '/api/state',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTickerRoute = ApiTickerRouteImport.update({
+  id: '/api/ticker',
+  path: '/api/ticker',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTokensRoute = ApiTokensRouteImport.update({
   id: '/api/tokens',
   path: '/api/tokens',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LaunchIdRoute = LaunchIdRouteImport.update({
+  id: '/launch/$id',
+  path: '/launch/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PayJobIdRoute = PayJobIdRouteImport.update({
@@ -55,10 +77,30 @@ const PayJobIdRoute = PayJobIdRouteImport.update({
   path: '/pay/$jobId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFundIdRoute = ApiFundIdRouteImport.update({
+  id: '/api/fund/$id',
+  path: '/api/fund/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLaunchIdRoute = ApiLaunchIdRouteImport.update({
+  id: '/api/launch/$id',
+  path: '/api/launch/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPayJobIdRoute = ApiPayJobIdRouteImport.update({
   id: '/api/pay/$jobId',
   path: '/api/pay/$jobId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLaunchIdSignedRoute = ApiLaunchIdSignedRouteImport.update({
+  id: '/signed',
+  path: '/signed',
+  getParentRoute: () => ApiLaunchIdRoute,
+} as any)
+const ApiLaunchIdTxRoute = ApiLaunchIdTxRouteImport.update({
+  id: '/tx',
+  path: '/tx',
+  getParentRoute: () => ApiLaunchIdRoute,
 } as any)
 const ApiPayJobIdQuoteRoute = ApiPayJobIdQuoteRouteImport.update({
   id: '/quote',
@@ -74,24 +116,38 @@ const ApiPayJobIdStatusRoute = ApiPayJobIdStatusRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/api/owner': typeof ApiOwnerRoute
   '/api/price': typeof ApiPriceRoute
   '/api/qr': typeof ApiQrRoute
   '/api/state': typeof ApiStateRoute
+  '/api/ticker': typeof ApiTickerRoute
   '/api/tokens': typeof ApiTokensRoute
+  '/launch/$id': typeof LaunchIdRoute
   '/pay/$jobId': typeof PayJobIdRoute
+  '/api/fund/$id': typeof ApiFundIdRoute
+  '/api/launch/$id': typeof ApiLaunchIdRouteWithChildren
   '/api/pay/$jobId': typeof ApiPayJobIdRouteWithChildren
+  '/api/launch/$id/signed': typeof ApiLaunchIdSignedRoute
+  '/api/launch/$id/tx': typeof ApiLaunchIdTxRoute
   '/api/pay/$jobId/quote': typeof ApiPayJobIdQuoteRoute
   '/api/pay/$jobId/status': typeof ApiPayJobIdStatusRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/api/owner': typeof ApiOwnerRoute
   '/api/price': typeof ApiPriceRoute
   '/api/qr': typeof ApiQrRoute
   '/api/state': typeof ApiStateRoute
+  '/api/ticker': typeof ApiTickerRoute
   '/api/tokens': typeof ApiTokensRoute
+  '/launch/$id': typeof LaunchIdRoute
   '/pay/$jobId': typeof PayJobIdRoute
+  '/api/fund/$id': typeof ApiFundIdRoute
+  '/api/launch/$id': typeof ApiLaunchIdRouteWithChildren
   '/api/pay/$jobId': typeof ApiPayJobIdRouteWithChildren
+  '/api/launch/$id/signed': typeof ApiLaunchIdSignedRoute
+  '/api/launch/$id/tx': typeof ApiLaunchIdTxRoute
   '/api/pay/$jobId/quote': typeof ApiPayJobIdQuoteRoute
   '/api/pay/$jobId/status': typeof ApiPayJobIdStatusRoute
 }
@@ -99,12 +155,19 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/api/owner': typeof ApiOwnerRoute
   '/api/price': typeof ApiPriceRoute
   '/api/qr': typeof ApiQrRoute
   '/api/state': typeof ApiStateRoute
+  '/api/ticker': typeof ApiTickerRoute
   '/api/tokens': typeof ApiTokensRoute
+  '/launch/$id': typeof LaunchIdRoute
   '/pay/$jobId': typeof PayJobIdRoute
+  '/api/fund/$id': typeof ApiFundIdRoute
+  '/api/launch/$id': typeof ApiLaunchIdRouteWithChildren
   '/api/pay/$jobId': typeof ApiPayJobIdRouteWithChildren
+  '/api/launch/$id/signed': typeof ApiLaunchIdSignedRoute
+  '/api/launch/$id/tx': typeof ApiLaunchIdTxRoute
   '/api/pay/$jobId/quote': typeof ApiPayJobIdQuoteRoute
   '/api/pay/$jobId/status': typeof ApiPayJobIdStatusRoute
 }
@@ -113,36 +176,57 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/api/owner'
     | '/api/price'
     | '/api/qr'
     | '/api/state'
+    | '/api/ticker'
     | '/api/tokens'
+    | '/launch/$id'
     | '/pay/$jobId'
+    | '/api/fund/$id'
+    | '/api/launch/$id'
     | '/api/pay/$jobId'
+    | '/api/launch/$id/signed'
+    | '/api/launch/$id/tx'
     | '/api/pay/$jobId/quote'
     | '/api/pay/$jobId/status'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/dashboard'
+    | '/api/owner'
     | '/api/price'
     | '/api/qr'
     | '/api/state'
+    | '/api/ticker'
     | '/api/tokens'
+    | '/launch/$id'
     | '/pay/$jobId'
+    | '/api/fund/$id'
+    | '/api/launch/$id'
     | '/api/pay/$jobId'
+    | '/api/launch/$id/signed'
+    | '/api/launch/$id/tx'
     | '/api/pay/$jobId/quote'
     | '/api/pay/$jobId/status'
   id:
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/api/owner'
     | '/api/price'
     | '/api/qr'
     | '/api/state'
+    | '/api/ticker'
     | '/api/tokens'
+    | '/launch/$id'
     | '/pay/$jobId'
+    | '/api/fund/$id'
+    | '/api/launch/$id'
     | '/api/pay/$jobId'
+    | '/api/launch/$id/signed'
+    | '/api/launch/$id/tx'
     | '/api/pay/$jobId/quote'
     | '/api/pay/$jobId/status'
   fileRoutesById: FileRoutesById
@@ -150,11 +234,16 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
+  ApiOwnerRoute: typeof ApiOwnerRoute
   ApiPriceRoute: typeof ApiPriceRoute
   ApiQrRoute: typeof ApiQrRoute
   ApiStateRoute: typeof ApiStateRoute
+  ApiTickerRoute: typeof ApiTickerRoute
   ApiTokensRoute: typeof ApiTokensRoute
+  LaunchIdRoute: typeof LaunchIdRoute
   PayJobIdRoute: typeof PayJobIdRoute
+  ApiFundIdRoute: typeof ApiFundIdRoute
+  ApiLaunchIdRoute: typeof ApiLaunchIdRouteWithChildren
   ApiPayJobIdRoute: typeof ApiPayJobIdRouteWithChildren
 }
 
@@ -172,6 +261,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/owner': {
+      id: '/api/owner'
+      path: '/api/owner'
+      fullPath: '/api/owner'
+      preLoaderRoute: typeof ApiOwnerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/price': {
@@ -195,11 +291,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ticker': {
+      id: '/api/ticker'
+      path: '/api/ticker'
+      fullPath: '/api/ticker'
+      preLoaderRoute: typeof ApiTickerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/tokens': {
       id: '/api/tokens'
       path: '/api/tokens'
       fullPath: '/api/tokens'
       preLoaderRoute: typeof ApiTokensRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/launch/$id': {
+      id: '/launch/$id'
+      path: '/launch/$id'
+      fullPath: '/launch/$id'
+      preLoaderRoute: typeof LaunchIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pay/$jobId': {
@@ -209,12 +319,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PayJobIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/fund/$id': {
+      id: '/api/fund/$id'
+      path: '/api/fund/$id'
+      fullPath: '/api/fund/$id'
+      preLoaderRoute: typeof ApiFundIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/launch/$id': {
+      id: '/api/launch/$id'
+      path: '/api/launch/$id'
+      fullPath: '/api/launch/$id'
+      preLoaderRoute: typeof ApiLaunchIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/pay/$jobId': {
       id: '/api/pay/$jobId'
       path: '/api/pay/$jobId'
       fullPath: '/api/pay/$jobId'
       preLoaderRoute: typeof ApiPayJobIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/launch/$id/signed': {
+      id: '/api/launch/$id/signed'
+      path: '/signed'
+      fullPath: '/api/launch/$id/signed'
+      preLoaderRoute: typeof ApiLaunchIdSignedRouteImport
+      parentRoute: typeof ApiLaunchIdRoute
+    }
+    '/api/launch/$id/tx': {
+      id: '/api/launch/$id/tx'
+      path: '/tx'
+      fullPath: '/api/launch/$id/tx'
+      preLoaderRoute: typeof ApiLaunchIdTxRouteImport
+      parentRoute: typeof ApiLaunchIdRoute
     }
     '/api/pay/$jobId/quote': {
       id: '/api/pay/$jobId/quote'
@@ -233,6 +371,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ApiLaunchIdRouteChildren {
+  ApiLaunchIdSignedRoute: typeof ApiLaunchIdSignedRoute
+  ApiLaunchIdTxRoute: typeof ApiLaunchIdTxRoute
+}
+
+const ApiLaunchIdRouteChildren: ApiLaunchIdRouteChildren = {
+  ApiLaunchIdSignedRoute: ApiLaunchIdSignedRoute,
+  ApiLaunchIdTxRoute: ApiLaunchIdTxRoute,
+}
+
+const ApiLaunchIdRouteWithChildren = ApiLaunchIdRoute._addFileChildren(
+  ApiLaunchIdRouteChildren,
+)
+
 interface ApiPayJobIdRouteChildren {
   ApiPayJobIdQuoteRoute: typeof ApiPayJobIdQuoteRoute
   ApiPayJobIdStatusRoute: typeof ApiPayJobIdStatusRoute
@@ -250,11 +402,16 @@ const ApiPayJobIdRouteWithChildren = ApiPayJobIdRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
+  ApiOwnerRoute: ApiOwnerRoute,
   ApiPriceRoute: ApiPriceRoute,
   ApiQrRoute: ApiQrRoute,
   ApiStateRoute: ApiStateRoute,
+  ApiTickerRoute: ApiTickerRoute,
   ApiTokensRoute: ApiTokensRoute,
+  LaunchIdRoute: LaunchIdRoute,
   PayJobIdRoute: PayJobIdRoute,
+  ApiFundIdRoute: ApiFundIdRoute,
+  ApiLaunchIdRoute: ApiLaunchIdRouteWithChildren,
   ApiPayJobIdRoute: ApiPayJobIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport

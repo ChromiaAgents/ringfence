@@ -1,6 +1,6 @@
 // The owner's pricing rule exactly as the agent's quote_job tool applies it. Used by the landing page's rule demo.
 import { createFileRoute } from '@tanstack/react-router';
-import { priceFor } from '../../../src/agent.ts';
+import { priceFor } from '../../../src/desks/business.ts';
 import { json, owner } from '../../backend.ts';
 
 export const Route = createFileRoute('/api/price')({

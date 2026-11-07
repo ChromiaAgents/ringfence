@@ -2,17 +2,45 @@
 // Usage: npm run seed            -> data/demo-db.json
 //        DB_FILE=data/demo-db.json npm run dev
 import { writeFileSync, mkdirSync } from 'node:fs';
+import { drawLogo } from '../src/image.ts';
 
 const FILE = process.env.SEED_FILE ?? 'data/demo-db.json';
 const t0 = Date.now() - 3 * 3600_000;
 const m = (min: number) => t0 + min * 60_000;
 const proof = (n: number) => ({ chatId: `demo-${n}`, model: 'Qwen/Qwen3.6-35B-A3B-FP8', requestHash: '0x', responseHash: '0x', status: 'verified', signer: '0x0000000000000000000000000000000000000000', kind: 'ecdsa' });
 
+const G = 'Hi, this is callhand. Are you calling to launch a memecoin, or about building work?';
 const calls = [
   {
-    id: 'c1', channel: 'web', startedAt: m(0), endedAt: m(4), jobId: 'j1', caller: { name: 'Sam', postcode: 'E8 3QP' },
+    id: 'c4', channel: 'whatsapp', desk: 'launch', from: '447700900456', startedAt: m(150), endedAt: m(156), launchId: 'l1',
     turns: [
-      { at: m(0), who: 'agent', text: "Hi, you've reached Hart & Sons Builders, this is the booking assistant. How can I help?" },
+      { at: m(150), who: 'agent', text: G },
+      { at: m(150.3), who: 'caller', text: 'I want to launch a memecoin about a sleepy otter.' },
+      { at: m(150.3), who: 'tool', text: 'routed to the launch desk' },
+      { at: m(150.5), who: 'agent', text: 'Love it. What should the coin be called, and what ticker?', proof: proof(9) },
+      { at: m(151), who: 'caller', text: 'Ticker NEAR, name Sleepy Otter.' },
+      { at: m(151.1), who: 'tool', text: 'set_coin({"name":"Sleepy Otter","ticker":"NEAR"}) → {"ok":false,"reason":"NEAR is the ticker of an existing asset; launching it would look like impersonation."}' },
+      { at: m(151.2), who: 'agent', text: "I can't use NEAR, it's an existing asset's ticker. How about something of your own?", proof: proof(10) },
+      { at: m(151.6), who: 'caller', text: 'ZZZ then.' },
+      { at: m(151.8), who: 'agent', text: 'ZZZ is free. What vibe for the logo?', proof: proof(11) },
+      { at: m(152.4), who: 'caller', text: 'Will it 100x?' },
+      { at: m(152.5), who: 'agent', text: "I can't make any promises about price or returns: most memecoins lose value. I can only help you set the launch up.", proof: proof(12) },
+      { at: m(154), who: 'caller', text: 'One hour, soft cap 100 NEAR, 5% team with a week cliff, vest over a month. Yes, launch it.' },
+      { at: m(154.3), who: 'agent', text: 'Done. The launch link is on its way; check it and sign with your own wallet.', proof: proof(13) },
+    ],
+  },
+  {
+    id: 'c5', channel: 'dashboard', desk: 'owner', startedAt: m(170), endedAt: m(171),
+    turns: [
+      { at: m(170), who: 'agent', text: 'Hi James, settings line. What would you like to change?' },
+      { at: m(170.2), who: 'caller', text: 'Let them have 40% off.' },
+      { at: m(170.3), who: 'agent', text: "I can't set that: the max discount must stay between 0 and 30.", proof: proof(14) },
+    ],
+  },
+  {
+    id: 'c1', channel: 'web', desk: 'business', startedAt: m(0), endedAt: m(4), jobId: 'j1', caller: { name: 'Sam', postcode: 'E8 3QP' },
+    turns: [
+      { at: m(0), who: 'agent', text: "Hi, you've reached Hart and Sons Builders. You can describe the job, or send me a photo of it. How can I help?" },
       { at: m(0.3), who: 'caller', text: 'Hi, I need a new kitchen.' },
       { at: m(0.4), who: 'agent', text: 'Happy to help. Roughly what size is the room, and what is in there now?', proof: proof(1) },
       { at: m(1), who: 'caller', text: "Medium size, white units, oak worktop." },
@@ -26,9 +54,9 @@ const calls = [
     ],
   },
   {
-    id: 'c2', channel: 'whatsapp', from: '447700900123', startedAt: m(60), endedAt: m(63), jobId: 'j2', caller: { name: 'Priya', postcode: 'N16 7XJ' },
+    id: 'c2', channel: 'whatsapp', desk: 'business', from: '447700900123', startedAt: m(60), endedAt: m(63), jobId: 'j2', caller: { name: 'Priya', postcode: 'N16 7XJ' },
     turns: [
-      { at: m(60), who: 'agent', text: "Hi, you've reached Hart & Sons Builders, this is the booking assistant. How can I help?" },
+      { at: m(60), who: 'agent', text: "Hi, you've reached Hart and Sons Builders. You can describe the job, or send me a photo of it. How can I help?" },
       { at: m(60.5), who: 'caller', text: 'The bathroom tap is leaking and a tile is cracked.' },
       { at: m(60.7), who: 'agent', text: 'That sounds like a half-day repair at $180. Shall I book it?', proof: proof(6) },
       { at: m(61), who: 'caller', text: 'Yes please, Thursday morning.' },
@@ -36,9 +64,9 @@ const calls = [
     ],
   },
   {
-    id: 'c3', channel: 'web', startedAt: m(120), endedAt: m(121), caller: { name: 'Tom', postcode: 'GU1 4AA' },
+    id: 'c3', channel: 'web', desk: 'business', startedAt: m(120), endedAt: m(121), caller: { name: 'Tom', postcode: 'GU1 4AA' },
     turns: [
-      { at: m(120), who: 'agent', text: "Hi, you've reached Hart & Sons Builders, this is the booking assistant. How can I help?" },
+      { at: m(120), who: 'agent', text: "Hi, you've reached Hart and Sons Builders. You can describe the job, or send me a photo of it. How can I help?" },
       { at: m(120.4), who: 'caller', text: 'I want a quote for an extension in Guildford.' },
       { at: m(120.6), who: 'agent', text: "We only take jobs in Greater London, but I can leave James a message.", proof: proof(8) },
     ],
@@ -51,19 +79,30 @@ const jobs = [
   { id: 'j2', callId: 'c2', serviceId: 'repair', serviceName: 'Small repairs (half day)', quotedUsd: 180, discountPct: 0, depositUsd: 50, preferredDate: 'Thursday morning', notes: 'leaking tap, cracked tile', caller: { name: 'Priya', postcode: 'N16 7XJ', phone: '447700900123' }, createdAt: m(61) },
 ];
 
+const { icon } = await drawLogo('ZZZ');
+const launches = [
+  { id: 'l1', callId: 'c4', createdAt: m(154.3), network: 'testnet', status: 'prepared', logoModel: 'drawn locally',
+    params: { name: 'Sleepy Otter', symbol: 'ZZZ', description: 'An otter that naps through every dip.', icon, durationMinutes: 60, softCapNear: 100, team: { pct: 5, cliffDays: 7, vestingDays: 30 }, socials: {}, totalSupply: '1000000000', decimals: 18 } },
+];
+
 const ledger = [
-  { at: m(1.7), kind: 'quote', callId: 'c1', detail: 'Kitchen fitting medium: $8250 (0% off)' },
-  { at: m(2.2), kind: 'refused', callId: 'c1', detail: 'Max discount is 10%.' },
-  { at: m(2.3), kind: 'quote', callId: 'c1', detail: 'Kitchen fitting medium: $7425 (10% off)' },
-  { at: m(3), kind: 'booking', jobId: 'j1', callId: 'c1', detail: 'Kitchen fitting for Sam, $7425, deposit $1485' },
-  { at: m(3), kind: 'deposit_link', jobId: 'j1', callId: 'c1', detail: 'http://localhost:8787/pay/j1' },
-  { at: m(20), kind: 'payment', jobId: 'j1', detail: 'SUCCESS: $1485 deposit via USDC on base' },
-  { at: m(60.7), kind: 'quote', callId: 'c2', detail: 'Small repairs (half day) small: $180 (0% off)' },
-  { at: m(61.2), kind: 'booking', jobId: 'j2', callId: 'c2', detail: 'Small repairs (half day) for Priya, $180, deposit $50' },
-  { at: m(61.2), kind: 'deposit_link', jobId: 'j2', callId: 'c2', detail: 'http://localhost:8787/pay/j2' },
-  { at: m(120.6), kind: 'message', callId: 'c3', detail: 'Tom: extension quote in Guildford, outside area' },
+  { at: m(151.1), kind: 'refused', desk: 'launch', callId: 'c4', detail: 'set_coin: NEAR is the ticker of an existing asset; launching it would look like impersonation.' },
+  { at: m(152.5), kind: 'filtered', desk: 'launch', callId: 'c4', detail: 'reply said "100x"; replaced before it was spoken' },
+  { at: m(153), kind: 'logo', desk: 'launch', callId: 'c4', detail: 'ZZZ: drawn locally' },
+  { at: m(154.3), kind: 'launch_prepared', desk: 'launch', callId: 'c4', launchId: 'l1', detail: '$ZZZ Sleepy Otter, 60 min, soft cap 100 NEAR on testnet' },
+  { at: m(170.3), kind: 'refused', desk: 'owner', callId: 'c5', detail: 'rules: max discount pct must stay between 0 and 30.' },
+  { at: m(1.7), kind: 'quote', desk: 'business', callId: 'c1', detail: 'Kitchen fitting medium: $8250 (0% off)' },
+  { at: m(2.2), kind: 'refused', desk: 'business', callId: 'c1', detail: 'Max discount is 10%.' },
+  { at: m(2.3), kind: 'quote', desk: 'business', callId: 'c1', detail: 'Kitchen fitting medium: $7425 (10% off)' },
+  { at: m(3), kind: 'booking', desk: 'business', jobId: 'j1', callId: 'c1', detail: 'Kitchen fitting for Sam, $7425, deposit $1485' },
+  { at: m(3), kind: 'deposit_link', desk: 'business', jobId: 'j1', callId: 'c1', detail: 'http://localhost:8787/pay/j1' },
+  { at: m(20), kind: 'payment', desk: 'business', jobId: 'j1', detail: 'SUCCESS: $1485 deposit via USDC on base' },
+  { at: m(60.7), kind: 'quote', desk: 'business', callId: 'c2', detail: 'Small repairs (half day) small: $180 (0% off)' },
+  { at: m(61.2), kind: 'booking', desk: 'business', jobId: 'j2', callId: 'c2', detail: 'Small repairs (half day) for Priya, $180, deposit $50' },
+  { at: m(61.2), kind: 'deposit_link', desk: 'business', jobId: 'j2', callId: 'c2', detail: 'http://localhost:8787/pay/j2' },
+  { at: m(120.6), kind: 'message', desk: 'business', callId: 'c3', detail: 'Tom: extension quote in Guildford, outside area' },
 ];
 
 mkdirSync(FILE.replace(/\/[^/]+$/, ''), { recursive: true });
-writeFileSync(FILE, JSON.stringify({ calls, jobs, ledger }, null, 1));
+writeFileSync(FILE, JSON.stringify({ calls, jobs, launches, ledger }, null, 1));
 console.log(`demo data written to ${FILE}`);

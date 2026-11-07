@@ -35,15 +35,26 @@ export async function quoteDeposit(opts: { usd: number; originAsset: string; ref
   const o = owner();
   if (!o.payout.recipient) throw new Error('OWNER_NEAR_ACCOUNT is not set');
   const amount = BigInt(Math.round(opts.usd * 10 ** o.payout.asset_decimals)).toString();
+  return quoteExact({ amount, destinationAsset: o.payout.asset, recipient: o.payout.recipient, originAsset: opts.originAsset, refundTo: opts.refundTo, dry: opts.dry });
+}
+
+/** Launch funding (mainnet only; 1Click has no testnet): exactly `yocto` of wNEAR lands in the creator's own NEAR account. */
+export const WNEAR_ASSET = 'nep141:wrap.near';
+export function quoteFunding(opts: { yocto: string; recipient: string; originAsset: string; refundTo: string; dry: boolean }) {
+  return quoteExact({ amount: opts.yocto, destinationAsset: WNEAR_ASSET, recipient: opts.recipient, originAsset: opts.originAsset, refundTo: opts.refundTo, dry: opts.dry });
+}
+
+async function quoteExact(opts: { amount: string; destinationAsset: string; recipient: string; originAsset: string; refundTo: string; dry: boolean }): Promise<Quote> {
+  const { amount } = opts;
   const body = {
     dry: opts.dry,
     swapType: 'EXACT_OUTPUT',
     slippageTolerance: 100,
     originAsset: opts.originAsset,
     depositType: 'ORIGIN_CHAIN',
-    destinationAsset: o.payout.asset,
+    destinationAsset: opts.destinationAsset,
     amount,
-    recipient: o.payout.recipient,
+    recipient: opts.recipient,
     recipientType: 'DESTINATION_CHAIN',
     refundTo: opts.refundTo,
     refundType: 'ORIGIN_CHAIN',
