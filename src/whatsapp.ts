@@ -111,7 +111,9 @@ async function onCallEvent(c: any) {
   const tr = pc.addTransceiver(out, { direction: 'sendrecv' });
   await pc.setRemoteDescription({ type: 'offer', sdp: c.session.sdp });
   await pc.setLocalDescription(await pc.createAnswer());
+  pc.iceConnectionStateChange.subscribe((s) => console.log('wa ice', s));
   await waitIce(pc);
+  console.log('wa candidates', (pc.localDescription?.sdp.match(/a=candidate:[^\r\n]*/g) ?? []).map((x) => x.split(' ').slice(4, 8).join(' ')).join(' | '));
   const sdp = pc.localDescription!.sdp;
   await graph(`${env.waPhoneId}/calls`, { messaging_product: 'whatsapp', call_id: c.id, action: 'pre_accept', session: { sdp_type: 'answer', sdp } });
 
@@ -169,7 +171,8 @@ async function onCallEvent(c: any) {
     try {
       await reply(call.id, text, { signal, timing, onSentence: (s) => line.say(s), onSlowTool: () => line.filler('draw') });
       await line.end(`wa ${call.id}`);
-      if (BYE.test(text)) { // let the goodbye finish playing, then hang up
+      const last = call.turns.filter((t) => t.who === 'agent').at(-1)?.text ?? '';
+      if (BYE.test(text) || /\b(bye|goodbye|take care)\b/i.test(last)) { // let the goodbye finish playing, then hang up
         while (audio.busy()) await new Promise((r) => setTimeout(r, 100));
         await new Promise((r) => setTimeout(r, 400));
         await graph(`${env.waPhoneId}/calls`, { messaging_product: 'whatsapp', call_id: c.id, action: 'terminate' }).catch(console.error);

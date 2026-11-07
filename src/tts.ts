@@ -1,23 +1,31 @@
 // Text-to-speech runs on this machine (Kokoro, open weights), so the reply text never leaves the box.
-import { KokoroTTS } from 'kokoro-js';
-
-let tts: Promise<KokoroTTS> | null = null;
+import { Worker } from 'node:worker_threads';
 const voice = (process.env.TTS_VOICE ?? 'af_heart') as any;
 const speed = Number(process.env.TTS_SPEED ?? 1.15);
 // Never voice emoji, markdown or symbols the model slips in.
 export const speakable = (t: string) => t.replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').replace(/[*_#~\`|<>]/g, '').replace(/\s+/g, ' ').trim();
 
+// Kokoro lives in a worker thread (see tts-worker.ts) so rendering never blocks call audio.
+let worker: Promise<Worker> | null = null;
+let seq = 0;
+const waiting = new Map<number, (m: any) => void>();
 function load() {
-  tts ??= KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: 'q8', device: 'cpu' });
-  return tts;
+  return (worker ??= new Promise((ok, fail) => {
+    const w = new Worker(new URL('./tts-worker.ts', import.meta.url), { workerData: { voice, speed }, execArgv: ['--import', 'tsx'] });
+    w.on('message', (m) => { if (m.ready) return ok(w); waiting.get(m.id)?.(m); waiting.delete(m.id); });
+    w.on('error', fail);
+  }));
 }
 
 // Returns mono float32 PCM at 24 kHz.
 export async function speak(text: string): Promise<{ pcm: Float32Array; rate: number }> {
   const clean = speakable(text);
   if (!clean) return { pcm: new Float32Array(0), rate: 24000 };
-  const audio = await (await load()).generate(clean, { voice, speed });
-  return { pcm: trim(audio.audio as Float32Array, audio.sampling_rate), rate: audio.sampling_rate };
+  const w = await load();
+  const id = ++seq;
+  const m: any = await new Promise((ok) => { waiting.set(id, ok); w.postMessage({ id, text: clean }); });
+  if (m.error) throw new Error(m.error);
+  return { pcm: trim(m.pcm, m.rate), rate: m.rate };
 }
 
 // Kokoro pads clips with silence; on a call that reads as lag, so keep only ~60 ms either side of the speech.
