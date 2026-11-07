@@ -9,6 +9,7 @@ import type { DeskDef } from './types.ts';
 type Draft = Partial<Omit<LaunchParams, 'totalSupply' | 'decimals'>> & { logoModel?: string; logoBytes?: number };
 const drafts = new Map<string, Draft>();
 export const draftOf = (callId: string) => drafts.get(callId) ?? {};
+export const carryDraft = (from: string, to: string) => { const d = drafts.get(from); if (d) drafts.set(to, { ...d }); };
 
 type Verdict = { ok: true } | { ok: false; reason: string };
 const no = (reason: string): Verdict => ({ ok: false, reason });

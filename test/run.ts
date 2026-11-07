@@ -13,9 +13,21 @@ import { createMemeArgs } from '../src/memecook.ts';
 import { launchpad, owner } from '../src/config.ts';
 
 let n = 0;
-const t = (name: string, f: () => void) => { f(); n++; console.log('ok', name); };
+const t = async (name: string, f: () => void | Promise<void>) => { await f(); n++; console.log('ok', name); };
 const lp = launchpad();
 
+await t('returning caller is remembered and resumes their coin', async () => {
+  const { startCall } = await import('../src/agent.ts');
+  const { launchDesk } = await import('../src/desks/launch.ts');
+  const from = '15550000001';
+  const first = startCall('whatsapp', from).call;
+  first.turns.push({ at: Date.now(), who: 'caller', text: 'a coin about my cat' });
+  await launchDesk.run(first, 'set_coin', { name: 'Whisker Coin', ticker: 'WHISK', description: 'a cat' });
+  const again = startCall('whatsapp', from);
+  assert.equal(again.call.desk, 'launch', 'resumed to launch desk');
+  assert.match(again.greeting, /WHISK/);
+  assert.match(launchDesk.system(again.call) + (await import('../src/memory.ts')).recap(again.call), /called before/);
+});
 t('thinking noises are not turns', () => {
   for (const s of ['Um...', 'uh', 'Hmm.', 'Erm, uh', 'mm']) assert.ok(isFiller(s), s);
   for (const s of ['um, a cat coin', 'yes', 'Umbrella']) assert.ok(!isFiller(s), s);
@@ -100,4 +112,4 @@ t('streamed sentences + per-sentence filter', () => {
   assert.match(out[2], /can't make any promises/);
   assert.ok(!out.some((x) => /100x|Ignore|think|plan/.test(x)));
 });
-console.log(`${n} passed`);
+process.once("beforeExit", () => console.log(`${n} passed`));

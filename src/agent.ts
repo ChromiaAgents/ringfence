@@ -5,6 +5,7 @@ import { chat, type Msg } from './ai.ts';
 import { sentenceSplitter } from './speech.ts';
 import { describePhoto } from './image.ts';
 import { db, save, id, log, type Call, type Desk, type Timing } from './store.ts';
+import { recap, resume, isKnown } from './memory.ts';
 import type { DeskDef } from './desks/types.ts';
 import { launchDesk } from './desks/launch.ts';
 import { businessDesk } from './desks/business.ts';
@@ -31,14 +32,19 @@ export const setOnLink = (f: LinkHook) => (onLink = f);
 const VOICE = `
 How you talk: you're on a live phone call, so sound like a relaxed, warm human, not an assistant. Use contractions and casual words ("yeah", "nice", "got it", "oh fun"), react to what they said before moving on, and vary how you start sentences. One or two short sentences, under 25 words. No lists, markdown, emojis, or "great question".
 Keep the conversation moving: remember everything they've said and never ask for something you already have. If they say "you decide", "anything", or "whatever", make the choice yourself, say what you picked, and move on. If they hesitate or only say "um", wait for them: reply with something tiny like "take your time" at most. If you didn't catch something, say so once and guess.`;
-const sys = (d: Desk, call: Call) => `${DESKS[d].system(call)}\n${VOICE}\n/no_think`;
+const sys = (d: Desk, call: Call) => `${DESKS[d].system(call)}\n${VOICE}${recap(call)}\n/no_think`;
 
 const histories = new Map<string, Msg[]>();
 
 export function startCall(channel: Call['channel'], from?: string, desk?: Desk): { call: Call; greeting: string } {
   const call: Call = { id: id(), channel, desk, from, startedAt: Date.now(), turns: [] };
   db.calls.push(call);
-  const greeting = desk ? DESKS[desk].greeting() : ROUTER_GREETING;
+  const back = desk ? null : resume(call);
+  // A returning caller with a coin in progress goes straight back to the launch desk.
+  if (back) desk = call.desk = 'launch';
+  const greeting = back
+    ? `Hey, welcome back! Want to pick up ${back.ticker ?? back.name}, or start something new?`
+    : desk ? DESKS[desk].greeting() : isKnown(call) ? 'Hey, good to hear from you again. Coin launch or building work today?' : ROUTER_GREETING;
   call.turns.push({ at: Date.now(), who: 'agent', text: greeting });
   histories.set(call.id, desk ? [{ role: 'system', content: sys(desk, call) }, { role: 'assistant', content: greeting }] : []);
   save();
