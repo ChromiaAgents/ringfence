@@ -139,14 +139,24 @@ async function onCallEvent(c: any) {
     if (s === 'failed' || s === 'closed') stop();
   });
 
-  tr.onTrack.subscribe((track) => {
-    track.onReceiveRtp.subscribe((rtp) => audio.hear(rtp.payload));
-  });
+  // ponytail: debug counters for the inbound leg; remove once calls are stable
+  let rtpN = 0, maxRms = 0;
+  const dbg = setInterval(() => { console.log(`wa rx ${c.id.slice(-6)}: ${rtpN} rtp/2s, max rms ${maxRms.toFixed(3)}`); rtpN = 0; maxRms = 0; }, 2000);
+  const onTrack = (track: any) => {
+    console.log('wa track', track.kind);
+    track.onReceiveRtp.subscribe((rtp: any) => {
+      rtpN++;
+      try { audio.hear(rtp.payload); maxRms = Math.max(maxRms, audio.lastRms); } catch (e) { console.error('wa hear', e); }
+    });
+  };
+  tr.onTrack.subscribe(onTrack);
+  pc.connectionStateChange.subscribe((s) => { console.log('wa pc', s); if (s === 'closed' || s === 'failed') clearInterval(dbg); });
 
   audio.onUtterance = async (pcm16k) => {
     const { signal, timing } = line.begin();
     const text = await transcribe(wav(pcm16k, 16000));
     timing.sttMs = Date.now() - timing.start!;
+    console.log(`wa heard (${timing.sttMs} ms): "${text}"`);
     if (!text || text.length < 2) return;
     line.ackSoon();
     try {
@@ -180,10 +190,12 @@ function callAudio(out: MediaStreamTrack, pt: number) {
   const self = {
     onUtterance: undefined as undefined | ((pcm16k: Float32Array) => Promise<void>),
     onBarge: undefined as undefined | (() => void),
+    lastRms: 0,
     hear(payload: Buffer) {
       const pcm = new Int16Array(new Uint8Array(dec.decode(payload)).buffer);
       const f = Float32Array.from(pcm, (x) => x / 32768);
       const rms = Math.sqrt(f.reduce((a, x) => a + x * x, 0) / f.length);
+      self.lastRms = rms;
       if (queue.length) { // agent is talking
         loudRun = rms > Math.max(0.05, floor * 6) ? loudRun + 1 : 0;
         if (loudRun < 12) return;
@@ -194,7 +206,8 @@ function callAudio(out: MediaStreamTrack, pt: number) {
       if (!loud) floor = floor * 0.98 + rms * 0.02;
       if (loud) { voiced++; silent = 0; buf.push(f); }
       else if (voiced) { silent++; buf.push(f); }
-      if (voiced && silent > 35) { // ~700 ms of silence ends the utterance
+      if (voiced && silent > 35) {
+        console.log(`wa utterance: ${voiced} voiced frames, floor ${floor.toFixed(3)}`); // ~700 ms of silence ends the utterance
         const frames = buf; const enough = voiced > 15;
         buf = []; voiced = 0; silent = 0;
         if (enough && self.onUtterance) {
