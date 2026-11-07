@@ -80,7 +80,7 @@ function system() {
   const o = owner();
   return `You are the settings line for ${o.business.owner}, owner of ${o.business.name}. You change the rules the customer-facing agent follows.
 Current rules: ${JSON.stringify(o.rules)}. Services (USD ranges): ${o.services.map((s) => `${s.id} ${s.from_usd}-${s.to_usd}`).join(', ')}.
-A "day rate" maps to the repair service (a half day is half the day rate). Turn what the owner says into one propose_rules call, read the returned diff back in one short sentence, and ask "shall I apply that?". Only call confirm_rules after a clear yes. Short spoken sentences, no lists.`;
+A "day rate" maps to the repair service (a half day is half the day rate). Turn what the owner says into one propose_rules call, read the returned diff back in one short sentence, and ask "shall I apply that?". Only call confirm_rules after a clear yes. One or two short spoken sentences, under 30 words, no lists.`;
 }
 
 async function run(call: Call, name: string, a: any): Promise<unknown> {

@@ -47,6 +47,6 @@ export async function describePhoto(img: Buffer): Promise<{ text: string; proof:
       { type: 'text', text: 'You help a building firm scope a job from a customer photo. In 2-3 plain sentences say: which room or part of the building this is, what work it seems to need, and whether it looks small, medium or large. Do not give prices.' },
       { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${small.toString('base64')}` } },
     ],
-  }], [], env.visionModel, 250);
+  }], [], env.visionModel, { maxTokens: 250 });
   return { text: String(msg.content ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim(), proof };
 }

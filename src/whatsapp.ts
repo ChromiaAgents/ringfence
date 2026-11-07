@@ -7,7 +7,8 @@ import OpusScript from 'opusscript';
 import { env } from './config.ts';
 import { startCall, reply, endCall, setOnLink, photo } from './agent.ts';
 import { transcribe } from './ai.ts';
-import { speak, wav } from './tts.ts';
+import { wav, warmUp } from './tts.ts';
+import { voiceLine } from './turn.ts';
 
 const GRAPH = 'https://graph.facebook.com/v23.0';
 
@@ -109,6 +110,9 @@ async function onCallEvent(c: any) {
 
   const { call, greeting } = startCall('whatsapp', c.from, isOwner(c.from) ? 'owner' : undefined);
   const audio = callAudio(out, payloadType(c.session.sdp));
+  const line = voiceLine((pcm) => audio.play(pcm));
+  audio.onBarge = () => line.cancel();
+  warmUp().catch(console.error); // usually already warm from boot
   let stopped = false;
   const stop = () => {
     if (stopped) return;
@@ -123,7 +127,8 @@ async function onCallEvent(c: any) {
   pc.connectionStateChange.subscribe(async (s) => {
     if (s === 'connected') {
       await graph(`${env.waPhoneId}/calls`, { messaging_product: 'whatsapp', call_id: c.id, action: 'accept', session: { sdp_type: 'answer', sdp } });
-      audio.say(greeting);
+      await warmUp().catch(() => {});
+      line.say(greeting);
     }
     if (s === 'failed' || s === 'closed') stop();
   });
@@ -133,9 +138,15 @@ async function onCallEvent(c: any) {
   });
 
   audio.onUtterance = async (pcm16k) => {
+    const { signal, timing } = line.begin();
     const text = await transcribe(wav(pcm16k, 16000));
+    timing.sttMs = Date.now() - timing.start!;
     if (!text || text.length < 2) return;
-    audio.say(await reply(call.id, text));
+    line.ackSoon();
+    try {
+      await reply(call.id, text, { signal, timing, onSentence: (s) => line.say(s), onSlowTool: () => line.filler('draw') });
+      await line.end(`wa ${call.id}`);
+    } catch (e: any) { if (!/abort/i.test(e?.message ?? '')) throw e; }
   };
 }
 
@@ -153,19 +164,26 @@ const payloadType = (sdp: string) => Number(sdp.match(/a=rtpmap:(\d+) opus\/4800
 function callAudio(out: MediaStreamTrack, pt: number) {
   const dec = new OpusScript(48000, 1, OpusScript.Application.VOIP);
   const enc = new OpusScript(48000, 1, OpusScript.Application.VOIP);
-  let speaking = false; // agent talking: ignore input (ponytail: no barge-in, avoids hearing our own echo)
+  // thinking: an utterance is being answered and nothing is playing yet; input is held so it can't start a second turn.
+  // While audio plays, input still runs through a stricter detector: ~240 ms of clearly loud speech is a barge-in.
+  let thinking = false;
   let buf: Float32Array[] = [];
-  let voiced = 0, silent = 0, floor = 0.01;
+  let voiced = 0, silent = 0, floor = 0.01, loudRun = 0;
   let seq = Math.floor(Math.random() * 65535), ts = Math.floor(Math.random() * 2 ** 31);
-  const queue: Buffer[] = [];
-  let playing = false;
+  let queue: Buffer[] = [];
   const self = {
     onUtterance: undefined as undefined | ((pcm16k: Float32Array) => Promise<void>),
+    onBarge: undefined as undefined | (() => void),
     hear(payload: Buffer) {
-      if (speaking) return;
       const pcm = new Int16Array(new Uint8Array(dec.decode(payload)).buffer);
       const f = Float32Array.from(pcm, (x) => x / 32768);
       const rms = Math.sqrt(f.reduce((a, x) => a + x * x, 0) / f.length);
+      if (queue.length) { // agent is talking
+        loudRun = rms > Math.max(0.05, floor * 6) ? loudRun + 1 : 0;
+        if (loudRun < 12) return;
+        queue = []; loudRun = 0; thinking = false; // stop talking, start listening
+        self.onBarge?.();
+      } else if (thinking) return;
       const loud = rms > Math.max(0.02, floor * 3);
       if (!loud) floor = floor * 0.98 + rms * 0.02;
       if (loud) { voiced++; silent = 0; buf.push(f); }
@@ -174,14 +192,13 @@ function callAudio(out: MediaStreamTrack, pt: number) {
         const frames = buf; const enough = voiced > 15;
         buf = []; voiced = 0; silent = 0;
         if (enough && self.onUtterance) {
-          speaking = true; // hold input while we think and answer
-          self.onUtterance(down3(concat(frames))).catch(console.error).finally(() => { if (!playing && !queue.length) speaking = false; });
+          thinking = true;
+          self.onUtterance(down3(concat(frames))).catch(console.error).finally(() => { thinking = false; });
         }
       }
     },
-    async say(text: string) {
-      speaking = true;
-      const { pcm } = await speak(text); // 24 kHz
+    /** 24 kHz mono PCM -> 20 ms Opus frames on the send queue. */
+    play(pcm: Float32Array) {
       const up = up2(pcm); // 48 kHz
       for (let i = 0; i + 960 <= up.length; i += 960) {
         const s16 = Int16Array.from(up.subarray(i, i + 960), (x) => Math.max(-32768, Math.min(32767, x * 32767)));
@@ -192,8 +209,7 @@ function callAudio(out: MediaStreamTrack, pt: number) {
   };
   const timer = setInterval(() => {
     const p = queue.shift();
-    if (!p) { if (playing) { playing = false; speaking = false; } return; }
-    playing = true;
+    if (!p) return;
     seq = (seq + 1) & 0xffff; ts = (ts + 960) >>> 0;
     out.writeRtp(new RtpPacket(new RtpHeader({ payloadType: pt, sequenceNumber: seq, timestamp: ts, marker: false }), p));
   }, 20);

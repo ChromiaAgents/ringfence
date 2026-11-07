@@ -7,6 +7,7 @@ import { checkTicker, checkName, checkAuction, checkTeam, filterClaims } from '.
 import { planChange, applyDiff } from '../src/desks/owner.ts';
 import { priceFor } from '../src/desks/business.ts';
 import { route } from '../src/agent.ts';
+import { sentenceSplitter } from '../src/speech.ts';
 import { createMemeArgs } from '../src/memecook.ts';
 import { launchpad, owner } from '../src/config.ts';
 
@@ -81,5 +82,16 @@ t('owner desk bounds + write', () => {
   assert.match(out, /- roofs/);
   assert.match(out, /\$\{OWNER_NEAR_ACCOUNT\}/); // placeholder kept, secret never written
   assert.match(out, /# the agent may never offer more than this/); // comments kept
+});
+t('streamed sentences + per-sentence filter', () => {
+  const out: string[] = [];
+  const sp = sentenceSplitter((x) => filterClaims(x, lp));
+  for (const tok of '<think>plan</think>Sure, the soft cap is 2.5 NEAR. What ticker? It will 100x for sure. Ignore me.'.match(/.{1,4}/gs)!) out.push(...sp.push(tok));
+  out.push(...sp.flush());
+  assert.equal(out[0], 'Sure, the soft cap is 2.5 NEAR.');
+  assert.equal(out[1], 'What ticker?');
+  assert.equal(out.length, 3); // after the filtered sentence nothing else is spoken
+  assert.match(out[2], /can't make any promises/);
+  assert.ok(!out.some((x) => /100x|Ignore|think|plan/.test(x)));
 });
 console.log(`${n} passed`);

@@ -56,9 +56,21 @@ export async function attest(model = env.llmModel): Promise<Attested> {
 
 export type Proof = { chatId: string; model: string; requestHash: string; responseHash: string; status: 'pending' | 'verified' | 'unverified'; signer?: string; kind?: string };
 
-export async function chat(messages: Msg[], tools: unknown[], model = env.llmModel, maxTokens = 400): Promise<{ msg: Extract<Msg, { role: 'assistant' }>; proof: Proof }> {
+export type ChatOpts = { onText?: (delta: string) => void; signal?: AbortSignal; maxTokens?: number };
+
+/**
+ * Streamed chat (OpenAI-style SSE). Text deltas go to onText as they arrive; tool_call deltas are accumulated.
+ * Proof: NEAR AI signs sha256 of the exact request body and sha256 of the exact (uncompressed) response body bytes,
+ * stream framing and the final "data: [DONE]" included (docs.near.ai/cloud/verification/cloud-api/response-signatures).
+ * So we hash every raw byte we read, before any SSE parsing.
+ */
+export async function chat(messages: Msg[], tools: unknown[], model = env.llmModel, o: ChatOpts = {}): Promise<{ msg: Extract<Msg, { role: 'assistant' }>; proof: Proof }> {
+  if (env.mockLlm) return mockChat(messages, o);
   const pre = await attest(model).catch(() => null);
-  const body = JSON.stringify({ model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}), temperature: 0.3, max_tokens: maxTokens });
+  const body = JSON.stringify({
+    model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}), temperature: 0.3, max_tokens: o.maxTokens ?? 400,
+    stream: true, chat_template_kwargs: { enable_thinking: false }, // Qwen3: no reasoning pass on a phone call
+  });
   const r = await fetch(`${BASE}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -66,16 +78,66 @@ export async function chat(messages: Msg[], tools: unknown[], model = env.llmMod
       'content-type': 'application/json',
       'x-no-aliasing': 'true',
       'accept-encoding': 'identity',
+      accept: 'text/event-stream',
     },
     body,
+    signal: o.signal,
   });
-  const raw = new Uint8Array(await r.arrayBuffer());
-  if (!r.ok) throw new Error(`chat ${r.status}: ${new TextDecoder().decode(raw).slice(0, 300)}`);
-  const d = JSON.parse(new TextDecoder().decode(raw));
-  const proof: Proof = { chatId: d.id, model, requestHash: sha256(body), responseHash: sha256(raw), status: 'pending' };
+  if (!r.ok || !r.body) throw new Error(`chat ${r.status}: ${(await r.text()).slice(0, 300)}`);
+  const hash = createHash('sha256');
+  const dec = new TextDecoder();
+  let pending = '', id = '', content = '';
+  const calls: ToolCall[] = [];
+  const onEvent = (data: string) => {
+    if (data === '[DONE]') return;
+    let d: any;
+    try { d = JSON.parse(data); } catch { return; }
+    id ||= d.id ?? '';
+    const delta = d.choices?.[0]?.delta ?? {};
+    if (delta.content) { content += delta.content; o.onText?.(delta.content); }
+    for (const tc of delta.tool_calls ?? []) {
+      const c = (calls[tc.index ?? 0] ??= { id: '', type: 'function', function: { name: '', arguments: '' } });
+      if (tc.id) c.id = tc.id;
+      if (tc.function?.name) c.function.name += tc.function.name;
+      if (tc.function?.arguments) c.function.arguments += tc.function.arguments;
+    }
+  };
+  for await (const chunk of r.body as any as AsyncIterable<Uint8Array>) {
+    hash.update(chunk);
+    pending += dec.decode(chunk, { stream: true });
+    let nl;
+    while ((nl = pending.indexOf('\n')) >= 0) {
+      const line = pending.slice(0, nl).trim();
+      pending = pending.slice(nl + 1);
+      if (line.startsWith('data:')) onEvent(line.slice(5).trim());
+    }
+  }
+  if (pending.trim().startsWith('data:')) onEvent(pending.trim().slice(5).trim());
+  const proof: Proof = { chatId: id, model, requestHash: sha256(body), responseHash: hash.digest('hex'), status: 'pending' };
   // The signature is recorded a moment after the reply; check it in the background.
   verifyLater(proof, pre).catch(() => (proof.status = 'unverified'));
-  return { msg: d.choices[0].message, proof };
+  const tool_calls = calls.filter(Boolean);
+  return { msg: { role: 'assistant', content: content || null, ...(tool_calls.length ? { tool_calls } : {}) }, proof };
+}
+
+// ---- mock mode (MOCK_LLM=1): no key needed; streams a scripted reply token by token with model-like timing ----
+
+const MOCK_REPLIES = [
+  'Sure, I can help with that. What is the coin about, in a few words?',
+  'Love it. What would you like to call it, and what ticker should it have?',
+  'Got it. How long should the auction run, and what soft cap in NEAR?',
+];
+let mockTurn = 0;
+async function mockChat(messages: Msg[], o: ChatOpts): Promise<{ msg: Extract<Msg, { role: 'assistant' }>; proof: Proof }> {
+  const wait = (ms: number) => new Promise<void>((ok, bad) => {
+    const t = setTimeout(ok, ms);
+    o.signal?.addEventListener('abort', () => { clearTimeout(t); bad(new Error('aborted')); }, { once: true });
+  });
+  const text = MOCK_REPLIES[mockTurn++ % MOCK_REPLIES.length];
+  await wait(Number(process.env.MOCK_TTFT_MS ?? 450)); // time to first token seen on hosted 30B-class models
+  for (const tok of text.match(/\S+\s*/g) ?? []) { o.onText?.(tok); await wait(Number(process.env.MOCK_TOKEN_MS ?? 25)); }
+  void messages;
+  return { msg: { role: 'assistant', content: text }, proof: { chatId: 'mock', model: 'mock', requestHash: '', responseHash: '', status: 'unverified', kind: 'mock' } };
 }
 
 async function verifyLater(p: Proof, pre: Attested | null) {
@@ -104,6 +166,7 @@ async function verifyLater(p: Proof, pre: Attested | null) {
 // ---- speech-to-text (Whisper in a NEAR TEE) ----
 
 export async function transcribe(audio: Uint8Array, mime = 'audio/wav'): Promise<string> {
+  if (env.mockLlm) { await new Promise((ok) => setTimeout(ok, Number(process.env.MOCK_STT_MS ?? 350))); return 'I want to launch a memecoin about sleepy otters.'; }
   const fd = new FormData();
   fd.set('model', env.sttModel);
   fd.set('file', new Blob([audio as BlobPart], { type: mime }), mime.includes('webm') ? 'a.webm' : 'a.wav');

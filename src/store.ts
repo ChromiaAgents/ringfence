@@ -6,7 +6,9 @@ import type { Quote } from './pay.ts';
 import type { LaunchParams } from './memecook.ts';
 
 export type Desk = 'launch' | 'business' | 'owner';
-export type Turn = { at: number; who: 'caller' | 'agent' | 'tool'; text: string; proof?: Proof };
+/** Per-turn latency in ms, all counted from `start` (when the caller's utterance reached the server). */
+export type Timing = { start?: number; sttMs?: number; firstTokenMs?: number; firstAudioMs?: number; llmMs?: number; totalMs?: number };
+export type Turn = { at: number; who: 'caller' | 'agent' | 'tool'; text: string; proof?: Proof; timing?: Timing };
 export type Call = {
   id: string; channel: 'web' | 'whatsapp' | 'dashboard'; desk?: Desk; from?: string; startedAt: number; endedAt?: number; turns: Turn[];
   caller?: Record<string, string>; jobId?: string; launchId?: string; photos?: string[];

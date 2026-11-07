@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
     "test": "tsx test/run.ts",
-    "test:meme": "tsx test/meme-cost.ts"
+    "test:meme": "tsx test/meme-cost.ts",
+    "test:latency": "MOCK_LLM=1 DB_FILE=data/latency-db.json tsx test/latency.ts"
   },
   "keywords": [],
   "author": "",

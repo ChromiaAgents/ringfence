@@ -5,7 +5,8 @@ import { WebSocketServer } from 'ws';
 import { startCall, reply, endCall, photo, DESKS } from './agent.ts';
 import type { Desk } from './store.ts';
 import { transcribe } from './ai.ts';
-import { speak, wav } from './tts.ts';
+import { wav, warmUp } from './tts.ts';
+import { voiceLine } from './turn.ts';
 import { whatsappWebhook } from './whatsapp.ts';
 
 const readBody = (req: IncomingMessage) =>
@@ -38,30 +39,33 @@ export function attachVoice(server: Server) {
     // ?desk=launch|business picks the desk up front; without it the router asks. The owner desk is not reachable from here.
     const q = new URL(req.url ?? '/', 'http://x').searchParams.get('desk');
     const { call, greeting } = startCall('web', undefined, q === 'launch' || q === 'business' ? (q as Desk) : undefined);
-    const say = async (text: string) => {
-      ws.send(JSON.stringify({ type: 'agent', text }));
-      const { pcm, rate } = await speak(text);
-      ws.send(wav(pcm, rate));
-    };
+    const line = voiceLine((pcm, rate) => { if (ws.readyState === 1) ws.send(wav(pcm, rate)); });
     const sendLink = () => {
       const l = call.desk ? DESKS[call.desk].link?.(call) : null;
       ws.send(JSON.stringify({ type: 'desk', desk: call.desk ?? null }));
       if (l) ws.send(JSON.stringify({ type: 'link', ...l }));
     };
-    say(greeting).catch(console.error);
+    const hooks = (signal: AbortSignal, timing: any) => ({
+      signal, timing,
+      onSentence: (s: string) => { ws.send(JSON.stringify({ type: 'agent', text: s })); line.say(s); },
+      onSlowTool: (name: string) => line.filler(name === 'photo' ? 'photo' : 'draw'),
+    });
+    warmUp().then(() => { ws.send(JSON.stringify({ type: 'agent', text: greeting })); return line.say(greeting); }).catch(console.error);
     let busy = false;
     ws.on('message', async (data, isBinary) => {
       if (!isBinary) {
         const msg = JSON.parse(String(data));
+        if (msg.type === 'barge') { line.cancel(); return; } // caller talked over the agent
         if (msg.type === 'photo' && !busy) { // data URL from the upload button
           busy = true;
           try {
             const img = Buffer.from(String(msg.dataUrl).split(',')[1] ?? '', 'base64');
             if (img.length > 8_000_000) throw new Error('Photo too large (8 MB max).');
             ws.send(JSON.stringify({ type: 'caller', text: '[sent a photo]' }));
-            const answer = await photo(call.id, img);
+            const { signal, timing } = line.begin();
+            await photo(call.id, img, hooks(signal, timing));
             sendLink();
-            await say(answer);
+            await line.end('photo');
           } catch (e: any) { ws.send(JSON.stringify({ type: 'error', text: e.message })); } finally { busy = false; }
           return;
         }
@@ -71,13 +75,17 @@ export function attachVoice(server: Server) {
       if (busy) return;
       busy = true;
       try {
+        const { signal, timing } = line.begin();
         const text = isBinary ? await transcribe(new Uint8Array(data as Buffer)) : String(data);
+        timing.sttMs = Date.now() - timing.start!;
         if (!text || text.length < 2) return;
         ws.send(JSON.stringify({ type: 'caller', text }));
-        const answer = await reply(call.id, text);
+        line.ackSoon();
+        await reply(call.id, text, hooks(signal, timing));
         sendLink();
-        await say(answer);
+        await line.end(call.id);
       } catch (e: any) {
+        if (e?.name === 'AbortError' || /abort/i.test(e?.message)) return; // barge-in
         console.error(e);
         ws.send(JSON.stringify({ type: 'error', text: e.message }));
       } finally {

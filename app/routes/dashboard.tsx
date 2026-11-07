@@ -12,7 +12,9 @@ export const Route = createFileRoute('/dashboard')({
   component: Dashboard,
 });
 
-type Turn = { at: number; who: 'caller' | 'agent' | 'tool'; text: string; proof?: Proof };
+type Timing = { sttMs?: number; firstTokenMs?: number; firstAudioMs?: number; totalMs?: number };
+type Turn = { at: number; who: 'caller' | 'agent' | 'tool'; text: string; proof?: Proof; timing?: Timing };
+const ms = (x?: number) => (x == null ? '–' : `${(x / 1000).toFixed(1)}s`);
 type Call = { id: string; channel: 'web' | 'whatsapp' | 'dashboard'; desk?: string; from?: string; startedAt: number; endedAt?: number; turns: Turn[]; caller?: Record<string, string> };
 type Job = { id: string; serviceName: string; quotedUsd: number; discountPct: number; depositUsd: number; preferredDate?: string; notes?: string; caller: Record<string, string>; createdAt: number; payment?: { status: string; originSymbol: string; chain: string } };
 type Launch = { id: string; createdAt: number; network: string; status: string; params: { name: string; symbol: string; durationMinutes: number; softCapNear: number; team?: { pct: number } }; logoModel?: string; signer?: string; memeId?: number; txHash?: string; reason?: string };
@@ -93,7 +95,7 @@ function Dashboard() {
               {call ? (
                 <div className="transcript">
                   {call.turns.map((t, i) => (
-                    <div key={i} className={`bubble ${t.who}`}>{t.text.replace(/data:image\/\w+;base64,[A-Za-z0-9+/=]+/g, '<image>')}{t.who === 'agent' && <Signed proof={t.proof} />}</div>
+                    <div key={i} className={`bubble ${t.who}`}>{t.text.replace(/data:image\/\w+;base64,[A-Za-z0-9+/=]+/g, '<image>')}{t.who === 'agent' && <Signed proof={t.proof} />}{t.timing && <div className="muted" style={{ fontSize: 12 }}>stt {ms(t.timing.sttMs)} · first token {ms(t.timing.firstTokenMs)} · first audio {ms(t.timing.firstAudioMs)} · total {ms(t.timing.totalMs)}</div>}</div>
                   ))}
                 </div>
               ) : <p className="none">No calls yet. Ring the line and the transcript appears here as it happens.</p>}

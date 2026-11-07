@@ -21,8 +21,16 @@ export function useCall(deskPick: Desk | 'auto' = 'auto') {
   const [live, setLive] = useState(false);
   const [link, setLink] = useState<{ url: string; label: string } | null>(null);
   const [desk, setDesk] = useState<Desk | 'owner' | null>(null);
-  const r = useRef<{ ws?: WebSocket; ctx?: AudioContext; stream?: MediaStream; playing: boolean }>({ playing: false });
+  const r = useRef<{ ws?: WebSocket; ctx?: AudioContext; stream?: MediaStream; playing: boolean; srcs?: AudioBufferSourceNode[]; next?: number }>({ playing: false });
   const add = (who: Line['who'], text: string) => setLines((l) => [...l, { who, text }]);
+
+  // Stop everything queued to play (barge-in).
+  function hush() {
+    const s = r.current;
+    for (const x of s.srcs ?? []) { x.onended = null; try { x.stop(); } catch {} }
+    s.srcs = []; s.next = 0; s.playing = false;
+    setState('Listening…');
+  }
 
   function stop() {
     const s = r.current;
@@ -44,11 +52,19 @@ export function useCall(deskPick: Desk | 'auto' = 'auto') {
       const src = s.ctx.createMediaStreamSource(s.stream);
       const proc = s.ctx.createScriptProcessor(1024, 1, 1); // ~64 ms frames
       src.connect(proc); proc.connect(s.ctx.destination);
-      let frames: Float32Array[] = [], voiced = 0, silent = 0, floor = 0.01;
+      let frames: Float32Array[] = [], voiced = 0, silent = 0, floor = 0.01, loudRun = 0;
       proc.onaudioprocess = (e) => {
-        if (s.playing || s.ws?.readyState !== 1) return;
+        if (s.ws?.readyState !== 1) return;
         const f = new Float32Array(e.inputBuffer.getChannelData(0));
         const rms = Math.sqrt(f.reduce((a, x) => a + x * x, 0) / f.length);
+        if (s.playing) {
+          // Barge-in: ~200 ms of clearly loud speech while the agent talks (echo cancellation removes most of our own audio).
+          loudRun = rms > Math.max(0.05, floor * 6) ? loudRun + 1 : 0;
+          if (loudRun < 3) return;
+          loudRun = 0;
+          hush();
+          s.ws.send(JSON.stringify({ type: 'barge' }));
+        }
         const loud = rms > Math.max(0.015, floor * 3);
         if (!loud) floor = floor * 0.97 + rms * 0.03;
         if (loud) { voiced++; silent = 0; frames.push(f); setState('Listening…'); }
@@ -70,15 +86,23 @@ export function useCall(deskPick: Desk | 'auto' = 'auto') {
     ws.onmessage = async (m) => {
       if (typeof m.data !== 'string') {
         if (!s.ctx) return;
-        s.playing = true; setState('Speaking');
+        // Clips (one per sentence) arrive while earlier ones play: schedule them back to back.
         const buf = await s.ctx.decodeAudioData((m.data as ArrayBuffer).slice(0));
         const src = s.ctx.createBufferSource(); src.buffer = buf; src.connect(s.ctx.destination);
-        src.onended = () => { s.playing = false; setState('Your turn'); };
-        src.start();
+        const at = Math.max(s.ctx.currentTime + 0.02, s.next ?? 0);
+        s.next = at + buf.duration;
+        (s.srcs ??= []).push(src);
+        s.playing = true; setState('Speaking');
+        src.onended = () => {
+          s.srcs = (s.srcs ?? []).filter((x) => x !== src);
+          if (!s.srcs.length) { s.playing = false; setState('Your turn'); }
+        };
+        src.start(at);
         return;
       }
       const d = JSON.parse(m.data);
-      if (d.type === 'agent') add('agent', d.text);
+      if (d.type === 'agent') // sentences of one reply stream in: keep them in one bubble
+        setLines((l) => (l.at(-1)?.who === 'agent' ? [...l.slice(0, -1), { who: 'agent', text: l.at(-1)!.text + ' ' + d.text }] : [...l, { who: 'agent', text: d.text }]));
       if (d.type === 'caller') add('caller', d.text);
       if (d.type === 'error') { add('tool', d.text); setState('Your turn'); }
       if (d.type === 'link') setLink({ url: d.url, label: d.label });

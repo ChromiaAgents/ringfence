@@ -12,7 +12,16 @@ function load() {
 // Returns mono float32 PCM at 24 kHz.
 export async function speak(text: string): Promise<{ pcm: Float32Array; rate: number }> {
   const audio = await (await load()).generate(text, { voice });
-  return { pcm: audio.audio as Float32Array, rate: audio.sampling_rate };
+  return { pcm: trim(audio.audio as Float32Array, audio.sampling_rate), rate: audio.sampling_rate };
+}
+
+// Kokoro pads clips with silence; on a call that reads as lag, so keep only ~60 ms either side of the speech.
+function trim(x: Float32Array, rate: number) {
+  let a = 0, b = x.length - 1;
+  while (a < b && Math.abs(x[a]) < 0.01) a++;
+  while (b > a && Math.abs(x[b]) < 0.01) b--;
+  const pad = Math.round(rate * 0.06);
+  return x.subarray(Math.max(0, a - pad), Math.min(x.length, b + pad));
 }
 
 export function wav(pcm: Float32Array, rate: number): Uint8Array {
@@ -24,4 +33,19 @@ export function wav(pcm: Float32Array, rate: number): Uint8Array {
   return b;
 }
 
-export const warmUp = () => load().then(() => undefined);
+// Short clips said while the caller waits: rendered once at startup so they play instantly.
+const FILLER_TEXT = { ack: ['Mm, okay.', 'Right.', 'Okay.'], draw: ['Let me draw that.'], photo: ['One sec, let me look.'], wait: ['One sec.'] };
+export type FillerKind = keyof typeof FILLER_TEXT;
+const fillers = new Map<FillerKind, { pcm: Float32Array; rate: number }[]>();
+export function filler(kind: FillerKind) {
+  const xs = fillers.get(kind);
+  return xs?.length ? xs[Math.floor(Math.random() * xs.length)] : null;
+}
+
+let warm: Promise<void> | null = null;
+/** Loads Kokoro and renders the filler clips. Safe to call often; the work happens once. */
+export const warmUp = () => (warm ??= (async () => {
+  await load();
+  for (const [k, texts] of Object.entries(FILLER_TEXT) as [FillerKind, string[]][])
+    fillers.set(k, await Promise.all(texts.map((t) => speak(t))));
+})());
