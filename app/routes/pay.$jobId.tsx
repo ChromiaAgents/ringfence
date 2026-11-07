@@ -19,6 +19,7 @@ const NICE: Record<string, string> = {
   REFUNDED: 'Refunded to you', FAILED: 'Failed, refund on its way',
 };
 const STEPS = [['PENDING_DEPOSIT', 'Send'], ['KNOWN_DEPOSIT_TX', 'Seen'], ['PROCESSING', 'Swapping'], ['SUCCESS', 'Paid']] as const;
+const CHAINS = ['near', 'base', 'eth', 'arb', 'sol', 'bsc', 'pol', 'op', 'btc'];
 const PREF = ['USDC', 'USDT', 'ETH', 'SOL', 'wNEAR', 'BTC', 'ZEC'];
 
 function Pay() {
@@ -35,7 +36,7 @@ function Pay() {
   useEffect(() => {
     fetch(`/api/pay/${jobId}`).then(async (r) => (r.ok ? setJob(await r.json()) : setMissing(true)));
     fetch('/api/tokens').then((r) => r.json()).then((t: Token[]) => {
-      t.sort((a, b) => (PREF.indexOf(a.symbol) + 1 || 99) - (PREF.indexOf(b.symbol) + 1 || 99) || a.blockchain.localeCompare(b.blockchain));
+      t.sort((a, b) => (PREF.indexOf(a.symbol) + 1 || 99) - (PREF.indexOf(b.symbol) + 1 || 99) || (CHAINS.indexOf(a.blockchain) + 1 || 99) - (CHAINS.indexOf(b.blockchain) + 1 || 99) || a.blockchain.localeCompare(b.blockchain));
       setTokens(t); setAsset(t[0]?.assetId ?? '');
     }).catch(() => setErr('Could not load the token list from 1Click. Refresh to try again.'));
     const i = setInterval(() => fetch(`/api/pay/${jobId}/status`).then((r) => (r.ok ? r.json() : null)).then((d) => d && setJob(d)).catch(() => {}), 5000);
