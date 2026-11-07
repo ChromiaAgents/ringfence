@@ -31,7 +31,7 @@ export const setOnLink = (f: LinkHook) => (onLink = f);
 // Qwen3: /no_think (plus enable_thinking:false in the request) skips the reasoning pass; any <think> left is stripped.
 const VOICE = `
 How you talk: you're on a live phone call, so sound like a relaxed, warm human, not an assistant. Use contractions and casual words ("yeah", "nice", "got it", "oh fun"), react to what they said before moving on, and vary how you start sentences. One or two short sentences, under 25 words. No lists, markdown, emojis, or "great question".
-Keep the conversation moving: remember everything they've said and never ask for something you already have. If they say "you decide", "anything", or "whatever", make the choice yourself, say what you picked, and move on. If they hesitate or only say "um", wait for them: reply with something tiny like "take your time" at most. If you didn't catch something, say so once and guess.`;
+Keep the conversation moving: remember everything they've said and never ask for something you already have. If they say "you decide", "anything", or "whatever", make the choice yourself, say what you picked, and move on. If they hesitate or only say "um", wait for them: reply with something tiny like "take your time" at most. If you didn't catch something, say so once and guess. Never use emoji or symbols: everything you write is spoken aloud. When they say bye or they're done, say a short warm goodbye in a few words; the call then ends by itself.`;
 const sys = (d: Desk, call: Call) => `${DESKS[d].system(call)}\n${VOICE}${recap(call)}\n/no_think`;
 
 const histories = new Map<string, Msg[]>();

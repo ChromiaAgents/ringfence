@@ -28,6 +28,11 @@ await t('returning caller is remembered and resumes their coin', async () => {
   assert.match(again.greeting, /WHISK/);
   assert.match(launchDesk.system(again.call) + (await import('../src/memory.ts')).recap(again.call), /called before/);
 });
+await t('emoji and markdown are never spoken', async () => {
+  const { speakable } = await import('../src/tts.ts');
+  assert.equal(speakable('Nice! 🐱🚀 Your **WHISK** coin ✨'), 'Nice! Your WHISK coin');
+});
+
 t('thinking noises are not turns', () => {
   for (const s of ['Um...', 'uh', 'Hmm.', 'Erm, uh', 'mm']) assert.ok(isFiller(s), s);
   for (const s of ['um, a cat coin', 'yes', 'Umbrella']) assert.ok(!isFiller(s), s);

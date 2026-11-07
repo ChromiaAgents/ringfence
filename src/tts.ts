@@ -2,7 +2,10 @@
 import { KokoroTTS } from 'kokoro-js';
 
 let tts: Promise<KokoroTTS> | null = null;
-const voice = (process.env.TTS_VOICE ?? 'bm_george') as any;
+const voice = (process.env.TTS_VOICE ?? 'af_heart') as any;
+const speed = Number(process.env.TTS_SPEED ?? 1.15);
+// Never voice emoji, markdown or symbols the model slips in.
+export const speakable = (t: string) => t.replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').replace(/[*_#~\`|<>]/g, '').replace(/\s+/g, ' ').trim();
 
 function load() {
   tts ??= KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: 'q8', device: 'cpu' });
@@ -11,7 +14,9 @@ function load() {
 
 // Returns mono float32 PCM at 24 kHz.
 export async function speak(text: string): Promise<{ pcm: Float32Array; rate: number }> {
-  const audio = await (await load()).generate(text, { voice });
+  const clean = speakable(text);
+  if (!clean) return { pcm: new Float32Array(0), rate: 24000 };
+  const audio = await (await load()).generate(clean, { voice, speed });
   return { pcm: trim(audio.audio as Float32Array, audio.sampling_rate), rate: audio.sampling_rate };
 }
 

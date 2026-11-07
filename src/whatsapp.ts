@@ -97,6 +97,8 @@ async function media(mediaId: string): Promise<Buffer> {
 type Live = { pc: RTCPeerConnection; callId: string; stop: () => void };
 const live = new Map<string, Live>();
 
+const BYE = /\b(bye|goodbye|see you|that's all|that is all|hang up|gotta go|talk later|cheers mate)\b/i;
+
 async function onCallEvent(c: any) {
   if (c.event === 'terminate') {
     live.get(c.id)?.stop();
@@ -141,7 +143,7 @@ async function onCallEvent(c: any) {
 
   // ponytail: debug counters for the inbound leg; remove once calls are stable
   let rtpN = 0, maxRms = 0;
-  const dbg = setInterval(() => { console.log(`wa rx ${c.id.slice(-6)}: ${rtpN} rtp/2s, max rms ${maxRms.toFixed(3)}`); rtpN = 0; maxRms = 0; }, 2000);
+  const dbg = setInterval(() => { if (!rtpN) console.log(`wa rx ${c.id.slice(-6)}: no audio from caller`); rtpN = 0; maxRms = 0; }, 4000);
   const onTrack = (track: any) => {
     console.log('wa track', track.kind);
     track.onReceiveRtp.subscribe((rtp: any) => {
@@ -167,6 +169,12 @@ async function onCallEvent(c: any) {
     try {
       await reply(call.id, text, { signal, timing, onSentence: (s) => line.say(s), onSlowTool: () => line.filler('draw') });
       await line.end(`wa ${call.id}`);
+      if (BYE.test(text)) { // let the goodbye finish playing, then hang up
+        while (audio.busy()) await new Promise((r) => setTimeout(r, 100));
+        await new Promise((r) => setTimeout(r, 400));
+        await graph(`${env.waPhoneId}/calls`, { messaging_product: 'whatsapp', call_id: c.id, action: 'terminate' }).catch(console.error);
+        stop();
+      }
     } catch (e: any) { if (!/abort/i.test(e?.message ?? '')) throw e; }
   };
 }
@@ -229,6 +237,7 @@ function callAudio(out: MediaStreamTrack, pt: number) {
         queue.push(enc.encode(Buffer.from(s16.buffer), 960));
       }
     },
+    busy: () => queue.length > 0,
     close() { clearInterval(timer); dec.delete(); enc.delete(); },
   };
   const timer = setInterval(() => {
