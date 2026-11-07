@@ -68,7 +68,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   const t0 = timing?.start ?? Date.now();
   call.turns.push({ at: Date.now(), who: 'caller', text });
   if (!call.desk) {
-    const d = route(text);
+    const d = call.isOwner && /\b(owner|my rules|settings)\b/i.test(text) ? 'owner' : route(text);
     if (!d) {
       const ask = 'Sorry, is that a coin launch, or building work?';
       o.onSentence?.(ask);

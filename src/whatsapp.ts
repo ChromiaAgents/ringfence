@@ -67,11 +67,16 @@ async function onMessage(m: any) {
   if (m.type !== 'text' && m.type !== 'image') return;
   let callId = chats.get(m.from);
   if (!callId) {
-    // The owner's own number reaches the settings desk; everyone else gets the router.
-    const { call, greeting } = startCall('whatsapp', m.from, isOwner(m.from) ? 'owner' : undefined);
+    // Everyone gets the router; the owner's number can also say "owner ..." to reach the settings desk.
+    const { call, greeting } = startCall('whatsapp', m.from);
+    call.isOwner = isOwner(m.from);
     callId = call.id;
     chats.set(m.from, callId);
     if (m.type === 'text' && /^(hi|hello|hey)\b/i.test(m.text.body.trim())) return sendText(m.from, greeting);
+  }
+  if (m.type === 'text' && /^(reset|new|restart)$/i.test(m.text.body.trim())) {
+    chats.delete(m.from);
+    return sendText(m.from, 'Fresh start. Say hi, or tell me what you need.');
   }
   if (m.type === 'image') return sendText(m.from, await photo(callId, await media(m.image.id)));
   sendText(m.from, await reply(callId, m.text.body));
@@ -108,7 +113,8 @@ async function onCallEvent(c: any) {
   const sdp = pc.localDescription!.sdp;
   await graph(`${env.waPhoneId}/calls`, { messaging_product: 'whatsapp', call_id: c.id, action: 'pre_accept', session: { sdp_type: 'answer', sdp } });
 
-  const { call, greeting } = startCall('whatsapp', c.from, isOwner(c.from) ? 'owner' : undefined);
+  const { call, greeting } = startCall('whatsapp', c.from);
+  call.isOwner = isOwner(c.from);
   const audio = callAudio(out, payloadType(c.session.sdp));
   const line = voiceLine((pcm) => audio.play(pcm));
   audio.onBarge = () => line.cancel();
