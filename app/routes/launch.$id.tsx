@@ -130,7 +130,7 @@ function LaunchPage() {
           <div className="row"><span>Links</span><b>{[p.socials?.twitter, p.socials?.telegram, p.socials?.website].filter(Boolean).join(' · ') || 'None'}</b></div>
           <div className="row"><span>Contract</span><b className="mono">{l.contract}</b></div>
         </div>
-        {!l.pinning && <p className="explain">The description and links stay on this page: without an IPFS pinning key the launch goes out with an empty metadata reference.</p>}
+        {!l.pinning && <p className="explain">The description and links live on this page.</p>}
       </section>
 
       {live ? (

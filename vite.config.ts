@@ -6,5 +6,6 @@ import viteReact from '@vitejs/plugin-react';
 // server.ts runs Vite in middleware mode so voice + WhatsApp share the port; installDevServerMiddleware keeps Start's SSR on.
 export default defineConfig({
   plugins: [tanstackStart({ srcDirectory: 'app', vite: { installDevServerMiddleware: true } }), viteReact()],
+  define: { global: 'globalThis' }, // wallet-selector deps expect Node's `global` in the browser
   ssr: { external: ['werift', 'opusscript', 'kokoro-js', 'ethers', 'sharp'] },
 });
