@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pay deposit</title><link rel="stylesheet" href="/static/style.css"></head>
+<body><main style="max-width:620px">
+<p class="mute" id="biz">…</p>
+<h1 id="title">Deposit</h1>
+<p class="mute" id="sub"></p>
+<section class="card" id="pick">
+  <div class="big" id="amount">$—</div>
+  <p class="mute">The builder receives exactly this in <b id="payout">USDC</b>. You pay with whatever you hold; NEAR Intents swaps it on the way. Nobody holds your money in between.</p>
+  <label for="token">Pay with</label>
+  <select id="token"></select>
+  <label for="refund">Your address on that chain (refunds go here if anything fails)</label>
+  <input id="refund" placeholder="0x… / your.near / Solana address" autocomplete="off">
+  <div style="margin-top:16px"><button id="go">Get deposit address</button></div>
+  <p id="err" class="tag warn" hidden style="margin-top:12px"></p>
+</section>
+<section class="card" id="sendbox" hidden>
+  <h2>Send exactly</h2>
+  <div class="big" id="send"></div>
+  <p class="mute">to this address on <b id="chain"></b> before <span id="deadline"></span>:</p>
+  <div class="row" style="align-items:flex-start"><div class="qr" id="qr"></div><p class="mono" id="addr" style="flex:1"></p></div>
+  <p id="memo" class="mono" hidden></p>
+  <p style="margin-top:12px"><span class="tag" id="status">Waiting for your deposit</span></p>
+</section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const jobId = location.pathname.split('/').pop();
+const nice = { PENDING_DEPOSIT: 'Waiting for your deposit', KNOWN_DEPOSIT_TX: 'Deposit seen, swapping…', PROCESSING: 'Swapping…', SUCCESS: 'Paid. The builder has your deposit.', INCOMPLETE_DEPOSIT: 'Deposit too small, top up or wait for refund', REFUNDED: 'Refunded to you', FAILED: 'Failed, refund on its way' };
+const pref = ['USDC','USDT','ETH','SOL','wNEAR','BTC','ZEC'];
+function show(j) {
+  $('biz').textContent = j.business; $('title').textContent = `Deposit for your ${j.service.toLowerCase()}`;
+  $('sub').textContent = `Hi ${j.name}, your quote is $${j.quotedUsd.toLocaleString()}. This deposit holds your site visit.`;
+  $('amount').textContent = `$${j.depositUsd.toLocaleString()}`; $('payout').textContent = j.payout;
+  const p = j.payment; if (!p || !p.quote.depositAddress) return;
+  $('sendbox').hidden = false; $('pick').hidden = p.status !== 'PENDING_DEPOSIT' ? true : $('pick').hidden;
+  $('send').textContent = `${p.quote.amountInFormatted} ${p.originSymbol}`; $('chain').textContent = p.chain;
+  $('addr').textContent = p.quote.depositAddress; $('deadline').textContent = p.quote.deadline ? new Date(p.quote.deadline).toLocaleTimeString() : 'the quote expires';
+  if (p.quote.depositMemo) { $('memo').hidden = false; $('memo').textContent = 'Memo (required): ' + p.quote.depositMemo; }
+  fetch('/api/qr?text=' + encodeURIComponent(p.quote.depositAddress)).then((r) => r.text()).then((s) => ($('qr').innerHTML = s));
+  $('status').textContent = nice[p.status] ?? p.status; $('status').className = 'tag' + (/FAIL|REFUND|INCOMPLETE/.test(p.status) ? ' warn' : '');
+}
+async function load() { const r = await fetch('/api/pay/' + jobId); if (!r.ok) { $('title').textContent = 'Link not found'; return; } show(await r.json()); }
+fetch('/api/tokens').then((r) => r.json()).then((t) => {
+  t.sort((a, b) => (pref.indexOf(a.symbol) + 1 || 99) - (pref.indexOf(b.symbol) + 1 || 99) || a.blockchain.localeCompare(b.blockchain));
+  $('token').innerHTML = t.map((x) => `<option value="${x.assetId}">${x.symbol} on ${x.blockchain}</option>`).join('');
+});
+$('go').onclick = async () => {
+  $('err').hidden = true; $('go').disabled = true;
+  const r = await fetch(`/api/pay/${jobId}/quote`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ originAsset: $('token').value, refundTo: $('refund').value }) });
+  const d = await r.json(); $('go').disabled = false;
+  if (!r.ok) { $('err').textContent = d.error; $('err').hidden = false; return; }
+  show(d);
+};
+load(); setInterval(() => fetch(`/api/pay/${jobId}/status`).then((r) => r.ok && r.json()).then((d) => d && show(d)), 5000);
+</script>
+</body></html>

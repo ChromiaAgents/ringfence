@@ -1,0 +1,41 @@
+# The owner's rules. The agent reads this, but the code enforces it:
+# a quote, discount or deposit outside these limits is refused no matter what the model asks for.
+
+business:
+  name: "Hart & Sons Builders"
+  owner: "James"
+  area: "Greater London"
+  greeting: "Hi, you've reached Hart & Sons Builders, this is the booking assistant. How can I help?"
+
+services:
+  - id: kitchen
+    name: Kitchen fitting
+    from_usd: 4500
+    to_usd: 12000
+  - id: bathroom
+    name: Bathroom renovation
+    from_usd: 3500
+    to_usd: 9000
+  - id: extension
+    name: Single-storey extension
+    from_usd: 25000
+    to_usd: 60000
+  - id: repair
+    name: Small repairs (half day)
+    from_usd: 180
+    to_usd: 180
+
+rules:
+  max_discount_pct: 10        # the agent may never offer more than this
+  deposit_pct: 20             # deposit to hold a site visit / start date
+  min_deposit_usd: 50
+  max_deposit_usd: 2000       # anything larger goes to the owner
+  accept_jobs_outside_area: false
+  kill_switch: false          # true = agent takes messages only, no quotes, no payment links
+
+payout:
+  # Where deposits settle. NEAR Intents swaps whatever the customer pays into this asset.
+  asset: "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1"   # USDC on NEAR
+  asset_symbol: USDC
+  asset_decimals: 6
+  recipient: "${OWNER_NEAR_ACCOUNT}"   # set in .env, never in this file

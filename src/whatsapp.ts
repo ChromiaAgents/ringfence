@@ -1,0 +1,191 @@
+// WhatsApp: customers call (or text) the business number; the same agent answers.
+// Calls are WebRTC (ICE + DTLS-SRTP, Opus) signalled through Graph API webhooks.
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { RTCPeerConnection, RtpHeader, RtpPacket, useOPUS, MediaStreamTrack } from 'werift';
+import OpusScript from 'opusscript';
+import { env } from './config.ts';
+import { startCall, reply, endCall, setOnBooked } from './agent.ts';
+import { transcribe } from './ai.ts';
+import { speak, wav } from './tts.ts';
+import { db } from './store.ts';
+
+const GRAPH = 'https://graph.facebook.com/v23.0';
+
+async function graph(path: string, body: unknown) {
+  const r = await fetch(`${GRAPH}/${path}`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${env.waToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(`graph ${path} ${r.status}: ${JSON.stringify(d).slice(0, 300)}`);
+  return d;
+}
+
+export const sendText = (to: string, text: string) =>
+  graph(`${env.waPhoneId}/messages`, { messaging_product: 'whatsapp', to, type: 'text', text: { body: text, preview_url: true } });
+
+// Deposit links go out as a WhatsApp message to whoever booked, on any channel that knows their number.
+setOnBooked((call, _jobId, link) => {
+  const to = call.from;
+  const job = db.jobs.find((j) => j.id === call.jobId);
+  if (!to || !env.waToken) return;
+  sendText(to, `Thanks ${job?.caller.name ?? ''}! Your ${job?.serviceName ?? 'job'} site visit is booked. Hold it with a $${job?.depositUsd} deposit, pay with any token on any chain: ${link}`).catch(console.error);
+});
+
+function validSignature(req: IncomingMessage, body: Buffer) {
+  if (!env.waAppSecret) return true; // ponytail: local testing only; set WHATSAPP_APP_SECRET in any real deploy
+  const got = String(req.headers['x-hub-signature-256'] ?? '');
+  const want = 'sha256=' + createHmac('sha256', env.waAppSecret).update(body).digest('hex');
+  return got.length === want.length && timingSafeEqual(Buffer.from(got), Buffer.from(want));
+}
+
+// One text conversation per WhatsApp user, reusing the call agent.
+const chats = new Map<string, string>(); // wa_id -> callId
+
+export async function whatsappWebhook(req: IncomingMessage, res: ServerResponse, body: Buffer, url: URL) {
+  if (req.method === 'GET') {
+    const ok = url.searchParams.get('hub.mode') === 'subscribe' && url.searchParams.get('hub.verify_token') === env.waVerify;
+    return res.writeHead(ok ? 200 : 403).end(ok ? url.searchParams.get('hub.challenge') : '');
+  }
+  if (!validSignature(req, body)) return res.writeHead(401).end();
+  res.writeHead(200).end(); // ack fast, work after
+  const payload = JSON.parse(body.toString() || '{}');
+  for (const entry of payload.entry ?? [])
+    for (const ch of entry.changes ?? []) {
+      const v = ch.value ?? {};
+      for (const c of v.calls ?? []) onCallEvent(c).catch((e) => console.error('call', e));
+      for (const m of v.messages ?? []) onMessage(m).catch((e) => console.error('msg', e));
+    }
+}
+
+async function onMessage(m: any) {
+  if (m.type !== 'text') return;
+  let callId = chats.get(m.from);
+  if (!callId) {
+    const { call, greeting } = startCall('whatsapp', m.from);
+    callId = call.id;
+    chats.set(m.from, callId);
+    if (/^(hi|hello|hey)\b/i.test(m.text.body.trim())) return sendText(m.from, greeting);
+  }
+  sendText(m.from, await reply(callId, m.text.body));
+}
+
+// ---------------- calls ----------------
+
+type Live = { pc: RTCPeerConnection; callId: string; stop: () => void };
+const live = new Map<string, Live>();
+
+async function onCallEvent(c: any) {
+  if (c.event === 'terminate') {
+    live.get(c.id)?.stop();
+    return;
+  }
+  if (c.event !== 'connect' || c.session?.sdp_type !== 'offer') return;
+
+  const pc = new RTCPeerConnection({ codecs: { audio: [useOPUS()] }, iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+  const out = new MediaStreamTrack({ kind: 'audio' });
+  const tr = pc.addTransceiver(out, { direction: 'sendrecv' });
+  await pc.setRemoteDescription({ type: 'offer', sdp: c.session.sdp });
+  await pc.setLocalDescription(await pc.createAnswer());
+  await waitIce(pc);
+  const sdp = pc.localDescription!.sdp;
+  await graph(`${env.waPhoneId}/calls`, { messaging_product: 'whatsapp', call_id: c.id, action: 'pre_accept', session: { sdp_type: 'answer', sdp } });
+
+  const { call, greeting } = startCall('whatsapp', c.from);
+  const audio = callAudio(out, payloadType(c.session.sdp));
+  let stopped = false;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    audio.close();
+    pc.close();
+    endCall(call.id);
+    live.delete(c.id);
+  };
+  live.set(c.id, { pc, callId: call.id, stop });
+
+  pc.connectionStateChange.subscribe(async (s) => {
+    if (s === 'connected') {
+      await graph(`${env.waPhoneId}/calls`, { messaging_product: 'whatsapp', call_id: c.id, action: 'accept', session: { sdp_type: 'answer', sdp } });
+      audio.say(greeting);
+    }
+    if (s === 'failed' || s === 'closed') stop();
+  });
+
+  tr.onTrack.subscribe((track) => {
+    track.onReceiveRtp.subscribe((rtp) => audio.hear(rtp.payload));
+  });
+
+  audio.onUtterance = async (pcm16k) => {
+    const text = await transcribe(wav(pcm16k, 16000));
+    if (!text || text.length < 2) return;
+    audio.say(await reply(call.id, text));
+  };
+}
+
+function waitIce(pc: RTCPeerConnection) {
+  return new Promise<void>((ok) => {
+    if (pc.iceGatheringState === 'complete') return ok();
+    pc.iceGatheringStateChange.subscribe((s) => s === 'complete' && ok());
+    setTimeout(ok, 3000);
+  });
+}
+
+const payloadType = (sdp: string) => Number(sdp.match(/a=rtpmap:(\d+) opus\/48000/i)?.[1] ?? 111);
+
+// Opus in -> 16 kHz utterances; text -> Opus out, paced at 20 ms.
+function callAudio(out: MediaStreamTrack, pt: number) {
+  const dec = new OpusScript(48000, 1, OpusScript.Application.VOIP);
+  const enc = new OpusScript(48000, 1, OpusScript.Application.VOIP);
+  let speaking = false; // agent talking: ignore input (ponytail: no barge-in, avoids hearing our own echo)
+  let buf: Float32Array[] = [];
+  let voiced = 0, silent = 0, floor = 0.01;
+  let seq = Math.floor(Math.random() * 65535), ts = Math.floor(Math.random() * 2 ** 31);
+  const queue: Buffer[] = [];
+  let playing = false;
+  const self = {
+    onUtterance: undefined as undefined | ((pcm16k: Float32Array) => Promise<void>),
+    hear(payload: Buffer) {
+      if (speaking) return;
+      const pcm = new Int16Array(new Uint8Array(dec.decode(payload)).buffer);
+      const f = Float32Array.from(pcm, (x) => x / 32768);
+      const rms = Math.sqrt(f.reduce((a, x) => a + x * x, 0) / f.length);
+      const loud = rms > Math.max(0.02, floor * 3);
+      if (!loud) floor = floor * 0.98 + rms * 0.02;
+      if (loud) { voiced++; silent = 0; buf.push(f); }
+      else if (voiced) { silent++; buf.push(f); }
+      if (voiced && silent > 35) { // ~700 ms of silence ends the utterance
+        const frames = buf; const enough = voiced > 15;
+        buf = []; voiced = 0; silent = 0;
+        if (enough && self.onUtterance) {
+          speaking = true; // hold input while we think and answer
+          self.onUtterance(down3(concat(frames))).catch(console.error).finally(() => { if (!playing && !queue.length) speaking = false; });
+        }
+      }
+    },
+    async say(text: string) {
+      speaking = true;
+      const { pcm } = await speak(text); // 24 kHz
+      const up = up2(pcm); // 48 kHz
+      for (let i = 0; i + 960 <= up.length; i += 960) {
+        const s16 = Int16Array.from(up.subarray(i, i + 960), (x) => Math.max(-32768, Math.min(32767, x * 32767)));
+        queue.push(enc.encode(Buffer.from(s16.buffer), 960));
+      }
+    },
+    close() { clearInterval(timer); dec.delete(); enc.delete(); },
+  };
+  const timer = setInterval(() => {
+    const p = queue.shift();
+    if (!p) { if (playing) { playing = false; speaking = false; } return; }
+    playing = true;
+    seq = (seq + 1) & 0xffff; ts = (ts + 960) >>> 0;
+    out.writeRtp(new RtpPacket(new RtpHeader({ payloadType: pt, sequenceNumber: seq, timestamp: ts, marker: false }), p));
+  }, 20);
+  return self;
+}
+
+const concat = (a: Float32Array[]) => { const o = new Float32Array(a.reduce((n, x) => n + x.length, 0)); let i = 0; for (const x of a) { o.set(x, i); i += x.length; } return o; };
+const down3 = (x: Float32Array) => { const o = new Float32Array(Math.floor(x.length / 3)); for (let i = 0; i < o.length; i++) o[i] = (x[3 * i] + x[3 * i + 1] + x[3 * i + 2]) / 3; return o; };
+const up2 = (x: Float32Array) => { const o = new Float32Array(x.length * 2); for (let i = 0; i < x.length; i++) { const n = x[i + 1] ?? x[i]; o[2 * i] = x[i]; o[2 * i + 1] = (x[i] + n) / 2; } return o; };
