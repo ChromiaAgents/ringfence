@@ -1,5 +1,5 @@
 // Headless smoke test of the no-key path: starts the built server with MOCK_LLM=1 and no .env, walks one launch,
-// a declined building quote, a wallet dry run, a spend summary and an AI-ended call over the browser-call WebSocket (typed fallback), and checks the pages render.
+// a declined off-topic request, a wallet dry run, a spend summary and an AI-ended call over the browser-call WebSocket (typed fallback), and checks the pages render.
 //   npm run demo:check   (builds first; prints PASS/FAIL per step; exit 1 on any failure; stops the server)
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
@@ -98,7 +98,7 @@ try {
     return `$${api.params.symbol} on ${api.launchpad} (${api.network}), ${api.status}, logo: ${api.logoModel}; nothing signed`;
   });
 
-  await step('out of scope: the AI declines a building quote (no canned line, no business tools)', async () => {
+  await step('out of scope: the AI declines an off-topic request (no canned line, no extra tools)', async () => {
     const r = await call('auto', ['I need a new kitchen, can you quote it?']);
     must(r.said.some((s) => /don't do building quotes/i.test(s)), 'no polite decline: ' + r.said.join(' | '));
     must(!r.link, 'a link was sent');
