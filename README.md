@@ -1,5 +1,7 @@
 # Ringfence
 
+![Ringfence: Mum can make a phone call. She doesn’t know how to use Meteor Wallet.](public/og.png)
+
 **Mum can make a phone call. She doesn't know how to use Meteor Wallet.**
 
 Ringfence lets her pay by voice: she calls from WhatsApp or the browser, says "send 0.1 NEAR to liho.near", hears it read back, confirms, and it's sent. What the AI is allowed to spend is capped by a NEAR contract the family owns, not by the AI.
