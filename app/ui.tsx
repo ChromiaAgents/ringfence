@@ -81,17 +81,18 @@ export function AttRow({ a, full }: { a: Att; full?: boolean }) {
       {'error' in a ? (a.error === 'pending' ? <p><span className="pill wait">Fetching attestation</span></p> : <p><span className="pill warn">Attestation unavailable</span> {a.error}</p>) : (
         <>
           <p style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {ok(a.intel.verified, `Intel TDX quote valid · ${a.intel.tcbStatus}`, 'Intel TDX quote not verified', a.intel.error)}
+            {ok(a.intel.verified, `Intel TDX report valid · ${a.intel.tcbStatus}`, 'Intel TDX report not verified', a.intel.error)}
             {ok(a.quoteBindsKey, 'Key + nonce bound', 'Key not bound')}
             {ok(a.gpu.verified, `NVIDIA GPU attested · ${a.gpu.gpus} × ${a.gpu.arch}`, 'GPU not verified', a.gpu.error)}
           </p>
-          <p className="mono" style={{ wordBreak: 'break-all' }} title={a.signingAddress}>{full ? a.signingAddress : `${a.signingAddress.slice(0, 10)}…`}</p>
+          {!full && <p className="mono" style={{ wordBreak: 'break-all' }} title={a.signingAddress}>{`${a.signingAddress.slice(0, 10)}…`}</p>}
           {full && (
-            <>
+            <details className="raw">
+              <summary>Raw evidence</summary>
               {a.intel.error && <p className="muted">Intel: {a.intel.error}</p>}
               {a.gpu.error && <p className="muted">GPU: {a.gpu.error}</p>}
-              <p className="muted mono" style={{ wordBreak: 'break-all' }}>nonce {a.nonce}<br />report_data {a.reportDataHex}<br />checked {new Date(a.fetchedAt).toISOString()}</p>
-            </>
+              <p className="muted mono" style={{ wordBreak: 'break-all' }}>signing address {a.signingAddress}<br />nonce {a.nonce}<br />report_data {a.reportDataHex}<br />checked {new Date(a.fetchedAt).toISOString()}</p>
+            </details>
           )}
         </>
       )}

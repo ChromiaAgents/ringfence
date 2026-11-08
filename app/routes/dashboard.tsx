@@ -165,7 +165,7 @@ function Dashboard() {
               <h2 id="ah">Private inference</h2>
               <div className="card att">
                 {s.attestation.map((a) => <AttRow key={a.model} a={a} />)}
-                <p className="muted" style={{ margin: 0 }}>Checked by this server with a fresh nonce: Intel’s signature on the TDX quote (collateral from Intel PCS), the key and nonce in report_data, and the GPUs through NVIDIA NRAS. Chat and photo replies are checked against these keys. Details on the public <a href="/proof">proof page</a>; verify independently with <code>npm run attest</code> or the <a href="https://docs.near.ai/cloud/verification/">NEAR AI verification docs</a>.</p>
+                <p className="muted" style={{ margin: 0 }}>Checked by this server with a fresh nonce: Intel’s signature on the TDX attestation report (collateral from Intel PCS), the key and nonce in report_data, and the GPUs through NVIDIA NRAS. Chat and photo replies are checked against these keys. Details on the public <a href="/proof">proof page</a>; verify independently with <code>npm run attest</code> or the <a href="https://docs.near.ai/cloud/verification/">NEAR AI verification docs</a>.</p>
               </div>
             </section>
           </div>

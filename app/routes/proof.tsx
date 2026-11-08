@@ -1,10 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { AttRow, Makers, SiteFooter, Wordmark, type Att } from '../ui';
+import { AttRow, Makers, ROLE, SiteFooter, Wordmark, type Att } from '../ui';
+
+const passed = (a: Att) => !('error' in a) && a.intel.verified && a.quoteBindsKey && a.gpu.verified;
 
 // Public: anyone can see which TEE each model runs in and what this server checked. No call data here.
 export const Route = createFileRoute('/proof')({
-  head: () => ({ meta: [{ title: 'Proof of private inference · Ringfence' }] }),
+  head: () => ({ meta: [{ title: 'Proof the AI runs privately · Ringfence' }] }),
   component: Proof,
 });
 
@@ -20,14 +22,19 @@ function Proof() {
     <>
     <main className="app canvas" style={{ maxWidth: 760, margin: '0 auto', padding: '24px 16px' }}>
       <div className="brandrow" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}><Wordmark /><Makers /></div>
-      <h1>Proof of private inference</h1>
-      <p>Every model Ringfence uses runs on NEAR AI Cloud inside an Intel TDX confidential VM with NVIDIA confidential-computing GPUs. For each model this server fetches the attestation report with a fresh random nonce and checks:</p>
+      <h1>Proof the AI runs privately</h1>
+      <p className="muted">Our app server and Cartesia (speech) aren’t attested.</p>
+      <div className="proof-sum">
+        <h2>{atts ? `${atts.filter(passed).length} of ${atts.length} models checked live, just now` : err || 'Checking the models live…'}</h2>
+        {atts && <p>{atts.map((a) => `${ROLE[a.model] ?? 'Model'}: ${passed(a) ? 'verified' : 'not verified'}`).join(' · ')}</p>}
+      </div>
+      <p>Every model Ringfence uses runs on NEAR AI Cloud inside an Intel TDX confidential VM with NVIDIA confidential-computing GPUs. For each model this server fetches the attestation report with a fresh random nonce and checks three things.</p>
       <ol>
-        <li><b>Intel TDX quote</b>: the ECDSA signature and certificate chain up to Intel’s root, with collateral from Intel PCS, and the platform’s TCB status (<a href="https://github.com/Phala-Network/dcap-qvl">dcap-qvl</a>).</li>
-        <li><b>Key + nonce bound</b>: the quote’s report_data is the model’s signing address followed by our nonce, so the key was made inside that TEE, just now.</li>
-        <li><b>NVIDIA GPUs</b>: the GPU evidence goes to NVIDIA’s attestation service (NRAS); its answer is a JWT we verify against NVIDIA’s published keys, with every GPU’s measurements and nonce matching.</li>
+        <li>Intel signed the TDX attestation report, and the platform is up to date (<a href="https://github.com/Phala-Network/dcap-qvl">dcap-qvl</a>, collateral from Intel PCS).</li>
+        <li>The model’s signing key and our nonce are inside that report, so the key was made in that TEE, just now.</li>
+        <li>NVIDIA’s attestation service (NRAS) vouches for every GPU, with the same nonce.</li>
       </ol>
-      <p>Each chat and photo reply is signed by the model’s key; the dashboard marks a reply <b>TEE-signed</b> only when that signature recovers to a key that passed checks 1 and 2.</p>
+      <p>Each chat and photo reply is signed by the model’s key. The dashboard marks a reply TEE-signed only when that signature recovers to a key that passed checks 1 and 2.</p>
       <div className="card att" style={{ marginTop: 16 }}>
         {atts ? atts.map((a) => <AttRow key={a.model} a={a} full />) : <p className="muted">{err || 'Verifying (Intel PCS and NVIDIA NRAS, a few seconds)…'}</p>}
       </div>

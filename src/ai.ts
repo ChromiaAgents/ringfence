@@ -243,9 +243,18 @@ function mockText(messages: Msg[], tools: unknown[] = []): string {
   const names = new Set((tools as any[]).map((t) => t.function?.name));
   if (lastMsg?.role !== 'tool' && names.has('quote_job')) return 'Happy to help. What size is the job, and can I take your name and postcode?';
   if (lastMsg?.role !== 'tool' && names.has('confirm_transfer')) return 'Who do you want to pay, and how much?';
+  // Launch desk: follow what the caller just said, not a global turn counter, so the coin's name and ticker are never skipped.
+  if (lastMsg?.role !== 'tool' && names.has('set_coin')) {
+    const said = messages.filter((m) => m.role === 'user').map(textOf).join(' ');
+    return /\babout\b/i.test(said) ? MOCK_REPLIES[1] : MOCK_REPLIES[0];
+  }
   if (lastMsg?.role !== 'tool') return MOCK_REPLIES[mockTurn++ % MOCK_REPLIES.length];
   let out: any = {};
   try { out = JSON.parse(lastMsg.content); } catch {}
+  const prev = messages.at(-2) as any;
+  const tool = prev?.tool_calls?.[0]?.function?.name;
+  if (tool === 'set_coin' && out.ok !== false && !out.error) return 'Got it. Shall I set it up? Say yes and I’ll put the launch on your screen to check and sign.';
+  if (out.ok === false && /^I still need/.test(out.reason ?? '')) return out.reason;
   if (out.ok === false || out.error) return `Sorry, I can't do that: ${out.reason ?? out.error}`;
   if (out.read_back) return `That's ${out.read_back}. What's your four digit PIN?`;
   if (out.demo && out.txHash) return 'Four digits heard. This was a browser demo: no wallet is bound to a browser call, so nothing was sent. On WhatsApp, your bound wallet contract would check the limits and send.';

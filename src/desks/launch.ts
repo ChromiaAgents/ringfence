@@ -161,7 +161,11 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
       log({ kind: 'logo', desk: 'launch', callId: call.id, detail: `${d.symbol}: ${g.model}, ${g.bytes} bytes (auto)` });
     }
     const missing = (jh ? (['name', 'symbol', 'icon'] as const) : (['name', 'symbol', 'icon', 'durationMinutes', 'softCapNear'] as const)).filter((k) => d[k] == null);
-    if (missing.length) return { ok: false, reason: `Still missing: ${missing.join(', ')}` };
+    if (missing.length) {
+      const say: Record<string, string> = { name: 'a name', symbol: 'a ticker', icon: 'a logo', durationMinutes: 'how long the auction runs', softCapNear: 'a soft cap in NEAR' };
+      const m = missing.map((k) => say[k]);
+      return { ok: false, reason: `I still need ${m.length > 1 ? `${m.slice(0, -1).join(', ')} and ${m.at(-1)}` : m[0]} for the coin.` };
+    }
     // Re-check everything at the last step: drafts can be edited between tools.
     const checks: Verdict[] = [checkName(d.name!, lp), await tickerFor(pad, d.symbol!, lp)];
     if (!jh) checks.push(checkAuction(d as any, lp), checkTeam(d.team ?? { pct: 0, cliffDays: 0, vestingDays: 0 }, lp));
