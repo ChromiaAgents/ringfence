@@ -123,13 +123,13 @@ t('no promised returns', () => {
   assert.ok(filterClaims("It's guaranteed to pump", lp).hit);
   assert.equal(filterClaims('Your soft cap is 100 NEAR.', lp).hit, undefined);
 });
-await t('no routing loop: bye ends, a vague answer gets examples once', async () => {
-  const { startCall, reply } = await import('../src/agent.ts');
-  const c = startCall('whatsapp', '15550000099').call;
-  assert.match(await reply(c.id, 'Yeah, I think...'), /send 1 NEAR to liho/);
-  assert.equal(c.routeMisses, 1);
-  const c2 = startCall('whatsapp', '15550000098').call;
-  assert.match(await reply(c2.id, 'And bye-bye.'), /Bye/);
+await t('no routing loop: every turn reaches the AI on a desk', async () => {
+  const { pickDesk } = await import('../src/agent.ts');
+  for (const x of ['Yeah, I think...', 'No.', 'And bye-bye.', 'hmm', 'hello?']) assert.equal(pickDesk(undefined, x), 'wallet', x);
+  assert.equal(pickDesk(undefined, 'launch a coin about my cat'), 'launch');
+  assert.equal(pickDesk('wallet', 'actually I want to launch a memecoin'), 'launch', 'switch mid-call');
+  assert.equal(pickDesk('launch', 'send 1 NEAR to liho.near'), 'wallet');
+  assert.equal(pickDesk('launch', 'call it Whisker'), 'launch');
 });
 t('router', () => {
   assert.equal(route('I want to launch a memecoin'), 'launch');
@@ -351,7 +351,7 @@ await t('wallet: "how much did I spend?" lists the last 5 transfers (dry run: no
   assert.ok(r.last.length >= 1 && r.last.length <= 5); assert.match(r.last[0], /bob dot testnet/);
 });
 await t('NEAR only: EVM sends refused while EVM_ENABLED is off; building quotes not offered', async () => {
-  const { startCall, reply, NOT_OFFERED } = await import('../src/agent.ts');
+  const { startCall } = await import('../src/agent.ts');
   const { walletDesk, ONLY_NEAR } = await import('../src/desks/wallet.ts');
   const { env } = await import('../src/config.ts');
   assert.equal(env.evmEnabled, false, 'EVM is off by default');
@@ -365,9 +365,8 @@ await t('NEAR only: EVM sends refused while EVM_ENABLED is off; building quotes 
   // the default wallet wasm has no request_signature: the server must never call it with EVM off
   const { sendEvm } = await import('../src/wallet.ts');
   await assert.rejects(sendEvm({ contract: 'x.testnet' } as any, 8453, '0x1111111111111111111111111111111111111111', 1n), /EVM_ENABLED is off/);
-  const r = startCall('web').call;
-  assert.equal(await reply(r.id, 'I need a quote for a new kitchen'), NOT_OFFERED);
-  assert.equal(r.desk, undefined, 'not routed to the business desk');
+  const { pickDesk } = await import('../src/agent.ts');
+  assert.equal(pickDesk(undefined, 'I need a quote for a new kitchen'), 'wallet', 'the AI on the wallet desk declines; never the business desk');
 });
 await t('wallet: Chain Signatures derivation matches the MPC contract (known vector)', async () => {
   const { deriveEthAddress, nearKeyToHex } = await import('../src/eth.ts');

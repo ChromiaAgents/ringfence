@@ -94,8 +94,9 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .dr .top { flex: 1; display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--gap); align-items: center; padding-top: 48px; }
 .dr .intro { grid-column: 1 / span 7; container-type: inline-size; display: flex; flex-direction: column; gap: 20px; }
 /* Two lines at every width: each sentence is one unbreakable line, sized to the column. */
-.dr .intro h1 { font-size: min(72px, 6.1cqi); line-height: 1.06; letter-spacing: -0.015em; margin-bottom: 8px; }
+.dr .intro h1 { font-size: min(68px, 4.8cqi); line-height: 1.06; letter-spacing: -0.015em; margin-bottom: 8px; }
 .dr .intro h1 span { display: block; white-space: nowrap; }
+@media (max-width: 760px) { .dr .intro h1 { font-size: clamp(30px, 8.6vw, 44px); } .dr .intro h1 span { white-space: normal; text-wrap: balance; } }
 .dr .intro .lead { font-size: var(--step-lead); line-height: 1.3; max-width: 34ch; }
 .dr .intro p:not(.lead) { color: var(--muted); max-width: 52ch; }
 .dr .intro .acts { margin-top: 8px; }

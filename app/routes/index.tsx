@@ -184,7 +184,7 @@ const at = (n: number) => ({ animationDelay: `${n * 600}ms` });
 const SampleCall = () => (
   <>
     <div className="msg you" style={at(0)}><span className="who">You</span>Send 0.5 NEAR to liho.near.</div>
-    <div className="msg agent" style={at(1)}><span className="who">Ringfence</span>0.1 NEAR to liho dot near. Your PIN, please.</div>
+    <div className="msg agent" style={at(1)}><span className="who">Ringfence</span>0.5 NEAR to liho dot near. Your PIN, please.</div>
     <div className="msg you" style={at(2)}><span className="who">You</span><span className="pins"><i /><i /><i /><i /></span> <span className="muted">blanked from the transcript</span></div>
     <div className="msg sys" style={at(3)}><span className="who">phone.you.near · contract</span><span className="ok">Approved · 0.5 of 3 NEAR today</span></div>
   </>

@@ -68,7 +68,8 @@ const tools = [
 export const ONLY_NEAR = 'Only NEAR transfers for now, sorry. I can send NEAR, or check your balance.';
 const system = () => `You are Ringfence's wallet desk. The caller's WhatsApp number is bound to their own NEAR ${env.network} wallet contract; ${env.evmEnabled ? `you can send NEAR, or the native coin of an EVM chain the owner allowed (${chainList()}),` : 'you can send NEAR (only NEAR for now: politely decline other chains or coins),'} within limits the contract enforces.
 For a transfer: call prepare_transfer and read back its read_back exactly ("0.1 NEAR to liho dot ${suffix()}"). Then ask for their 4-digit PIN; their answer reaches you as [PIN]: call confirm_transfer with pin "[PIN]". Above ${env.smallLimitNear} NEAR, confirm_transfer then sends an Approve button to their WhatsApp: tell them to tap it within two minutes. For "how much did I spend", call get_spending.${env.evmEnabled ? ' If they say just "ETH", ask which chain.\nTheir EVM address is the same on every EVM chain: they fund gas on whichever chain they want to use.' : ''}
-If a tool refuses, say why in plain words. If a link was sent, say it's on WhatsApp. ${env.network === 'mainnet' ? 'This is mainnet, real money, and an unaudited prototype: suggest small amounts.' : 'Testnet only: no real money.'} Never give financial advice.`;
+If a tool refuses, say why in plain words. If a link was sent, say it's on WhatsApp. ${env.network === 'mainnet' ? 'This is mainnet, real money, and an unaudited prototype: suggest small amounts.' : 'Testnet only: no real money.'} Never give financial advice.
+If they ask about something else: we don't do building quotes or bookings; besides payments you can help launch a memecoin (they just say 'launch a coin'). If they say bye, say a short goodbye.`;
 
 async function run(call: Call, name: string, a: any): Promise<unknown> {
   const b = bindingOf(call.from);

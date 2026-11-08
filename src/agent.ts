@@ -20,6 +20,15 @@ export const NOT_OFFERED = "Sorry, we don't do building quotes or bookings. I ca
 
 /** Picks a desk from what the caller says first. Plain keywords, so the choice is predictable and testable.
  *  Building work is recognised only to say it is not offered: callers are never routed to the business desk. */
+/** Which desk answers this turn. Never null: unclear speech goes to the wallet desk, where the AI replies. */
+export function pickDesk(current: Desk | undefined, text: string, isOwner = false): Desk {
+  const picked = isOwner && /\b(owner|my rules|settings)\b/i.test(text) ? 'owner' : route(text);
+  if (!current) return picked === 'launch' || picked === 'owner' ? picked : 'wallet';
+  if (current === 'wallet' && picked === 'launch') return 'launch';
+  if (current === 'launch' && /\b(send|transfer|pay)\w*\s+[\d.]+/i.test(text)) return 'wallet';
+  return current;
+}
+
 export function route(text: string): Desk | 'not_offered' | null {
   const t = text.toLowerCase();
   // An amount to send is always the wallet desk.
@@ -90,22 +99,10 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   // A PIN for a waiting transfer is taken here: the model, transcript and logs only ever see "[PIN]".
   if (call.desk === 'wallet' && takePin(call.id, text)) text = '[PIN]';
   call.turns.push({ at: Date.now(), who: 'caller', text });
-  if (!call.desk) {
-    const d = call.isOwner && /\b(owner|my rules|settings)\b/i.test(text) ? 'owner' : route(text);
-    // Never loop on the same question: say bye on bye, rephrase once with examples, then let the wallet desk's AI take over.
-    const say = (line: string) => { o.onSentence?.(line); call.turns.push({ at: Date.now(), who: 'agent', text: line, timing }); save(); return line; };
-    if (!d && /\b(bye|goodbye|that'?s all|nothing|never ?mind)\b/i.test(text)) return say('No problem. Bye, call anytime!');
-    const misses = (call.routeMisses = (call.routeMisses ?? 0) + (d ? 0 : 1));
-    if (!d && misses >= 2) enterDesk(call, 'wallet');
-    else if (!d || d === 'not_offered') {
-      const ask = d ? NOT_OFFERED : "No problem. I can send money for you, like 'send 1 NEAR to liho', or launch a memecoin. Which would you like?";
-      o.onSentence?.(ask);
-      call.turns.push({ at: Date.now(), who: 'agent', text: ask, timing });
-      save();
-      return ask;
-    }
-    if (d) enterDesk(call, d);
-  }
+  // The AI answers every turn: keywords only pick the desk. Anything unclear goes to the wallet desk (the main product),
+  // whose prompt can steer to a coin launch; a later 'launch a coin' switches desks mid-call.
+  const next = pickDesk(call.desk, text, !!call.isOwner);
+  if (next !== call.desk) enterDesk(call, next);
   const desk = DESKS[call.desk!];
   h[0] = { role: 'system', content: sys(call.desk!, call) }; // pick up config changes mid-call
   h.push({ role: 'user', content: text });

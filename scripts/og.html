@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- Source for public/og.png (1200x630 link preview). Rebuild: node scripts/og.mjs -->
+<meta charset="utf-8">
+<style>
+@font-face { font-family: Battlefin; src: url(../public/fonts/battlefin-black.woff2); font-weight: 400; }
+@font-face { font-family: Geist; src: url(../public/fonts/geist-latin.woff2); font-weight: 100 900; }
+* { margin: 0; box-sizing: border-box; }
+body { width: 1200px; height: 630px; background: #0c0a08; color: #f4f3f1; font-family: Geist, sans-serif; padding: 64px 72px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+.makers { display: flex; align-items: center; gap: 18px; color: #6f6a62; font-size: 22px; }
+.makers img { height: 30px; }
+.makers .near { height: 26px; }
+.brand { font-family: Battlefin; font-size: 34px; margin-right: 10px; color: #f4f3f1; }
+h1 { font-family: Battlefin; font-weight: 400; font-size: 66px; line-height: 1.04; letter-spacing: -0.01em; }
+h1 .muted { color: #b8b2a8; }
+p { font-size: 28px; color: #b8b2a8; max-width: 900px; line-height: 1.35; margin-top: 18px; }
+.fence { display: flex; align-items: center; gap: 22px; font-size: 24px; }
+.track { width: 420px; height: 16px; border-radius: 8px; background: #2c2722; overflow: hidden; }
+.fill { width: 70px; height: 100%; background: #00ec97; border-radius: 8px; }
+.fence b { color: #00ec97; font-weight: 600; }
+.url { margin-left: auto; color: #b8b2a8; }
+</style>
+<div class="makers"><span class="brand">Ringfence</span><img src="../public/brand/chromia-logo-dark.svg" alt=""><span>×</span><img src="../public/brand/evalengine-wordmark-light.svg" alt=""><span>×</span><img class="near" src="../public/brand/near-mark-light.svg" alt=""><span style="color:#f4f3f1;font-weight:600">NEAR</span></div>
+<div>
+  <h1>Mum can make a phone call.<br><span class="muted">She doesn’t know how to use MetaMask.</span></h1>
+  <p>Ringfence lets her pay by phone call. A NEAR contract the family owns sets what the AI may spend.</p>
+</div>
+<div class="fence"><div class="track"><div class="fill"></div></div><span><b>0.5</b> of 3 NEAR today</span><span class="url">ringfence.evalengine.ai</span></div>
