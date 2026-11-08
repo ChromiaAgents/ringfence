@@ -167,4 +167,85 @@ t('streamed sentences + per-sentence filter', () => {
   assert.match(out[2], /can't make any promises/);
   assert.ok(!out.some((x) => /100x|Ignore|think|plan/.test(x)));
 });
+
+// ---- phone wallet ----
+await t('wallet: PIN normalization (Whisper digits as words or numbers)', async () => {
+  const { normalizePin } = await import('../src/wallet.ts');
+  for (const s of ['1234', '12 34', 'one two three four', '1, 2, 3, 4', 'One, two, three, four.', 'one 2 three 4']) assert.equal(normalizePin(s), '1234', s);
+  assert.equal(normalizePin('oh nine eight seven'), '0987');
+  for (const s of ['123', '12345', 'send it', '']) assert.equal(normalizePin(s), null, s);
+});
+await t('wallet: PIN lockout after 3 wrong tries, 15 minutes', async () => {
+  const { checkPin, hashPin } = await import('../src/wallet.ts');
+  const b: any = { phone: '1', owner: 'a.testnet', contract: 'phone.a.testnet', ...hashPin('4321'), fails: 0, createdAt: 0 };
+  assert.equal(checkPin(b, 'four three two one', 0).ok, true);
+  assert.match((checkPin(b, '1111', 0) as any).reason, /2 tries left/);
+  checkPin(b, '1111', 0);
+  assert.match((checkPin(b, '1111', 0) as any).reason, /locked for 15 minutes/);
+  assert.equal(checkPin(b, '4321', 60_000).ok, false, 'right PIN refused while locked');
+  assert.equal(checkPin(b, '4321', 15 * 60_000 + 1).ok, true);
+  assert.notEqual(b.pinHash, '4321');
+});
+await t('wallet: routing and intent → tool args', async () => {
+  const { mockStep } = await import('../src/ai.ts');
+  const { walletDesk } = await import('../src/desks/wallet.ts');
+  assert.equal(route('send 1 NEAR to bob.testnet'), 'wallet');
+  assert.equal(route("what's my wallet balance"), 'wallet');
+  assert.equal(route('can you send me a quote for a kitchen'), 'business');
+  const step = (u: string) => mockStep([{ role: 'user', content: u }], walletDesk.tools);
+  assert.deepEqual(step('send 1 NEAR to bob.testnet'), { name: 'prepare_transfer', args: { to: 'bob.testnet', amount: '1', asset: 'near' } });
+  assert.deepEqual(step('send 5 near to bob dot testnet'), { name: 'prepare_transfer', args: { to: 'bob dot testnet', amount: '5', asset: 'near' } });
+  assert.deepEqual(step('send 0.001 ETH on Sepolia to 0x1111111111111111111111111111111111111111'), { name: 'prepare_transfer', args: { to: '0x1111111111111111111111111111111111111111', amount: '0.001', asset: 'eth:sepolia' } });
+  assert.deepEqual(step('one two three four'), { name: 'confirm_transfer', args: { pin: 'one two three four' } });
+  const { parseRecipient, readBack } = await import('../src/desks/wallet.ts');
+  assert.equal(parseRecipient('Bob dot testnet', 'near'), 'bob.testnet');
+  assert.equal(parseRecipient('bob.near', 'near'), null, 'testnet only');
+  assert.equal(readBack({ to: 'bob.testnet', amount: '5', asset: 'near' }), '5 NEAR to bob dot testnet');
+});
+await t('wallet: refusals (unbound number, bad input, nothing to confirm) and the labelled dry run', async () => {
+  const { startCall } = await import('../src/agent.ts');
+  const { walletDesk } = await import('../src/desks/wallet.ts');
+  const { db } = await import('../src/store.ts');
+  const { hashPin } = await import('../src/wallet.ts');
+  const unbound = startCall('whatsapp', '15550000009', 'wallet').call;
+  const r0: any = await walletDesk.run(unbound, 'prepare_transfer', { to: 'bob.testnet', amount: '1', asset: 'near' });
+  assert.equal(r0.ok, false); assert.match(r0.reason, /not bound/);
+  assert.match(walletDesk.link!(unbound)!.url, /\/wallet\/bind$/);
+  db.wallets.push({ phone: '15550000010', owner: 'alice.testnet', contract: 'phone.alice.testnet', ...hashPin('1234'), fails: 0, createdAt: Date.now() });
+  const c = startCall('whatsapp', '+1 555 000 0010', 'wallet').call;
+  assert.equal(((await walletDesk.run(c, 'confirm_transfer', { pin: '1234' })) as any).ok, false, 'nothing prepared');
+  assert.equal(((await walletDesk.run(c, 'prepare_transfer', { to: 'bob.near', amount: '1', asset: 'near' })) as any).ok, false);
+  assert.equal(((await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '-1', asset: 'near' })) as any).ok, false);
+  assert.equal(((await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '1', asset: 'doge' })) as any).ok, false);
+  const p: any = await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '1', asset: 'near' });
+  assert.equal(p.read_back, '1 NEAR to bob dot testnet');
+  c.turns.push({ at: Date.now(), who: 'caller', text: '9 9 9 9' });
+  assert.match(((await walletDesk.run(c, 'confirm_transfer', { pin: '9 9 9 9' })) as any).reason, /didn't match/);
+  assert.equal(c.turns.at(-1)!.text, '[PIN]', 'PIN blanked from the transcript');
+  const ok: any = await walletDesk.run(c, 'confirm_transfer', { pin: 'one two three four' });
+  assert.equal(ok.ok, true); assert.equal(ok.dryRun, true); assert.match(ok.txHash, /^dry-run-/);
+  assert.match(db.ledger.at(-1)!.detail, /DRY RUN/);
+  assert.match((await import('../src/memory.ts')).recap(startCall('whatsapp', '15550000010').call), /phone\.alice\.testnet/);
+});
+await t('wallet: Chain Signatures derivation matches the MPC contract (known vector)', async () => {
+  const { deriveEthAddress, nearKeyToHex } = await import('../src/eth.ts');
+  // Read once from v1.signer-prod.testnet: public_key, and derived_public_key({path:"ethereum-1", predecessor:"phone.alice.testnet", domain_id:0}).
+  const root = 'secp256k1:4NfTiv3UsGahebgTaHyD9vF8KYKMBnfd6kh94mK6xv8fGBiJB8TBtFMP5WWXz6B89Ac1fbpzPwAvoyQebemHFwx3';
+  const derived = 'secp256k1:5RSMQVy33ZxrVHwST5t9A8kcV6R5QtfzqiA4aV8Vb52kn7FMULPYmDkM13MmeWvUw1wXnd6xmnogNN1naoubfZqs';
+  const d = deriveEthAddress(root, 'phone.alice.testnet');
+  assert.equal(d.publicKey, nearKeyToHex(derived));
+  assert.equal(d.address, '0x04eDD55EA4BED4a00FDe3242ea0586416A230f34');
+});
+await t('wallet: EIP-1559 tx building + MPC signature assembly', async () => {
+  const { buildTransfer, attachSignature } = await import('../src/eth.ts');
+  const { SigningKey, Transaction, keccak256, parseEther } = await import('ethers');
+  const tx = buildTransfer({ to: '0x' + '11'.repeat(20), valueWei: parseEther('0.001'), nonce: 7, maxFeePerGas: 2_000_000_000n, maxPriorityFeePerGas: 1_000_000_000n });
+  // Same bytes the Rust contract's parse_eip1559 test reads (contracts/phone-wallet/src/lib.rs, TX).
+  assert.equal(tx.unsignedSerialized, '0x02f183aa36a707843b9aca00847735940082520894111111111111111111111111111111111111111187038d7ea4c6800080c0');
+  const key = new SigningKey('0x' + '42'.repeat(32));
+  const s = key.sign(keccak256(tx.unsignedSerialized));
+  const mpc = { big_r: { affine_point: (s.yParity ? '03' : '02') + s.r.slice(2) }, s: { scalar: s.s.slice(2) }, recovery_id: s.yParity };
+  const signed = Transaction.from(attachSignature(tx, mpc).serialized);
+  assert.equal(signed.from, (await import('ethers')).computeAddress(key.publicKey));
+});
 process.once("beforeExit", () => console.log(`${n} passed`));

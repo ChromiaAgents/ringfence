@@ -3,7 +3,8 @@
 //   npm run demo:check   (builds first; prints PASS/FAIL per step; exit 1 on any failure; stops the server)
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { scryptSync } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import WebSocket from 'ws';
@@ -16,6 +17,8 @@ const env: NodeJS.ProcessEnv = {
   PATH: process.env.PATH, HOME: process.env.HOME, NODE_ENV: 'production', MOCK_LLM: '1', TTS: 'off', PORT: String(PORT),
   MOCK_TTFT_MS: '20', MOCK_TOKEN_MS: '1', NETWORK: 'testnet', DB_FILE: join(mkdtempSync(join(tmpdir(), 'callhand-demo-')), 'db.json'),
 };
+// A phone already bound to a wallet (PIN 1234, salted scrypt like src/wallet.ts), so the wallet desk can be walked.
+writeFileSync(env.DB_FILE!, JSON.stringify({ wallets: [{ phone: '15550001234', owner: 'alice.testnet', contract: 'phone.alice.testnet', salt: 'demo', pinHash: scryptSync('1234', 'demo', 32).toString('hex'), fails: 0, createdAt: 0 }] }));
 const server = spawn(process.execPath, ['--import', 'tsx', 'server.ts'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
 let log = '';
 server.stdout.on('data', (d) => (log += d));
@@ -120,6 +123,16 @@ try {
     must(kinds.filter((k: string) => k === 'refused').length >= 2, 'expected at least 2 refusals');
     return `${s.ledger.length} entries`;
   });
+  await step('wallet desk: send 1 NEAR to bob.testnet, read back, PIN, dry run (no agent key)', async () => {
+    const r = await call('wallet&from=15550001234', ['send 1 NEAR to bob.testnet', 'one two three four']);
+    must(r.said.some((s) => /1 NEAR to bob dot testnet/.test(s)), 'no read-back: ' + r.said.join(' | '));
+    must(r.said.some((s) => /dry run/i.test(s)), 'no dry-run reply: ' + r.said.join(' | '));
+    const s = JSON.parse((await get('/api/state')).text);
+    must(s.ledger.some((l: any) => l.kind === 'wallet' && /DRY RUN/.test(l.detail)), 'no DRY RUN ledger entry');
+    must(!JSON.stringify(s).includes('one two three four'), 'PIN left in the transcript');
+    return 'stopped before signing: DRY RUN';
+  });
+  await step('/wallet/bind page renders', async () => { const r = await get('/wallet/bind'); must(r.status === 200 && /phone number is a wallet/i.test(r.text), `status ${r.status}`); });
   await step('dashboard and /proof pages render', async () => {
     for (const p of ['/dashboard', '/proof']) { const r = await get(p); must(r.status === 200, `${p} answered ${r.status}`); }
   });

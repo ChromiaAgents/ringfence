@@ -26,7 +26,10 @@ export function resume(call: Call): { ticker?: string; name?: string } | null {
 /** A few lines for the system prompt; empty for a first-time caller. */
 export function recap(call: Call): string {
   const prev = earlier(call).slice(-3);
-  if (!prev.length) return '';
+  // The bound wallet (never balances: those are read live by the wallet desk).
+  const w = call.from ? db.wallets.find((x) => x.phone === call.from!.replace(/\D/g, '')) : undefined;
+  const wallet = w ? `\nThis number is bound to the NEAR testnet wallet ${w.contract} (owner ${w.owner}).` : '';
+  if (!prev.length) return wallet;
   const lines = prev.map((c) => {
     const bits = [`${day(c.startedAt)}, ${c.desk ?? 'no'} desk`];
     if (c.caller?.name) bits.push(`name ${c.caller.name}`);
@@ -42,5 +45,5 @@ export function recap(call: Call): string {
     if (said) bits.push(`they last said ${said}`);
     return `- ${bits.join('; ')}`;
   });
-  return `\nThis caller has called before (same number). Earlier calls:\n${lines.join('\n')}\nGreet them like you remember them, use their name if you know it, and offer to pick up where they left off. Don't recite this list.`;
+  return `\nThis caller has called before (same number). Earlier calls:\n${lines.join('\n')}\nGreet them like you remember them, use their name if you know it, and offer to pick up where they left off. Don't recite this list.${wallet}`;
 }

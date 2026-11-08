@@ -21,9 +21,13 @@ import { Route as ApiTickerRouteImport } from './routes/api/ticker'
 import { Route as ApiTokensRouteImport } from './routes/api/tokens'
 import { Route as LaunchIdRouteImport } from './routes/launch.$id'
 import { Route as PayJobIdRouteImport } from './routes/pay.$jobId'
+import { Route as WalletBindRouteImport } from './routes/wallet.bind'
+import { Route as WalletSendRouteImport } from './routes/wallet.send'
 import { Route as ApiFundIdRouteImport } from './routes/api/fund/$id'
 import { Route as ApiLaunchIdRouteImport } from './routes/api/launch/$id'
 import { Route as ApiPayJobIdRouteImport } from './routes/api/pay/$jobId'
+import { Route as ApiWalletBindRouteImport } from './routes/api/wallet/bind'
+import { Route as ApiWalletCodeRouteImport } from './routes/api/wallet/code'
 import { Route as ApiLaunchIdSignedRouteImport } from './routes/api/launch/$id.signed'
 import { Route as ApiLaunchIdTxRouteImport } from './routes/api/launch/$id.tx'
 import { Route as ApiPayJobIdQuoteRouteImport } from './routes/api/pay/$jobId.quote'
@@ -89,6 +93,16 @@ const PayJobIdRoute = PayJobIdRouteImport.update({
   path: '/pay/$jobId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WalletBindRoute = WalletBindRouteImport.update({
+  id: '/wallet/bind',
+  path: '/wallet/bind',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WalletSendRoute = WalletSendRouteImport.update({
+  id: '/wallet/send',
+  path: '/wallet/send',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiFundIdRoute = ApiFundIdRouteImport.update({
   id: '/api/fund/$id',
   path: '/api/fund/$id',
@@ -102,6 +116,16 @@ const ApiLaunchIdRoute = ApiLaunchIdRouteImport.update({
 const ApiPayJobIdRoute = ApiPayJobIdRouteImport.update({
   id: '/api/pay/$jobId',
   path: '/api/pay/$jobId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWalletBindRoute = ApiWalletBindRouteImport.update({
+  id: '/api/wallet/bind',
+  path: '/api/wallet/bind',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWalletCodeRoute = ApiWalletCodeRouteImport.update({
+  id: '/api/wallet/code',
+  path: '/api/wallet/code',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiLaunchIdSignedRoute = ApiLaunchIdSignedRouteImport.update({
@@ -138,9 +162,13 @@ export interface FileRoutesByFullPath {
   '/api/tokens': typeof ApiTokensRoute
   '/launch/$id': typeof LaunchIdRoute
   '/pay/$jobId': typeof PayJobIdRoute
+  '/wallet/bind': typeof WalletBindRoute
+  '/wallet/send': typeof WalletSendRoute
   '/api/fund/$id': typeof ApiFundIdRoute
   '/api/launch/$id': typeof ApiLaunchIdRouteWithChildren
   '/api/pay/$jobId': typeof ApiPayJobIdRouteWithChildren
+  '/api/wallet/bind': typeof ApiWalletBindRoute
+  '/api/wallet/code': typeof ApiWalletCodeRoute
   '/api/launch/$id/signed': typeof ApiLaunchIdSignedRoute
   '/api/launch/$id/tx': typeof ApiLaunchIdTxRoute
   '/api/pay/$jobId/quote': typeof ApiPayJobIdQuoteRoute
@@ -159,9 +187,13 @@ export interface FileRoutesByTo {
   '/api/tokens': typeof ApiTokensRoute
   '/launch/$id': typeof LaunchIdRoute
   '/pay/$jobId': typeof PayJobIdRoute
+  '/wallet/bind': typeof WalletBindRoute
+  '/wallet/send': typeof WalletSendRoute
   '/api/fund/$id': typeof ApiFundIdRoute
   '/api/launch/$id': typeof ApiLaunchIdRouteWithChildren
   '/api/pay/$jobId': typeof ApiPayJobIdRouteWithChildren
+  '/api/wallet/bind': typeof ApiWalletBindRoute
+  '/api/wallet/code': typeof ApiWalletCodeRoute
   '/api/launch/$id/signed': typeof ApiLaunchIdSignedRoute
   '/api/launch/$id/tx': typeof ApiLaunchIdTxRoute
   '/api/pay/$jobId/quote': typeof ApiPayJobIdQuoteRoute
@@ -181,9 +213,13 @@ export interface FileRoutesById {
   '/api/tokens': typeof ApiTokensRoute
   '/launch/$id': typeof LaunchIdRoute
   '/pay/$jobId': typeof PayJobIdRoute
+  '/wallet/bind': typeof WalletBindRoute
+  '/wallet/send': typeof WalletSendRoute
   '/api/fund/$id': typeof ApiFundIdRoute
   '/api/launch/$id': typeof ApiLaunchIdRouteWithChildren
   '/api/pay/$jobId': typeof ApiPayJobIdRouteWithChildren
+  '/api/wallet/bind': typeof ApiWalletBindRoute
+  '/api/wallet/code': typeof ApiWalletCodeRoute
   '/api/launch/$id/signed': typeof ApiLaunchIdSignedRoute
   '/api/launch/$id/tx': typeof ApiLaunchIdTxRoute
   '/api/pay/$jobId/quote': typeof ApiPayJobIdQuoteRoute
@@ -204,9 +240,13 @@ export interface FileRouteTypes {
     | '/api/tokens'
     | '/launch/$id'
     | '/pay/$jobId'
+    | '/wallet/bind'
+    | '/wallet/send'
     | '/api/fund/$id'
     | '/api/launch/$id'
     | '/api/pay/$jobId'
+    | '/api/wallet/bind'
+    | '/api/wallet/code'
     | '/api/launch/$id/signed'
     | '/api/launch/$id/tx'
     | '/api/pay/$jobId/quote'
@@ -225,9 +265,13 @@ export interface FileRouteTypes {
     | '/api/tokens'
     | '/launch/$id'
     | '/pay/$jobId'
+    | '/wallet/bind'
+    | '/wallet/send'
     | '/api/fund/$id'
     | '/api/launch/$id'
     | '/api/pay/$jobId'
+    | '/api/wallet/bind'
+    | '/api/wallet/code'
     | '/api/launch/$id/signed'
     | '/api/launch/$id/tx'
     | '/api/pay/$jobId/quote'
@@ -246,9 +290,13 @@ export interface FileRouteTypes {
     | '/api/tokens'
     | '/launch/$id'
     | '/pay/$jobId'
+    | '/wallet/bind'
+    | '/wallet/send'
     | '/api/fund/$id'
     | '/api/launch/$id'
     | '/api/pay/$jobId'
+    | '/api/wallet/bind'
+    | '/api/wallet/code'
     | '/api/launch/$id/signed'
     | '/api/launch/$id/tx'
     | '/api/pay/$jobId/quote'
@@ -268,9 +316,13 @@ export interface RootRouteChildren {
   ApiTokensRoute: typeof ApiTokensRoute
   LaunchIdRoute: typeof LaunchIdRoute
   PayJobIdRoute: typeof PayJobIdRoute
+  WalletBindRoute: typeof WalletBindRoute
+  WalletSendRoute: typeof WalletSendRoute
   ApiFundIdRoute: typeof ApiFundIdRoute
   ApiLaunchIdRoute: typeof ApiLaunchIdRouteWithChildren
   ApiPayJobIdRoute: typeof ApiPayJobIdRouteWithChildren
+  ApiWalletBindRoute: typeof ApiWalletBindRoute
+  ApiWalletCodeRoute: typeof ApiWalletCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -359,6 +411,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PayJobIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/wallet/bind': {
+      id: '/wallet/bind'
+      path: '/wallet/bind'
+      fullPath: '/wallet/bind'
+      preLoaderRoute: typeof WalletBindRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wallet/send': {
+      id: '/wallet/send'
+      path: '/wallet/send'
+      fullPath: '/wallet/send'
+      preLoaderRoute: typeof WalletSendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/fund/$id': {
       id: '/api/fund/$id'
       path: '/api/fund/$id'
@@ -378,6 +444,20 @@ declare module '@tanstack/react-router' {
       path: '/api/pay/$jobId'
       fullPath: '/api/pay/$jobId'
       preLoaderRoute: typeof ApiPayJobIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/wallet/bind': {
+      id: '/api/wallet/bind'
+      path: '/api/wallet/bind'
+      fullPath: '/api/wallet/bind'
+      preLoaderRoute: typeof ApiWalletBindRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/wallet/code': {
+      id: '/api/wallet/code'
+      path: '/api/wallet/code'
+      fullPath: '/api/wallet/code'
+      preLoaderRoute: typeof ApiWalletCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/launch/$id/signed': {
@@ -452,9 +532,13 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTokensRoute: ApiTokensRoute,
   LaunchIdRoute: LaunchIdRoute,
   PayJobIdRoute: PayJobIdRoute,
+  WalletBindRoute: WalletBindRoute,
+  WalletSendRoute: WalletSendRoute,
   ApiFundIdRoute: ApiFundIdRoute,
   ApiLaunchIdRoute: ApiLaunchIdRouteWithChildren,
   ApiPayJobIdRoute: ApiPayJobIdRouteWithChildren,
+  ApiWalletBindRoute: ApiWalletBindRoute,
+  ApiWalletCodeRoute: ApiWalletCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

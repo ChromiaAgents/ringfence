@@ -10,14 +10,16 @@ import type { DeskDef } from './desks/types.ts';
 import { launchDesk } from './desks/launch.ts';
 import { businessDesk } from './desks/business.ts';
 import { ownerDesk } from './desks/owner.ts';
+import { walletDesk } from './desks/wallet.ts';
 
-export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, business: businessDesk, owner: ownerDesk };
+export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, business: businessDesk, owner: ownerDesk, wallet: walletDesk };
 
 export const ROUTER_GREETING = 'Hi, this is callhand. Are you calling to launch a memecoin, or about building work?';
 
 /** Picks a desk from what the caller says first. Plain keywords, so the choice is predictable and testable. */
 export function route(text: string): Desk | null {
   const t = text.toLowerCase();
+  if (/\b(send|transfer|pay)\s+[\d.]+|\b(balance|wallet)\b/.test(t)) return 'wallet';
   if (/\b(meme ?coins?|coins?|tokens?|tickers?|launch\w*|meme\.?cooking|memes?|pump|degen|crypto)\b/.test(t)) return 'launch';
   if (/\b(kitchen|bathroom|extension|repair\w*|build\w*|roof\w*|plumb\w*|leak\w*|tiles?|quote|renovat\w*|loft|wall|floor\w*|window|door|paint\w*|job|house|flat)\b/.test(t)) return 'business';
   return null;
@@ -112,7 +114,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
         try { args = JSON.parse(tc.function.arguments || '{}'); } catch {}
         if (SLOW_TOOLS.has(tc.function.name)) o.onSlowTool?.(tc.function.name);
         const out = await desk.run(call, tc.function.name, args).catch((e) => ({ ok: false, reason: String(e.message) }));
-        call.turns.push({ at: Date.now(), who: 'tool', text: `${tc.function.name}(${JSON.stringify(args)}) → ${JSON.stringify(out)}`, proof });
+        call.turns.push({ at: Date.now(), who: 'tool', text: `${tc.function.name}(${tc.function.name === 'confirm_transfer' ? '{"pin":"****"}' : JSON.stringify(args)}) → ${JSON.stringify(out)}`, proof });
         h.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(out) });
       }
       continue;

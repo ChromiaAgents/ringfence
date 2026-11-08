@@ -1,0 +1,31 @@
+// Wallet selector for the phone-wallet pages (testnet). Browser only: modules load on demand, as on the launch page.
+import { useEffect, useRef, useState } from 'react';
+
+export function useNearWallet(description: string) {
+  const [account, setAccount] = useState<string | null>(null);
+  const [err, setErr] = useState('');
+  const ws = useRef<{ selector?: any; modal?: any }>({});
+  useEffect(() => {
+    let off: any;
+    (async () => {
+      const [{ setupWalletSelector }, { setupModal }, { setupMeteorWallet }, { setupHotWallet }, { setupMyNearWallet }, { setupIntearWallet }] = await Promise.all([
+        import('@near-wallet-selector/core'), import('@near-wallet-selector/modal-ui'), import('@near-wallet-selector/meteor-wallet'),
+        import('@near-wallet-selector/hot-wallet'), import('@near-wallet-selector/my-near-wallet'), import('@near-wallet-selector/intear-wallet'),
+      ]);
+      const selector = await setupWalletSelector({ network: 'testnet', modules: [setupMeteorWallet(), setupHotWallet(), setupIntearWallet(), setupMyNearWallet()] });
+      ws.current = { selector, modal: setupModal(selector, { description }) };
+      const sync = (s: any) => setAccount(s.accounts.find((a: any) => a.active)?.accountId ?? null);
+      sync(selector.store.getState());
+      off = selector.store.observable.subscribe(sync);
+    })().catch((e) => setErr(`Wallet selector failed to load: ${e.message}`));
+    return () => off?.unsubscribe?.();
+  }, []);
+  /** Signs and sends one transaction from the connected account; returns its hash. */
+  async function send(receiverId: string, actions: (ac: any) => unknown[]) {
+    const { actionCreators } = await import('@near-wallet-selector/core');
+    const wallet = await ws.current.selector.wallet();
+    const out = await wallet.signAndSendTransaction({ signerId: account, receiverId, actions: actions(actionCreators) });
+    return (out?.transaction?.hash ?? out?.transaction_outcome?.id) as string | undefined;
+  }
+  return { account, err, setErr, connect: () => ws.current.modal?.show(), send };
+}

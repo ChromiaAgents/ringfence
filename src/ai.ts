@@ -219,6 +219,12 @@ export function mockStep(messages: Msg[], tools: unknown[]): { name: string; arg
     if (team) return { name: 'set_team_allocation', args: { pct: Number(team[1] ?? team[2]), cliff_days: 30, vesting_days: 90 } };
     if (/^\s*(yes|yeah|yep|do it|go ahead|set it up)\b/i.test(u)) return { name: 'prepare_launch', args: { caller_confirmed: true } };
   }
+  if (names.has('confirm_transfer')) {
+    const send = u.match(/(?:send|pay|transfer)\s+([\d.]+)\s*(near|eth)?\b.*?\bto\s+(\S+(?:\s+dot\s+\S+)*)/i);
+    if (send) return { name: 'prepare_transfer', args: { to: send[3].replace(/[.,!?]$/, ''), amount: send[1], asset: /eth/i.test(send[2] ?? '') || /sepolia/i.test(u) ? 'eth:sepolia' : 'near' } };
+    if (/^[\s\d,.-]+$|^(\s*(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b[\s,.]*)+$/i.test(u)) return { name: 'confirm_transfer', args: { pin: u } };
+    if (/\bbalance\b/i.test(u)) return { name: 'get_balance', args: {} };
+  }
   if (names.has('quote_job')) {
     const said = messages.filter((m) => m.role === 'user').map(textOf).join(' ').toLowerCase();
     const service = [...SERVICES].reverse().find((x) => said.includes(x)) ?? 'repair';
@@ -238,6 +244,9 @@ function mockText(messages: Msg[]): string {
   let out: any = {};
   try { out = JSON.parse(lastMsg.content); } catch {}
   if (out.ok === false || out.error) return `Sorry, I can't do that: ${out.reason ?? out.error}`;
+  if (out.read_back) return `That's ${out.read_back}. What's your four digit PIN?`;
+  if (out.dryRun && out.txHash) return 'PIN accepted. This was a dry run: the server has no agent key, so nothing was sent.';
+  if (out.txHash) return 'Sent. The transaction link is on WhatsApp.';
   if (out.linkSent) return 'Done. Open the link on your screen, check the details, and sign with your own NEAR wallet.';
   if (out.depositLinkSent) return `You're booked. The deposit is ${out.depositUsd} dollars; the link is on your screen.`;
   if (out.priceUsd != null) return `That comes to ${out.priceUsd} dollars, with a ${out.depositUsd} dollar deposit. Shall I book it?`;

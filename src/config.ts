@@ -73,4 +73,8 @@ export const env = {
   waAppSecret: process.env.WHATSAPP_APP_SECRET ?? '',
   ownerWhatsapp: (process.env.OWNER_WHATSAPP ?? '').replace(/\D/g, ''),
   dashboardPassword: process.env.DASHBOARD_PASSWORD ?? '',
+  // Phone wallet (testnet): the agent account allowed to spend within each user's contract limits.
+  agentAccountId: process.env.AGENT_ACCOUNT_ID ?? '',
+  agentKey: process.env.AGENT_PRIVATE_KEY ?? '',
+  mpcSigner: process.env.MPC_SIGNER ?? 'v1.signer-prod.testnet',
 };

@@ -35,6 +35,7 @@
     "@tanstack/react-start": "^1.169.4",
     "ethers": "^6.17.0",
     "kokoro-js": "^1.2.1",
+    "near-api-js": "^7.4.0",
     "opusscript": "^0.1.1",
     "qrcode": "^1.5.4",
     "react": "^19.3.1",
