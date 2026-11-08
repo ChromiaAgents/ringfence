@@ -197,7 +197,7 @@ export async function chat(messages: Msg[], tools: unknown[], model = env.llmMod
 const MOCK_REPLIES = [
   'Sure, I can help with that. What is the coin about, in a few words?',
   'Love it. What would you like to call it, and what ticker should it have?',
-  'Got it. How long should the auction run, and what soft cap in NEAR?',
+  'Got it. Any links to add, like an X account, Telegram or a website?',
 ];
 let mockTurn = 0, mockSeq = 0;
 const textOf = (m: Msg) => (typeof m.content === 'string' ? m.content : Array.isArray(m.content) ? m.content.map((c: any) => c.text ?? '').join(' ') : '') ?? '';

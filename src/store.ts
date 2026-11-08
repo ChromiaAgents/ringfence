@@ -13,8 +13,11 @@ export type Call = {
   id: string; channel: 'web' | 'whatsapp'; desk?: Desk; from?: string; startedAt: number; endedAt?: number; turns: Turn[];
   caller?: Record<string, string>; launchId?: string; routeMisses?: number;
 };
+export const isCurrentLaunch = (l: { launchpad?: string }) => l.launchpad === 'justhoot';
+
 export type Launch = {
   id: string; callId: string; createdAt: number; network: 'mainnet' | 'testnet'; params: LaunchParams;
+  launchpad?: 'justhoot'; // missing on rows from the retired launchpad: kept in the DB, never shown or signed
   logoModel?: string; status: 'prepared' | 'signed' | 'live' | 'failed';
   signer?: string; txHash?: string; tokenId?: string; reason?: string;
 };

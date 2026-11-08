@@ -1,6 +1,6 @@
 // Server-only helpers for the /api routes. They call the same modules the voice server uses.
 import { env, launchpad } from '../src/config.ts';
-import { db, type Launch } from '../src/store.ts';
+import { db, isCurrentLaunch, type Launch } from '../src/store.ts';
 import { net } from '../src/near.ts';
 import { JUSTHOOT } from '../src/justhoot.ts';
 
@@ -16,7 +16,7 @@ export const publicLaunch = (l: Launch) => ({
   txUrl: l.txHash ? net(l.network).explorer(l.txHash) : null,
 });
 export type PublicLaunch = ReturnType<typeof publicLaunch>;
-export const findLaunch = (id: string) => db.launches.find((l) => l.id === id);
+export const findLaunch = (id: string) => db.launches.find((l) => l.id === id && isCurrentLaunch(l));
 
 // Everything the dashboard shows. Icons are dropped from the list (the launch page has them).
 export async function attestationAll(fresh = false) {
@@ -33,7 +33,7 @@ export async function snapshot(withAttestation = true) {
   return JSON.parse(JSON.stringify({
     launchpad: launchpad(), network: env.network, attestation, model: env.llmModel,
     calls: db.calls.slice(-30).reverse(),
-    launches: db.launches.slice(-30).reverse().map((l) => ({ ...l, params: { ...l.params, icon: undefined } })),
+    launches: db.launches.filter(isCurrentLaunch).slice(-30).reverse().map((l) => ({ ...l, params: { ...l.params, icon: undefined } })),
     ledger: db.ledger.slice(-150).reverse(),
   }));
 }

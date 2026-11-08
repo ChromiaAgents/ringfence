@@ -2,7 +2,7 @@
 // and an unfinished coin draft carries over. Built from the local db; it only leaves this machine
 // inside the system prompt sent to the TEE model.
 // ponytail: drafts live in memory, so carry-over survives hang-up but not a server restart.
-import { db, type Call } from './store.ts';
+import { db, isCurrentLaunch, type Call } from './store.ts';
 import { env } from './config.ts';
 import { draftOf, carryDraft } from './desks/launch.ts';
 
@@ -34,7 +34,7 @@ export function recap(call: Call): string {
   const lines = prev.map((c) => {
     const bits = [`${day(c.startedAt)}, ${c.desk ?? 'no'} desk`];
     if (c.caller?.name) bits.push(`name ${c.caller.name}`);
-    const l = db.launches.find((x) => x.callId === c.id);
+    const l = db.launches.find((x) => x.callId === c.id && isCurrentLaunch(x));
     if (l) bits.push(`coin ${l.params.name} (${l.params.symbol}) on JustHoot, ${l.status}`);
     else {
       const d = draftOf(c.id);

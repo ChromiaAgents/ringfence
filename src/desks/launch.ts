@@ -113,7 +113,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     const icon = await smallIcon(d.icon!).catch(() => null);
     if (!icon) return { ok: false, reason: 'The logo is too detailed for JustHoot. Make a simpler one (make_logo).' };
     const l = {
-      id: id(), callId: call.id, createdAt: Date.now(), network: 'mainnet' as const, status: 'prepared' as const, logoModel: d.logoModel,
+      id: id(), callId: call.id, createdAt: Date.now(), network: 'mainnet' as const, launchpad: 'justhoot' as const, status: 'prepared' as const, logoModel: d.logoModel,
       params: { name: d.name!, symbol: d.symbol!, description: d.description ?? '', icon, socials: d.socials },
     };
     db.launches.push(l);

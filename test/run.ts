@@ -57,6 +57,9 @@ await t('justhoot: no auction, and prepare_launch builds launch_meme from the vi
   const l = db.launches.find((x) => x.id === call.launchId)!;
   assert.equal(l.params.symbol, 'HOOTHOOT1');
   assert.equal(l.network, 'mainnet');
+  assert.equal(l.launchpad, 'justhoot');
+  const { isCurrentLaunch } = await import('../src/store.ts');
+  assert.ok(isCurrentLaunch(l) && !isCurrentLaunch({ ...l, launchpad: undefined }), 'rows from the retired launchpad are hidden');
   assert.ok(l.params.icon.length <= 7000);
   const views: Record<string, unknown> = { get_launch_deposit: '58080000000000000000000', get_launch_gas: '456', storage_balance_of: null, storage_balance_bounds: { min: '2170000000000000000000' }, get_next_token_id: 'hoothoot1.v2-launchpad.justhoot.near' };
   const args = justhootArgs(l.params);
