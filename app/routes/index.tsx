@@ -14,12 +14,12 @@ type D = Awaited<ReturnType<typeof getDesks>>;
 
 export const Route = createFileRoute('/')({
   loader: () => getDesks(),
-  head: () => ({ meta: [{ title: 'Ringfence: your phone number is a wallet on every chain' }, { name: 'description', content: 'Call one number and say what you want: send NEAR, send ETH on Base, launch a coin, or get a building quote. Confirm with a spoken PIN. Limits are enforced by a NEAR smart contract, not by the AI.' }] }),
+  head: () => ({ meta: [{ title: 'Ringfence: your phone number is a crypto wallet' }, { name: 'description', content: 'Call one number and say what you want: send NEAR or ETH on Base. Confirm with a spoken PIN. A NEAR contract you own sets the spending limits, and the AI cannot change them.' }] }),
   component: Landing,
 });
 
 const TRY: Record<Desk | 'auto', string[]> = {
-  auto: ['Send 1 NEAR to bob.testnet.', 'What is my balance?', 'I want to launch a memecoin.', 'My bathroom tap is leaking.'],
+  auto: ['Send 0.5 NEAR to alice.near.', 'What is my balance?', 'I want to launch a memecoin.', 'My bathroom tap is leaking.'],
   launch: ['It’s a coin about a sleepy otter.', 'Call it Sleepy Otter, ticker ZZZ.', 'Make the ticker NEAR.', 'Will it 100x?', 'Logo vibe: an otter asleep on a pillow.', 'Yes, set it up.'],
   business: ['Hi, I need a new kitchen.', 'Medium size, white units.', "I'm Sam, postcode E8 3QP.", 'Can you do 30% off?', 'OK, book it for Tuesday.'],
 };
@@ -41,12 +41,12 @@ function Landing() {
     <>
       <header className="hero">
         <div className="topbar">
-          <span className="left">Limits in a NEAR contract, AI in a TEE</span>
+          <span className="left">Spending limits on NEAR. AI in sealed hardware.</span>
           <Wordmark />
           <a className="right" href="/dashboard">Dashboard</a>
         </div>
-        <h1>Your phone number is a wallet on every chain</h1>
-        <p className="sub">Call from WhatsApp or the browser and say what you want: “send 5 NEAR to mum”, “send 0.0001 ETH on Base to 0x…”, “launch a coin”, “quote my kitchen”. Confirm with a spoken PIN and it happens on chain, inside limits a NEAR smart contract enforces.</p>
+        <h1>Your phone number is a crypto wallet</h1>
+        <p className="sub">Call from WhatsApp or the browser and say “send 0.5 NEAR to alice.near” or “send 0.0001 ETH on Base to 0x…”. Confirm with a spoken PIN and it’s sent, but only within limits set in a NEAR contract you own. Worst case, even if we the operator misbehave: your daily cap, and you can revoke us in one transaction. Nothing has been signed on chain yet; this page runs a labelled dry run.</p>
 
         <div className="folders">
           <a className="folder f1" href="#wallet"><span className="tab">Phone wallet</span></a>
@@ -84,7 +84,7 @@ function Landing() {
               </div>
               <div>
                 <div className="phone" data-ui>
-                  <div className="head"><b>Live transcript</b><span>{call.desk ? `${call.desk} desk` : 'Whisper hears, Qwen answers, in a TEE'}</span></div>
+                  <div className="head"><b>Live transcript</b><span>{call.desk ? `${call.desk} desk` : 'Speech and replies run in sealed hardware'}</span></div>
                   <div className="log" ref={logRef} aria-live="polite">
                     {call.lines.length === 0 && <p className="empty">Press Call. The greeting arrives in a second or two, spoken and written here.</p>}
                     {call.lines.map((l, i) => <div key={i} className={`bubble ${l.who}`}>{l.text}</div>)}
@@ -145,14 +145,14 @@ function Landing() {
             <div className="stage s3 reveal">
               <div className="tile">
                 <div className="frag" data-ui>
-                  <div className="row"><span>Your EVM address</span><b>Same on every chain</b></div>
+                  <div className="row"><span>Your EVM address</span><b>Same on every EVM chain</b></div>
                   <div className="row"><span>Signed by</span><b>NEAR Chain Signatures</b></div>
-                  <div className="row"><span>Checked first</span><b>Chain, recipient, value</b></div>
+                  <div className="row"><span>Checked first</span><b>Chain, recipient, amount</b></div>
                   <div className="row"><span>On by default</span><b>Base</b></div>
                 </div>
               </div>
-              <h3>Every EVM chain, one address</h3>
-              <p>The contract reads the transaction bytes itself before NEAR’s MPC signer signs, so the AI cannot sign anything other than what you heard. Base is on at bind; you allow other chains yourself.</p>
+              <h3>One address on Base and other Ethereum-style chains</h3>
+              <p>Before NEAR signs, the contract checks the transaction itself: chain, recipient and amount. So only what you heard read back can be signed, and the operator can’t exceed your caps either. Base is on at bind; you allow other chains yourself. Bitcoin and Solana are not supported.</p>
             </div>
           </div>
         </section>
@@ -160,14 +160,14 @@ function Landing() {
         <section className="field how" id="launch">
           <div className="grow">
             <div className="heading reveal">
-              <h2>Launch a coin</h2>
-              <p className="lead">Talk a memecoin onto JustHoot: one call creates the token and its RHEA pool. The model asks the questions, code decides what is allowed, and you sign. It is a voice front end to an existing launchpad, nothing more.</p>
+              <h2>Also works for: launching a coin</h2>
+              <p className="lead">Talk a coin onto JustHoot: one call creates the coin and makes it tradable on RHEA, a NEAR exchange. The model asks the questions, code decides what is allowed, and you sign. It adds voice to JustHoot, an existing launchpad.</p>
             </div>
             <div className="stage s1 reveal">
               <div className="tile">
                 <div className="frag" data-ui>
                   <div className="bubble caller" style={{ maxWidth: '100%', animation: 'none' }}>Call it Sleepy Otter, ticker ZZZ.</div>
-                  <div className="bubble agent" style={{ maxWidth: '100%', marginTop: 8, animation: 'none' }}>Nice. What vibe for the logo? <span className="pill ok">TEE-signed</span></div>
+                  <div className="bubble agent" style={{ maxWidth: '100%', marginTop: 8, animation: 'none' }}>Nice. What vibe for the logo? <span className="pill ok">Verified private AI</span></div>
                 </div>
               </div>
               <h3>It asks</h3>
@@ -195,7 +195,7 @@ function Landing() {
                 </div>
               </div>
               <h3>You sign</h3>
-              <p>A link arrives on WhatsApp or in the call. It shows the logo, the terms and the exact NEAR cost (about 0.1 NEAR, read from the contract). You sign one transaction with Meteor, HOT, Intear or MyNearWallet.</p>
+              <p>A link arrives in the call. It shows the logo, the terms and the exact NEAR cost (about 0.1 NEAR, read from the contract). You sign one transaction with Meteor, HOT, Intear or MyNearWallet.</p>
             </div>
           </div>
         </section>
@@ -205,7 +205,7 @@ function Landing() {
         <section className="field how biz" id="business">
           <div className="grow">
             <div className="heading reveal">
-              <h2>Builder quotes</h2>
+              <h2>Also works for: builder quotes</h2>
               <p className="lead">Same line, a builder’s rules. The customer sends a photo of the job, and the owner sets the rules by talking.</p>
             </div>
             <div className="stage s1 reveal">
@@ -217,7 +217,7 @@ function Landing() {
                 </div>
               </div>
               <h3>Photo to quote</h3>
-              <p>A vision model in a TEE describes the job. The photo stays on this server.</p>
+              <p>An AI running in sealed hardware describes the job. The photo stays on this server.</p>
             </div>
             <div className="stage s2 reveal">
               <div className="tile photo">
@@ -229,7 +229,7 @@ function Landing() {
                 </div>
               </div>
               <h3>Prices come from code</h3>
-              <p>Discounts, deposits and refused work live in owner.yaml. The deposit link takes any token through NEAR Intents, and the owner gets USDC.</p>
+              <p>Discounts, deposits and refused work live in owner.yaml. Customers can pay the deposit in almost any token. NEAR Intents converts it and the owner receives USDC on NEAR.</p>
             </div>
             <div className="stage s3 reveal">
               <div className="tile photo">
@@ -242,7 +242,7 @@ function Landing() {
                 </div>
               </div>
               <h3>The owner talks, the file changes</h3>
-              <p>From the owner’s WhatsApp or the dashboard. The agent proposes a diff, code checks it against hard bounds, the owner says yes, and owner.yaml is rewritten.</p>
+              <p>From the owner’s WhatsApp or the dashboard. The agent proposes the change, code checks it stays within fixed limits, the owner says yes, and owner.yaml is rewritten.</p>
             </div>
           </div>
         </section>
@@ -258,7 +258,7 @@ function Landing() {
         </div>
         <section className="runs reveal">
           <h2>What a call runs on</h2>
-          <p>Speech-to-text, the language model, the photo reader and the logo model run in trusted execution environments on NEAR AI Cloud. This server checks their Intel TDX and NVIDIA attestation (see /proof) and the signature on each chat and photo reply. Wallet limits live in a NEAR contract you own, and EVM sends are signed by NEAR Chain Signatures. Launches go to JustHoot, signed in your own wallet. Deposits route through NEAR Intents 1Click.</p>
+          <p>Your voice and photos are processed in sealed hardware on NEAR AI Cloud (trusted execution environments, or TEEs). We check its proof live; see /proof. Checking the signature on each chat and photo reply is built, but the live check is still pending.</p><p>Your spending limits live in a NEAR contract you own, so neither the AI nor we can go past them.</p><p>Sends on Base are signed by NEAR Chain Signatures, after the contract has checked the transaction.</p><p>Known limits: this app server is not itself in sealed hardware, Cartesia (if used as the voice) hears reply text, and on WhatsApp Meta sees call metadata.</p>
         </section>
 
         <section className="field faq" id="questions">
@@ -298,7 +298,8 @@ const faq = (d: D): [string, string][] => [
   ['Can the AI empty my wallet?', 'No. Transfers go through a NEAR contract you own, which checks a limit per transfer and per day for each asset, the chains you allowed and your saved recipients. New recipients wait 600 seconds, and you can cancel. The AI can only ask; the contract decides.'],
   ['Who holds the keys?', 'You own the contract and can always withdraw or revoke the agent. This server holds one agent key that can only call your contract. Being honest: we, the operator, could use it without your PIN, inside your limits. The PIN protects against someone else calling from your line, not against us. The contract is unaudited, so keep small amounts in it.'],
   ['Who hears my PIN?', 'Speech-to-text and the language model, both inside NEAR AI TEEs. It is stored only as a salted hash and blanked from the saved transcript and tool log. Three wrong tries lock it for 15 minutes.'],
-  ['Which chains?', 'NEAR, and EVM chains through NEAR Chain Signatures. One address works on every EVM chain. Base is on when you bind; you turn on others yourself. Bitcoin, Solana and ERC-20 tokens are not supported yet.'],
+  ['What if someone steals my number?', 'Your number alone cannot move money. Binding is signed by your NEAR account, and a SIM swap or a spoofed caller ID still needs your PIN. Three wrong tries lock it for 15 minutes, so trying every 4-digit PIN takes about 35 days, and even then only your daily cap, to your saved recipients, could move. Revoke the agent from your own wallet if you lose your phone.'],
+  ['Which chains?', 'NEAR, and Ethereum-style (EVM) chains through NEAR Chain Signatures. One address works on all of them. Base is on when you bind; you turn on others yourself. Bitcoin, Solana and ERC-20 tokens are not supported yet.'],
   ['Can someone launch $NEAR or an Elon coin?', 'No. Tickers of real assets, brand and celebrity names, and tickers already on meme.cooking are refused in code before a launch can be prepared. Each refusal goes to the ledger on the dashboard. Replies that promise returns are replaced before they are spoken.'],
   ['What does a launch cost?', 'JustHoot asks about 0.1 NEAR, read from its contract’s views, plus gas. JustHoot is mainnet only, so it is real NEAR whatever network this server is on. You see the cost before you sign.'],
   ['Who sees my photo?', 'Qwen3-VL reads it in a TEE on NEAR AI Cloud. The photo is kept on this server only. This server verifies each enclave’s Intel TDX quote and NVIDIA GPU attestation (see /proof).'],

@@ -1,28 +1,45 @@
 # Ringfence
 
-**Your phone number is a wallet on every chain.** Call it from WhatsApp or the browser, say what you want ("send 5 NEAR to mum", "send 0.0001 ETH on Base to 0x…", "launch a coin", "quote my kitchen"), confirm with a spoken PIN, and it happens on chain.
+**Call to pay. A NEAR contract you own caps what the AI can spend, on NEAR and Base.** Your phone number is a wallet on NEAR and Base (and other Ethereum-style chains you switch on). Call it from WhatsApp or the browser, say "send 0.5 NEAR to alice.near", hear it read back, confirm with a spoken PIN, and it's sent, but only within the limits in your contract.
 
-**Problem.** Most people can talk but cannot use a wallet: seed phrases, gas on each chain, addresses, launchpad forms. A voice agent could do it for them, but then two things go wrong. The agent can be talked into sending more than it should, and the caller's voice, photos and plans go to an AI provider. **Product.** Ringfence is one phone line (browser call, or WhatsApp call, text or photo). Your NEAR account is bound to your number. On a call you can send NEAR, or send ETH on Base and other EVM chains through NEAR Chain Signatures, launch a memecoin on JustHoot, or get a building quote and pay a deposit. **NEAR's role.** (1) A NEAR smart contract you own holds the wallet and enforces the limits: per transfer and per day per asset, a chain allowlist, a recipient allowlist with a delay for new recipients, and owner-only withdraw and revoke. The AI cannot move more than the contract allows. (2) NEAR Chain Signatures (the MPC signer) gives that contract the same EVM address on every EVM chain, and the contract reads the transaction bytes itself before asking for a signature. (3) All four models (chat, speech-to-text, photo reading, logos) run in TEEs on NEAR AI Cloud, and this server checks their Intel TDX and NVIDIA attestation (`/proof`). (4) Coin launches go to JustHoot on NEAR, signed in the caller's own wallet. (5) Building deposits are paid in any token and settle to the owner as USDC on NEAR through NEAR Intents 1Click.
+> **Status: nothing has been signed on chain yet.** The links will go in [Evidence](#evidence-on-chain) as soon as the first mainnet transfers exist. Until then this is a tested design with a dry run you can check yourself (`npm run demo:check`, no keys needed).
+
+**Worst case, even if we (the operator) are malicious:** 3 NEAR and 0.002 ETH a day (the mainnet defaults), only to recipients you saved, and you can end it with one `revoke_agent` transaction.
+
+**The strongest idea here:** before NEAR signs an Ethereum-style transaction, the contract reads the raw transaction itself and checks the chain, recipient and amount. So only what you heard read back can be signed, not a different recipient, amount or chain.
+
+**Problem.** Most people can make a phone call but can't use a crypto wallet. They'd need to manage a recovery phrase, buy fee tokens for each chain, copy long addresses and fill in forms. A voice agent could do it for them, but then two things go wrong. The agent can be talked into sending more than it should, and the caller's voice and photos go to an AI provider.
+
+**Product.** Ringfence is one phone line (browser call, or WhatsApp call, text or photo). You bind your NEAR account to your number once, signing with your own wallet. On a call you can send NEAR, or send ETH on Base.
+
+**What each NEAR part does:**
+
+- **A NEAR smart contract you own** holds the wallet and enforces the limits: per transfer and per day for each asset, a list of allowed chains, a list of saved recipients with a 600-second wait for new ones, and owner-only withdraw and revoke. The AI can only ask; the contract decides.
+- **NEAR Chain Signatures** lets that contract sign Ethereum-style transactions, so you get one address that works on Base and similar chains. Base is on by default. Bitcoin and Solana are not supported.
+- **NEAR AI Cloud** runs all four AI models (chat, speech-to-text, photo reading, logos) in sealed hardware (trusted execution environments, or TEEs), so the operator can't read what goes into them. The `/proof` page checks the hardware's signed proof live.
+- **NEAR Intents** (also works for: building deposits) lets a customer pay in almost any token and converts it, so the owner receives USDC on NEAR.
+- **JustHoot** (also works for: coin launches) is an existing NEAR launchpad. Ringfence adds voice to it; the caller signs in their own wallet.
 
 ## What you can do by voice
 
 | Say | What happens | Who signs |
 | --- | --- | --- |
-| "Send 1 NEAR to bob.near" | Read back, you say your 4-digit PIN, `transfer_near` on your phone-wallet contract | The agent key, inside your contract's limits |
-| "Send 0.0001 ETH on Base to 0x…" | Read back, PIN, the contract parses the EVM transaction and asks the MPC signer; the server broadcasts to Base | The agent key and NEAR Chain Signatures, inside your limits |
+| "Send 0.5 NEAR to alice.near" | Read back, you say your 4-digit PIN, `transfer_near` on your phone-wallet contract. A recipient you haven't saved waits 600 s first | The agent key, inside your contract's limits |
+| "Send 0.0001 ETH on Base to 0x…" | Read back, PIN, the contract checks the transaction and asks NEAR Chain Signatures to sign it; the server sends it to Base | The agent key and NEAR Chain Signatures, inside your limits |
 | "What's my balance?" | `get_balance` on your phone wallet | Nobody (read only) |
-| "Launch a coin called Sleepy Otter, ticker ZZZ" | Name, ticker, logo checked by rules in code, then a page to sign | You, in your own wallet (Wallet Selector) |
-| "Quote my kitchen" (or send a photo) | Quote from the owner's price list, booking, deposit link in any token | You, from any chain, through NEAR Intents |
 
-Over a limit, or to a recipient not on your saved list: the agent says so and texts a link to sign it yourself instead.
+Over a limit, or to a recipient not on your saved list: the agent says so and gives a link to sign it yourself instead.
+
+**Also works for** (same line, same limits on the AI, kept out of the demo until real transactions exist): a voice front end to the JustHoot coin launchpad ("Launch a coin called Sleepy Otter, ticker ZZZ": rules in code, then a page you sign in your own wallet), and a sample building firm ("Quote my kitchen" or a photo: quote from the owner's price list, booking, a deposit link payable in almost any token).
 
 ## Trust model
 
-- **The contract is the limit, not the AI.** Limits, chains and recipients are checked in `contracts/phone-wallet/src/lib.rs`. A confused or tricked model can at most ask for transfers inside your limits, to your saved recipients, after a correct PIN.
+- **The contract sets the limits. The AI can't change them.** Limits, chains and recipients are checked in `contracts/phone-wallet/src/lib.rs`. A confused or tricked model can at most ask for transfers inside your limits, to your saved recipients, after a correct PIN.
 - **The operator can spend without the PIN.** The server holds the agent key. The PIN protects against someone else calling from a spoofed or stolen line, not against us. Your cap on that is the daily limit per asset; `revoke_agent` ends it, and `withdraw` always works.
-- **The PIN passes through the AI.** Speech-to-text and the LLM hear it, inside NEAR AI TEEs. It is stored only as a salted scrypt hash and blanked from the stored transcript and tool log. 3 wrong tries lock it for 15 minutes.
+- **Your phone number is not the security.** Binding is signed by the NEAR account owner. Against a SIM swap or a spoofed caller ID, what protects you is only the PIN plus the caps. The PIN is 4 digits; 3 wrong tries lock it for 15 minutes, so trying every PIN takes about 35 days, during which at most the daily cap could move.
+- **The PIN passes through the AI.** Speech-to-text and the language model hear it, inside NEAR AI TEEs. It is stored only in scrambled form (a salted hash) and blanked from the stored transcript and tool log.
 - **The contract is unaudited.** Keep small amounts in it. Mainnet defaults: 1 NEAR per transfer and 3 per day; 0.0005 / 0.002 ETH per transfer and per day on Base; 600 s wait for new recipients.
-- **Reply text goes to Cartesia** when Cartesia is the voice (not a TEE). `TTS_PROVIDER=kokoro` keeps it on the box.
+- **Known privacy limits.** Reply text goes to Cartesia when Cartesia is the voice (not a TEE); `TTS_PROVIDER=kokoro` keeps it on the box. This app server itself is not attested, so transcripts, photos and the PIN path pass through an ordinary server. On WhatsApp, Meta carries the call and sees its metadata.
 - **Nothing has been signed on chain yet.** See [Evidence](#evidence-on-chain).
 
 The building firm, **Hart & Sons Builders**, is a sample in `owner.yaml`, not a real company.
@@ -33,7 +50,7 @@ Node 22+. No `.env`, no API key, no wallet, no network needed for the steps mark
 
 ```bash
 npm ci
-npm test              # offline except the MPC derivation check: 27 tests (PIN and lockout, transfer intents, EVM tx bytes, gas check, address derivation, tickers, names, auction, team, return filter, router, launch args, pricing, owner bounds)
+npm test              # 27 tests, offline except the address derivation check
 npm run typecheck
 npm run build
 npm run demo:check    # offline: starts the built server with MOCK_LLM=1 and no .env, walks a launch, a booking and a wallet send (DRY RUN) over the call socket, checks the pages, stops the server
@@ -83,7 +100,7 @@ With network but still no key: `npm run attest` verifies the TEE attestation of 
 | Auction bounds, team allocation cap with cliff and vesting | `checkAuction`, `checkTeam` | `npm test` (auction bounds, team allocation) |
 | No promised returns: replies filtered sentence by sentence before they are spoken | `filterClaims`, `src/speech.ts` `sentenceSplitter` | `npm test` (no promised returns, streamed sentences + per-sentence filter) |
 | All rules re-checked at the last step; kill switch | `prepare_launch` in `src/desks/launch.ts` | `npm test` (justhoot prepare_launch); set `kill_switch: true` in `launchpad.yaml` and walk the demo |
-| meme.cooking `create_meme` transaction, signed by the caller | `src/memecook.ts` `createMemeArgs`, `buildTx`, `confirmTx`; `app/routes/launch.$id.tsx` | `npm test` (create_meme args); `npm run test:meme` (testnet view) / `npm run test:meme mainnet` |
+| meme.cooking `create_meme` transaction, signed by the caller (built, off by default; JustHoot is the launchpad in use) | `src/memecook.ts` `createMemeArgs`, `buildTx`, `confirmTx`; `app/routes/launch.$id.tsx` | `npm test` (create_meme args); `npm run test:meme` (testnet view) / `npm run test:meme mainnet` |
 | JustHoot `launch_meme` (token + RHEA pool in one call), cost from the contract's views | `src/justhoot.ts` | `npm test` (justhoot args, justhoot prepare_launch); `npm run test:justhoot` (mainnet views) |
 | Wallet Selector: Meteor, HOT, Intear, MyNearWallet; server never signs | `app/routes/launch.$id.tsx` | Open a launch page, **Connect a wallet** |
 | Business pricing, discount cap, deposits from `owner.yaml` | `src/desks/business.ts` `priceFor` | `npm test` (business pricing rules); `npm run demo:check` step 4 |
@@ -91,7 +108,7 @@ With network but still no key: `npm run attest` verifies the TEE attestation of 
 | Owner changes rules by talking, inside hard bounds; YAML rewritten with comments kept | `src/desks/owner.ts` `planChange`, `applyDiff` | `npm test` (owner desk bounds + write) |
 | Desk router and returning-caller memory | `src/agent.ts` `route`; `src/memory.ts` | `npm test` (router, returning caller) |
 | TEE attestation: Intel TDX quote signature + TCB status, key+nonce in report_data, NVIDIA GPUs via NRAS | `src/ai.ts` `attest`, `verifyIntelQuote`, `verifyGpu` | `npm run attest` (no key); `/proof`; `/api/proof?fresh=1` |
-| Every chat/vision reply's signature recovered and matched to the attested key | `src/ai.ts` `chat`, `verifyLater` | Needs `NEARAI_API_KEY`: call, then see **TEE-signed** badges on `/dashboard` |
+| Every chat/vision reply's signature recovered and matched to the attested key (built; live check pending) | `src/ai.ts` `chat`, `verifyLater` | Needs `NEARAI_API_KEY`: call, then see **TEE-signed** badges on `/dashboard` |
 | Photo → job scope by a vision model in a TEE; photo stays on this server | `src/image.ts` `describePhoto`; `src/agent.ts` `photo` | Needs key: **Photo** button on the business desk |
 | Voice: TTS (Cartesia Sonic in the cloud, or local Kokoro), Whisper STT in a TEE, barge-in, fillers | `src/tts.ts`, `src/turn.ts`, `src/voice.ts` | `MOCK_LLM=1 npm run test:latency`; a browser call |
 | WhatsApp calls (WebRTC/Opus), text and photos | `src/whatsapp.ts` | Needs Meta test number, see [WhatsApp setup](#whatsapp-setup-metas-free-test-number) |
