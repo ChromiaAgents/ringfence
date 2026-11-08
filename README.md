@@ -105,11 +105,9 @@ With keys: `cp .env.example .env` (at least `NEARAI_API_KEY`; `NETWORK=testnet` 
 | Gas checked before signing; says how much is missing and where to fund | `src/eth.ts` `prepareTransfer`, `GasShortError` | `npm test` (mocked RPC) |
 | Voice send: read back, spoken PIN (salted scrypt hash, 3 tries then 15 min lock, blanked from transcript and tool log) | `src/desks/wallet.ts`; `src/wallet.ts` `hashPin`, `checkPin`, `normalizePin` | `npm test`; `npm run demo:check` (wallet step, DRY RUN) |
 | Real NEAR and Base transfers with the agent key | `src/wallet.ts` `sendNear`, `sendEvm`; `app/routes/wallet.bind.tsx`, `app/routes/wallet.send.tsx` | Needs `AGENT_ACCOUNT_ID`, `AGENT_PRIVATE_KEY`, `NETWORK=mainnet`, a bound number. Not run live yet |
-| Ticker/name impersonation refused (blocked list, existing meme.cooking tickers) | `src/desks/launch.ts` `checkTicker`, `checkName`; `launchpad.yaml` | `npm test` (ticker impersonation, name impersonation); `npm run demo:check` step 2 |
-| Auction bounds, team allocation cap with cliff and vesting | `checkAuction`, `checkTeam` | `npm test` (auction bounds, team allocation) |
+| Ticker/name impersonation refused (blocked list) | `src/desks/launch.ts` `checkTicker`, `checkName`; `launchpad.yaml` | `npm test` (ticker impersonation, name impersonation); `npm run demo:check` step 2 |
 | No promised returns: replies filtered sentence by sentence before they are spoken | `filterClaims`, `src/speech.ts` `sentenceSplitter` | `npm test` (no promised returns, streamed sentences + per-sentence filter) |
 | All rules re-checked at the last step; kill switch | `prepare_launch` in `src/desks/launch.ts` | `npm test` (justhoot prepare_launch); set `kill_switch: true` in `launchpad.yaml` and walk the demo |
-| meme.cooking `create_meme` transaction, signed by the caller (built, off by default; JustHoot is the launchpad in use) | `src/memecook.ts` `createMemeArgs`, `buildTx`, `confirmTx`; `app/routes/launch.$id.tsx` | `npm test` (create_meme args); `npm run test:meme` (testnet view) / `npm run test:meme mainnet` |
 | JustHoot `launch_meme` (token + RHEA pool in one call), cost from the contract's views | `src/justhoot.ts` | `npm test` (justhoot args, justhoot prepare_launch); `npm run test:justhoot` (mainnet views) |
 | Wallet Selector: Meteor, HOT, Intear, MyNearWallet; server never signs | `app/routes/launch.$id.tsx` | Open a launch page, **Connect a wallet** |
 | One agent (all tools, dispatch to desk code, end_call) and returning-caller memory | `src/agent.ts` `toolsFor` / `deskOfTool`; `src/memory.ts` | `npm test` (one agent, returning caller) |
@@ -191,7 +189,6 @@ Not checked: that the TD measurements (MRTD, RTMR0-3) and the event log match a 
 | `NETWORK` | `testnet` (default) or `mainnet` for launches and the phone wallet |
 | `EVM_ENABLED` | Off by default. `1` turns on EVM sends through Chain Signatures (Base on mainnet, Sepolia on testnet); off, the wallet desk says "Only NEAR transfers for now" |
 | `PUBLIC_URL` | Public URL of this server, used in launch and wallet links |
-| `PINATA_JWT` | Optional. Pins the coin's description and links to IPFS (the reference meme.cooking's app uses) |
 | `ONECLICK_JWT` | Optional 1Click partner JWT for launch funding (without it 1Click adds a 0.2% fee) |
 | `DASHBOARD_PASSWORD` | Optional basic auth on `/dashboard`, `/api/state` |
 | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | WhatsApp Cloud API |
@@ -209,10 +206,9 @@ Not checked: that the TD measurements (MRTD, RTMR0-3) and the event log match a 
 
 ## Also on the line: coin launches (JustHoot)
 
-The launch desk supports two launchpads; the caller picks one or the agent suggests one (`set_launchpad`):
+The launch desk launches coins on JustHoot:
 
-- **meme.cooking**: a fair-launch auction first, about 0.22 NEAR. Testnet or mainnet per `NETWORK`. Off by default (`meme_cooking.enabled: false` in `launchpad.yaml`).
-- **JustHoot** ([justhoot.fun](https://justhoot.fun)): one `launch_meme` call on `v2-launchpad.justhoot.near` creates the token and its RHEA DCL pool (1% fee tier), tradable immediately. **Mainnet only, real NEAR** (there is no testnet deployment), about 0.06 NEAR plus the on-chain logo's storage (about 0.1 NEAR with a 4 KB logo). Deposit and gas come from the contract's `get_launch_deposit` and `get_launch_gas` views; if the signer has no storage on the launchpad, `storage_deposit` goes first in the same transaction. No transfer tax and no dev buy are offered; all supply goes to the creator and the pool. `set_auction` and `set_team_allocation` refuse on JustHoot; tickers are 1 to 10 letters or digits and are not unique there, so the meme.cooking collision check is skipped. All other rules (blocked tickers and names, return-promise filter, kill switch) still apply. Turn it off with `launchpads.justhoot.enabled: false` in `launchpad.yaml`.
+- **JustHoot** ([justhoot.fun](https://justhoot.fun)): one `launch_meme` call on `v2-launchpad.justhoot.near` creates the token and its RHEA DCL pool (1% fee tier), tradable immediately. **Mainnet only, real NEAR** (there is no testnet deployment), about 0.06 NEAR plus the on-chain logo's storage (about 0.1 NEAR with a 4 KB logo). Deposit and gas come from the contract's `get_launch_deposit` and `get_launch_gas` views; if the signer has no storage on the launchpad, `storage_deposit` goes first in the same transaction. No transfer tax and no dev buy are offered; all supply goes to the creator and the pool. There is no auction and no team share. Tickers are 1 to 10 letters or digits and are not unique on JustHoot. The other rules (blocked tickers and names, return-promise filter, kill switch) apply; pause launches with `kill_switch: true` in `launchpad.yaml`.
 - After a JustHoot launch the page links "Give your coin a brain" to [NEARON](https://stg.nearon.dev/#/docs) (stake NEAR, earn CREDIT, bind the coin so its AI agent is paid for). NEARON is a testnet staging prototype today; this is a link only.
 
 Code: `src/justhoot.ts`. Live view-only check: `npm run test:justhoot`. Not verified: no real JustHoot launch has been signed, and the token-id extraction from the launch logs is untested (the page always links the transaction and justhoot.fun).
@@ -223,8 +219,7 @@ Code: `src/justhoot.ts`. Live view-only check: `npm run test:justhoot`. Not veri
 - NEAR only for now: EVM sends are built but off unless `EVM_ENABLED=1`. Bitcoin, Solana and ERC-20 tokens are not supported.
 - JustHoot is mainnet only and costs real NEAR whatever `NETWORK` says. NEARON is a link only.
 - `demo:check` uses a mock model: it proves the tools, rules and pages, not the real model's choices.
-- Without `PINATA_JWT`, launches go out with an empty metadata reference: the description and links live on our launch page, not on meme.cooking.
-- The existing-ticker check uses meme.cooking's mainnet indexer (`api.meme.cooking`), which is where impersonation matters; the testnet site may differ. Offline, the check falls back to the blocked list only.
+- Coin descriptions and links live on our launch page; JustHoot launches go out with no metadata reference.
 - No barge-in on WhatsApp calls. The browser call uses a simple energy voice detector.
 - Attestation does not compare TD measurements to a published NEAR AI build (see above). Logo generation and speech-to-text have no per-response signature check (NEAR AI signs chat completions).
 - Funding a launch from another chain arrives as wNEAR and needs unwrapping before signing; 1Click has no testnet.
@@ -235,7 +230,7 @@ Code: `src/justhoot.ts`. Live view-only check: `npm run test:justhoot`. Not veri
 - **Window (Q-001, Q-003)**: the repository's first commit is 2026-11-07 (`a23758a`), inside the hackathon window (2026-10-19 to 2026-11-14). All code in this repository was written in the window; there is no pre-hackathon baseline.
 - **Other chains (Q-002)**: NEAR only for now. EVM sends through NEAR Chain Signatures are built (Base on mainnet, Sepolia on testnet; others only after the owner calls `allow_chain`) but off unless `EVM_ENABLED=1`. The contract and all signing requests live on NEAR. Bitcoin and Solana are not supported.
 - **Other projects (Q-015)**: none to disclose.
-- **Libraries (Q-005)**: TanStack Start / Router, React, Vite, TypeScript, tsx; `ws` (WebSocket); `werift` and `opusscript` (WebRTC and Opus for WhatsApp calls); `kokoro-js` (local text-to-speech); `ethers` (ECDSA signature recovery for NEAR AI replies); `@phala/dcap-qvl` (Intel TDX quote verification); `@near-wallet-selector/*` (core, modal-ui, Meteor, HOT, Intear, MyNearWallet; the HERE package is installed but not offered); `sharp` (logo resizing); `qrcode`; `yaml`; `@fontsource` fonts. External services: NEAR AI Cloud, NEAR RPC, meme.cooking indexer, JustHoot contract, NEAR Intents 1Click, Intel PCS, NVIDIA NRAS, WhatsApp Cloud API. Code was written with AI assistance (Claude Code).
+- **Libraries (Q-005)**: TanStack Start / Router, React, Vite, TypeScript, tsx; `ws` (WebSocket); `werift` and `opusscript` (WebRTC and Opus for WhatsApp calls); `kokoro-js` (local text-to-speech); `ethers` (ECDSA signature recovery for NEAR AI replies); `@phala/dcap-qvl` (Intel TDX quote verification); `@near-wallet-selector/*` (core, modal-ui, Meteor, HOT, Intear, MyNearWallet; the HERE package is installed but not offered); `sharp` (logo resizing); `qrcode`; `yaml`; `@fontsource` fonts. External services: NEAR AI Cloud, NEAR RPC, JustHoot contract, NEAR Intents 1Click, Intel PCS, NVIDIA NRAS, WhatsApp Cloud API. Code was written with AI assistance (Claude Code).
 
 ## Credits
 

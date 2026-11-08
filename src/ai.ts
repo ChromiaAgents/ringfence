@@ -209,14 +209,9 @@ export function mockStep(messages: Msg[], tools: unknown[]): { name: string; arg
   const u = last ? textOf(last) : '';
   if (names.has('end_call') && /\b(bye|goodbye|that's all|hang up)\b/i.test(u)) return { name: 'end_call', args: {} };
   if (names.has('set_coin')) {
-    if (/justhoot/i.test(u)) return { name: 'set_launchpad', args: { launchpad: 'justhoot' } };
     const c = u.match(/call it ([^,.]+?),?\s+ticker\s+\$?([A-Za-z0-9]+)/i);
     if (c) return { name: 'set_coin', args: { name: c[1].trim(), ticker: c[2], description: 'a meme coin made on a phone call' } };
     if (/\blogo\b|\bvibe\b/i.test(u)) return { name: 'make_logo', args: { vibe: u } };
-    const h = u.match(/(\d+|one|two)\s*(hour|minute)/i), cap = u.match(/soft cap\s*(\d+)/i);
-    if (h && cap) { const n = /one/i.test(h[1]) ? 1 : /two/i.test(h[1]) ? 2 : Number(h[1]); return { name: 'set_auction', args: { duration_minutes: /hour/i.test(h[2]) ? n * 60 : n, soft_cap_near: Number(cap[1]) } }; }
-    const team = u.match(/(\d+)\s*%.*team|team.*?(\d+)\s*%/i);
-    if (team) return { name: 'set_team_allocation', args: { pct: Number(team[1] ?? team[2]), cliff_days: 30, vesting_days: 90 } };
     if (/^\s*(yes|yeah|yep|do it|go ahead|set it up)\b/i.test(u) && messages.some((m) => m.role === 'assistant' && /shall I set it up/i.test(textOf(m)))) return { name: 'prepare_launch', args: { caller_confirmed: true } };
   }
   if (names.has('confirm_transfer')) {
@@ -308,7 +303,7 @@ export async function transcribe(audio: Uint8Array, mime = 'audio/wav'): Promise
   const fd = new FormData();
   fd.set('model', env.sttModel);
   fd.set('language', 'en'); // short words like 'bye' were coming back as Korean
-  fd.set('prompt', 'A phone call about launching a memecoin on NEAR or meme.cooking, a ticker, a coin name.'); // vocabulary hint
+  fd.set('prompt', 'A phone call about launching a memecoin on NEAR or JustHoot, a ticker, a coin name.'); // vocabulary hint
   fd.set('file', new Blob([audio as BlobPart], { type: mime }), mime.includes('webm') ? 'a.webm' : 'a.wav');
   const r = await fetch(`${BASE}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${env.nearAiKey}` }, body: fd });
   if (!r.ok) throw new Error(`stt ${r.status}: ${(await r.text()).slice(0, 200)}`);

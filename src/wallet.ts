@@ -5,11 +5,11 @@ import { createHash, createHmac, randomBytes, randomInt, scryptSync, timingSafeE
 import { Account, JsonRpcProvider, actions, getTransactionLastResult, type KeyPairString } from 'near-api-js';
 import { env } from './config.ts';
 import { db, save, log } from './store.ts';
-import { net, view } from './memecook.ts';
+import { net, view } from './near.ts';
 import { ETH_PATH, attachSignature, broadcast, deriveEthAddress, prepareTransfer, type MpcSignature } from './eth.ts';
 import { chainById, txUrl } from './chains.ts';
 import { parseEther } from 'ethers';
-import { nearToYocto } from './memecook.ts';
+import { nearToYocto } from './near.ts';
 
 export type Binding = {
   phone: string; owner: string; contract: string; pinHash: string; salt: string; fails: number; lockedUntil?: number; createdAt: number;

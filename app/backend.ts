@@ -1,7 +1,7 @@
 // Server-only helpers for the /api routes. They call the same modules the voice server uses.
 import { env, launchpad } from '../src/config.ts';
 import { db, type Launch } from '../src/store.ts';
-import { net } from '../src/memecook.ts';
+import { net } from '../src/near.ts';
 import { JUSTHOOT } from '../src/justhoot.ts';
 
 export { env, launchpad, db };
@@ -9,12 +9,11 @@ export const json = (body: unknown, status = 200) => Response.json(body, { statu
 
 // A launch's public view: the parameters the caller agreed, where it goes, and its state.
 export const publicLaunch = (l: Launch) => ({
-  id: l.id, network: l.network, launchpad: l.launchpad ?? 'meme_cooking', contract: l.launchpad === 'justhoot' ? JUSTHOOT.contract : net(l.network).contract,
+  id: l.id, network: l.network, contract: JUSTHOOT.contract,
   status: l.status, params: l.params, logoModel: l.logoModel ?? null,
-  signer: l.signer ?? null, txHash: l.txHash ?? null, memeId: l.memeId ?? null, reason: l.reason ?? null,
+  signer: l.signer ?? null, txHash: l.txHash ?? null, reason: l.reason ?? null,
   tokenId: l.tokenId ?? null, tokenUrl: l.tokenId ? JUSTHOOT.tokenUrl(l.tokenId) : null,
-  memeUrl: l.memeId != null ? net(l.network).memeUrl(l.memeId) : null, txUrl: l.txHash ? net(l.network).explorer(l.txHash) : null,
-  pinning: !!env.pinataJwt,
+  txUrl: l.txHash ? net(l.network).explorer(l.txHash) : null,
 });
 export type PublicLaunch = ReturnType<typeof publicLaunch>;
 export const findLaunch = (id: string) => db.launches.find((l) => l.id === id);

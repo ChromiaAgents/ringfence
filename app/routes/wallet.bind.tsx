@@ -7,7 +7,7 @@ import { useNearWallet } from '../near-wallet';
 
 const getCfg = createServerFn({ method: 'GET' }).handler(async () => {
   const { env } = await import('../../src/config.ts');
-  const { net } = await import('../../src/memecook.ts');
+  const { net } = await import('../../src/near.ts');
   return { network: env.network, defaults: env.walletDefaults, factory: env.factoryAccountId, small: env.smallLimitNear, rpc: net(env.network).rpc, waNumber: env.waNumber };
 });
 

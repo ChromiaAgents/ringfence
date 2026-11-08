@@ -27,7 +27,7 @@ Work runs in four places:
 | Chat model, speech-to-text, logo drawing | NEAR AI Cloud (`cloud-api.near.ai`): Qwen3.6-35B, Whisper large v3, FLUX.2 klein. Every reply's TEE signature is checked in the background. |
 | Text-to-speech | Local. Kokoro 82M runs in a worker thread (`src/tts-worker.ts`), voice `af_heart` at 1.15× speed. |
 | Launch funding from another chain (optional) | NEAR Intents 1Click, mainnet only. It only quotes and returns a deposit address; no money moves unless the creator pays. |
-| Coin launches | meme.cooking contract `factory.v10.meme-cooking.testnet`. The user signs it in their own wallet. |
+| Coin launches | JustHoot contract `v2-launchpad.justhoot.near` (mainnet only, real NEAR). The user signs it in their own wallet. |
 
 State is one JSON file, `data/db.json`. Keep `data/` on a persistent disk.
 
@@ -140,7 +140,6 @@ Voice and hosting:
 
 These are optional and empty on purpose:
 
-- `PINATA_JWT`: skipped. Coin descriptions show on our launch page instead.
 - `ONECLICK_JWT` (launch funding): without it, 1Click adds a 0.2% fee.
 - Tuning: `TTS_VOICE` (default `af_heart`), `TTS_SPEED` (`1.15`), `FILLER_MS`, and `LLM_MODEL` / `STT_MODEL` / `IMAGE_MODEL`.
 - Offline timing without keys: `MOCK_LLM=1`.
@@ -157,7 +156,7 @@ These are optional and empty on purpose:
 | `src/voice.ts`, `app/call.ts` | The browser call. |
 | `src/ai.ts` | NEAR AI streaming chat, attestation and signature checks, speech-to-text. |
 | `src/tts.ts`, `src/tts-worker.ts` | Kokoro in a worker thread; strips emoji and markdown before speaking. |
-| `src/fund.ts`, `src/memecook.ts`, `src/justhoot.ts` | 1Click launch-funding swaps; meme.cooking and JustHoot transaction building. |
+| `src/fund.ts`, `src/near.ts`, `src/justhoot.ts` | 1Click launch-funding swaps; NEAR RPC helpers; JustHoot transaction building. |
 | `launchpad.yaml` | Launch rules. It's re-read on every call, so no restart is needed. |
 
 ## Phone wallet (mainnet, Base as the cross-chain demo)
@@ -286,7 +285,7 @@ Testnet still works with `NETWORK=testnet` (Sepolia, `.testnet` accounts, `v1.si
 
 ## JustHoot
 
-The launch desk also prepares JustHoot launches (`v2-launchpad.justhoot.near`): an instant launch whose token and RHEA pool are created in one call. It is **mainnet only and costs real NEAR** (about 0.06 to 0.1 NEAR) whatever `NETWORK` says; the launch page says so before the sign button. Switch it off with `launchpads.justhoot.enabled: false` in `launchpad.yaml`. `npm run test:justhoot` reads the live deposit and gas (views only). No real JustHoot launch has been signed yet, and reading the token id from the launch logs is untested. After a launch the page links NEARON's docs; NEARON is a testnet staging prototype.
+The launch desk prepares JustHoot launches, its only launchpad (`v2-launchpad.justhoot.near`): an instant launch whose token and RHEA pool are created in one call. It is **mainnet only and costs real NEAR** (about 0.06 to 0.1 NEAR) whatever `NETWORK` says; the launch page says so before the sign button. Pause launches with `kill_switch: true` in `launchpad.yaml`. `npm run test:justhoot` reads the live deposit and gas (views only). No real JustHoot launch has been signed yet, and reading the token id from the launch logs is untested. After a launch the page links NEARON's docs; NEARON is a testnet staging prototype.
 
 ## Logs to watch
 
@@ -324,8 +323,8 @@ Claude Code and Codex screen every entry first: they check the README reproduces
 | 2 | **GPU voice on the Spark** to cut the lag before the agent speaks (now about 3–5 s). | Johnson | todo |
 | 3 | **README a machine can run with no keys**: offline tests, `npm run demo:check`, a "feature → code → how to verify" table. | Claude | in progress |
 | 4 | **Full TEE attestation check**, including Intel's signature on the security proof (and the GPU's if possible), shown on a public `/proof` page; `npm run attest`. | Claude | in progress |
-| 5 | **A memecoin mechanic: "the coin has a brain".** Each launched coin gets its own AI hotline, paid for by NEARON staking credit bound to the coin. Ask the NEARON team: can a meme.cooking or JustHoot coin be bound, and when is mainnet planned? | Tan + NEARON team | ask |
-| 6 | **Proof on chain**, with links in the README: one meme.cooking testnet launch (free), one JustHoot mainnet launch (about 0.1 NEAR). Signed in our own wallets. | Tan | todo |
+| 5 | **A memecoin mechanic: "the coin has a brain".** Each launched coin gets its own AI hotline, paid for by NEARON staking credit bound to the coin. Ask the NEARON team: can a JustHoot coin be bound, and when is mainnet planned? | Tan + NEARON team | ask |
+| 6 | **Proof on chain**, with links in the README: one JustHoot mainnet launch (about 0.1 NEAR). Signed in our own wallets. | Tan | todo |
 | 7 | **List the agent on NEAR's Agent Market** (market.near.ai/docs: list your agent). | Johnson or Tan | todo |
 | 8 | **Demo video, 60–90 s, one complete moment:** a phone call, the coin is live, the link arrives. Start with the user's problem; say concretely what NEAR does (private AI in TEEs, launch signed in your own wallet). | Tan | todo |
 | 9 | **X post** tagging @NEARProtocol and #NEARHackathon (optional @NearLegion @NearBuilders), with the video, repo and demo links. | Tan | todo |

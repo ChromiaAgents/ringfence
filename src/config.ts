@@ -11,17 +11,7 @@ export type Launchpad = {
     ticker_min: number;
     ticker_max: number;
     name_max: number;
-    duration_min_minutes: number;
-    duration_max_minutes: number;
-    soft_cap_min_near: number;
-    soft_cap_max_near: number;
-    max_team_allocation_pct: number;
-    min_cliff_days: number;
-    min_vesting_days: number;
-    total_supply: string;
-    decimals: number;
   };
-  launchpads?: { meme_cooking?: { enabled?: boolean }; justhoot?: { enabled?: boolean; ticker_min?: number; ticker_max?: number } };
   blocked_tickers: string[];
   blocked_names: string[];
   forbidden_claims: string[];
@@ -41,7 +31,6 @@ export const env = {
   sttModel: process.env.STT_MODEL ?? 'openai/whisper-large-v3',
   imageModel: process.env.IMAGE_MODEL ?? 'black-forest-labs/FLUX.2-klein-4B',
   network: (process.env.NETWORK === 'mainnet' ? 'mainnet' : 'testnet') as 'mainnet' | 'testnet',
-  pinataJwt: process.env.PINATA_JWT ?? '',
   oneClickJwt: process.env.ONECLICK_JWT ?? '',
   waToken: process.env.WHATSAPP_TOKEN ?? '',
   waPhoneId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? '',

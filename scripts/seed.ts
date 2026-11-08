@@ -33,8 +33,8 @@ const calls = [
 
 const { icon } = await drawLogo('ZZZ');
 const launches = [
-  { id: 'l1', callId: 'c4', createdAt: m(154.3), network: 'testnet', status: 'prepared', logoModel: 'drawn locally',
-    params: { name: 'Sleepy Otter', symbol: 'ZZZ', description: 'An otter that naps through every dip.', icon, durationMinutes: 60, softCapNear: 100, team: { pct: 5, cliffDays: 7, vestingDays: 30 }, socials: {}, totalSupply: '1000000000', decimals: 18 } },
+  { id: 'l1', callId: 'c4', createdAt: m(154.3), network: 'mainnet', status: 'prepared', logoModel: 'drawn locally',
+    params: { name: 'Sleepy Otter', symbol: 'ZZZ', description: 'An otter that naps through every dip.', icon, socials: {} } },
 ];
 
 const ledger = [

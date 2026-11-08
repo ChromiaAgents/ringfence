@@ -35,10 +35,10 @@ export function recap(call: Call): string {
     const bits = [`${day(c.startedAt)}, ${c.desk ?? 'no'} desk`];
     if (c.caller?.name) bits.push(`name ${c.caller.name}`);
     const l = db.launches.find((x) => x.callId === c.id);
-    if (l) bits.push(`coin ${l.params.name} (${l.params.symbol}) on ${l.launchpad === 'justhoot' ? 'JustHoot' : 'meme.cooking'}, ${l.status}`);
+    if (l) bits.push(`coin ${l.params.name} (${l.params.symbol}) on JustHoot, ${l.status}`);
     else {
       const d = draftOf(c.id);
-      if (d.symbol || d.name) bits.push(`unfinished coin draft ${d.name ?? ''}${d.symbol ? ` (${d.symbol})` : ''}${d.pad ? ` for ${d.pad === 'justhoot' ? 'JustHoot' : 'meme.cooking'}` : ''}`);
+      if (d.symbol || d.name) bits.push(`unfinished coin draft ${d.name ?? ''}${d.symbol ? ` (${d.symbol})` : ''}`);
     }
     const said = c.turns.filter((t) => t.who === 'caller').slice(-2).map((t) => `"${t.text.slice(0, 80)}"`).join(', ');
     if (said) bits.push(`they last said ${said}`);

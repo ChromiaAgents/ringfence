@@ -2,7 +2,7 @@
 // RHEA DCL pool (1% fee tier) together, tradable straight away. There is no testnet deployment.
 // Read-only views, the transaction the caller signs, and the after-the-fact check. This server never signs.
 import sharp from 'sharp';
-import { rpc, view } from './memecook.ts';
+import { rpc, view } from './near.ts';
 
 export const JUSTHOOT = {
   contract: 'v2-launchpad.justhoot.near',

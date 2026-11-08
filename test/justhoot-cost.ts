@@ -2,7 +2,7 @@
 // launch and calls the contract's own get_launch_deposit / get_launch_gas views. View only; nothing is signed or sent.
 // npx tsx test/justhoot-cost.ts
 import { justhootArgs, justhootCost, buildJustHootTx, smallIcon, JUSTHOOT } from '../src/justhoot.ts';
-import { view, yoctoToNear } from '../src/memecook.ts';
+import { view, yoctoToNear } from '../src/near.ts';
 import { drawLogo } from '../src/image.ts';
 
 const icon = await smallIcon((await drawLogo('ZZZ')).icon);

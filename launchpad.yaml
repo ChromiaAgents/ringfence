@@ -4,31 +4,13 @@
 
 desk:
   name: "the launch desk"
-  greeting: "Launch desk here. Tell me about the coin you want to launch on meme dot cooking."
+  greeting: "Launch desk here. Tell me about the coin you want to launch on JustHoot."
 
 rules:
   kill_switch: false           # true = the desk talks but prepares no launches
-  ticker_min: 2
-  ticker_max: 8                # A-Z and 0-9 only
+  ticker_min: 1                # JustHoot's own rule: 1-10 letters or digits; tickers are not unique there
+  ticker_max: 10               # A-Z and 0-9 only
   name_max: 32
-  duration_min_minutes: 5      # meme.cooking's contract allows 5 min to 1 day
-  duration_max_minutes: 1440
-  soft_cap_min_near: 10
-  soft_cap_max_near: 5000
-  max_team_allocation_pct: 10  # creator's share of supply, if any
-  min_cliff_days: 7            # any team allocation must be locked at least this long...
-  min_vesting_days: 30         # ...then vest linearly over at least this long
-  total_supply: "1000000000"   # whole tokens (the meme.cooking app's default)
-  decimals: 18
-
-# The two launchpads the desk can prepare. The caller picks one, or the agent suggests one.
-launchpads:
-  meme_cooking:
-    enabled: false             # fair-launch auction first; testnet or mainnet per NETWORK
-  justhoot:
-    enabled: true              # instant launch with a RHEA pool; mainnet only, real NEAR
-    ticker_min: 1              # JustHoot's own rule: 1-10 letters or digits; tickers are not unique there
-    ticker_max: 10
 
 # Tickers that would pass as an existing asset. Compared after removing a leading $ and case.
 blocked_tickers: [NEAR, WNEAR, BTC, WBTC, ETH, WETH, USDC, USDT, DAI, SOL, BNB, XRP, ADA, DOGE, SHIB, PEPE, TRUMP, MELANIA, WIF, BONK, TON, TRX, AVAX, DOT, LINK, MATIC, POL, ARB, OP, SUI, APT, ZEC, LTC, BCH, XLM, HOT, AURORA, REF, BLACKDRAGON, SHITZU, NEKO]

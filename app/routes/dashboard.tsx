@@ -16,7 +16,7 @@ type Timing = { sttMs?: number; firstTokenMs?: number; firstAudioMs?: number; to
 type Turn = { at: number; who: 'caller' | 'agent' | 'tool'; text: string; proof?: Proof; timing?: Timing };
 const ms = (x?: number) => (x == null ? '–' : `${(x / 1000).toFixed(1)}s`);
 type Call = { id: string; channel: 'web' | 'whatsapp'; desk?: string; from?: string; startedAt: number; endedAt?: number; turns: Turn[]; caller?: Record<string, string> };
-type Launch = { id: string; createdAt: number; network: string; status: string; params: { name: string; symbol: string; durationMinutes: number; softCapNear: number; team?: { pct: number } }; logoModel?: string; signer?: string; memeId?: number; txHash?: string; reason?: string };
+type Launch = { id: string; createdAt: number; network: string; status: string; params: { name: string; symbol: string }; logoModel?: string; signer?: string; tokenId?: string; txHash?: string; reason?: string };
 type Ledger = { at: number; kind: string; desk?: string; detail: string };
 type State = {
   launchpad: { rules: Record<string, any>; blocked_tickers: string[]; blocked_names: string[] };
@@ -79,7 +79,7 @@ function Dashboard() {
           <div className="stack">
             <section className="card kpis" aria-label="Totals">
               <div><div className="l">Calls</div><div className="v">{calls.length}</div><div className="c">{calls.filter((c) => !c.endedAt).length} live now</div></div>
-              <div><div className="l">Launches</div><div className="v">{launches.length}</div><div className="c">{launches.filter((l) => l.status === 'live').length} live on meme.cooking</div></div>
+              <div><div className="l">Launches</div><div className="v">{launches.length}</div><div className="c">{launches.filter((l) => l.status === 'live').length} live on JustHoot</div></div>
               <div><div className="l">Refused or filtered</div><div className="v">{refused.length}</div><div className="c">in the last {s.ledger.length} ledger lines</div></div>
             </section>
 
@@ -101,13 +101,13 @@ function Dashboard() {
               <div className="panelhead"><h2 id="lch">Launches</h2><span className="muted" style={{ fontSize: 13 }}>Prepared by the desk, signed by the caller</span></div>
               {launches.length ? (
                 <div className="scroll"><table>
-                  <thead><tr><th>Coin</th><th>Auction</th><th>Logo</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Coin</th><th>Launchpad</th><th>Logo</th><th>Status</th></tr></thead>
                   <tbody>{launches.map((l) => (
                     <tr key={l.id}>
                       <td><a href={`/launch/${l.id}`}>${l.params.symbol}</a><span className="sub">{l.params.name} · {time(l.createdAt)}</span></td>
-                      <td>{l.params.durationMinutes} min, {l.params.softCapNear} NEAR soft cap<span className="sub">{l.params.team ? `${l.params.team.pct}% team` : 'no team share'} · {l.network}</span></td>
+                      <td>JustHoot<span className="sub">{l.network}</span></td>
                       <td>{l.logoModel ?? '—'}</td>
-                      <td><span className={`pill ${l.status === 'live' ? 'ok' : l.status === 'failed' ? 'warn' : 'wait'}`}>{LSTATUS[l.status] ?? l.status}</span><span className="sub">{l.memeId != null ? `meme #${l.memeId} · ${l.signer}` : l.reason ?? ''}</span></td>
+                      <td><span className={`pill ${l.status === 'live' ? 'ok' : l.status === 'failed' ? 'warn' : 'wait'}`}>{LSTATUS[l.status] ?? l.status}</span><span className="sub">{l.status === 'live' ? `${l.tokenId ?? 'token'} · ${l.signer}` : l.reason ?? ''}</span></td>
                     </tr>
                   ))}</tbody>
                 </table></div>
@@ -143,9 +143,6 @@ function Dashboard() {
                 <div className="row"><span>Launch kill switch</span>{lr.kill_switch ? <span className="pill warn">On: no launches</span> : <b>Off</b>}</div>
                 <div className="row"><span>Ticker</span><b>{lr.ticker_min}–{lr.ticker_max} of A–Z, 0–9</b></div>
                 <div className="row"><span>Blocked</span><b>{s.launchpad.blocked_tickers.length} tickers, {s.launchpad.blocked_names.length} names</b></div>
-                <div className="row"><span>Auction</span><b>{lr.duration_min_minutes} min to {lr.duration_max_minutes / 60} h</b></div>
-                <div className="row"><span>Soft cap</span><b>{lr.soft_cap_min_near}–{lr.soft_cap_max_near} NEAR</b></div>
-                <div className="row"><span>Team share</span><b>≤ {lr.max_team_allocation_pct}%, cliff ≥ {lr.min_cliff_days} d, vest ≥ {lr.min_vesting_days} d</b></div>
               </div>
             </section>
 

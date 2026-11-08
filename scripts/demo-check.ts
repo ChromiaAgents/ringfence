@@ -93,9 +93,9 @@ try {
     must(page.text.includes('ZZOTR') || page.text.includes('Sleepy Otter'), 'terms not in the page');
     const api = JSON.parse((await get(`/api/launch/${id}`)).text);
     must(api.params?.symbol === 'ZZOTR' && api.status === 'prepared', JSON.stringify(api).slice(0, 200));
-    // The pad comes from launchpad.yaml: JustHoot is mainnet only, meme.cooking follows NETWORK.
-    must(api.launchpad === 'justhoot' ? api.network === 'mainnet' : api.network === 'testnet', `pad ${api.launchpad} on ${api.network}`);
-    return `$${api.params.symbol} on ${api.launchpad} (${api.network}), ${api.status}, logo: ${api.logoModel}; nothing signed`;
+    // JustHoot is mainnet only, whatever NETWORK the rest of the demo uses.
+    must(api.network === 'mainnet' && api.contract === 'v2-launchpad.justhoot.near', `launch on ${api.contract} (${api.network})`);
+    return `$${api.params.symbol} on JustHoot (${api.network}), ${api.status}, logo: ${api.logoModel}; nothing signed`;
   });
 
   await step('out of scope: the AI declines an off-topic request (no canned line, no extra tools)', async () => {

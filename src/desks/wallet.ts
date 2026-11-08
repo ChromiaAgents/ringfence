@@ -6,7 +6,7 @@ import { randomBytes } from 'node:crypto';
 import { parseUnits, formatUnits } from 'ethers';
 import { env } from '../config.ts';
 import { db, log, type Call } from '../store.ts';
-import { yoctoToNear } from '../memecook.ts';
+import { yoctoToNear } from '../near.ts';
 import { bindingOf, checkPin, normalizePin, live, devServer, sendEvm, sendNear, walletState, ethAddressOf, rejectFreeze, digits, type Binding, type WalletState } from '../wallet.ts';
 import { CHAINS, chainById, findChain, defaultChainIds } from '../chains.ts';
 import { GasShortError, prepareTransfer } from '../eth.ts';

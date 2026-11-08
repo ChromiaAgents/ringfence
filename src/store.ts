@@ -2,7 +2,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import type { Proof } from './ai.ts';
-import type { LaunchParams } from './memecook.ts';
+import type { LaunchParams } from './near.ts';
 import type { Binding } from './wallet.ts';
 
 export type Desk = 'launch' | 'wallet';
@@ -14,9 +14,9 @@ export type Call = {
   caller?: Record<string, string>; launchId?: string; routeMisses?: number;
 };
 export type Launch = {
-  id: string; callId: string; createdAt: number; network: 'mainnet' | 'testnet'; params: LaunchParams; launchpad?: 'meme_cooking' | 'justhoot'; // missing = meme_cooking (older records)
+  id: string; callId: string; createdAt: number; network: 'mainnet' | 'testnet'; params: LaunchParams;
   logoModel?: string; status: 'prepared' | 'signed' | 'live' | 'failed';
-  signer?: string; txHash?: string; memeId?: number; tokenId?: string; reason?: string;
+  signer?: string; txHash?: string; tokenId?: string; reason?: string;
 };
 export type LedgerEntry = {
   at: number;
