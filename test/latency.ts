@@ -1,13 +1,13 @@
-// Times one spoken turn end to end with MOCK_LLM=1 (scripted streamed chat + STT) and real Kokoro TTS.
+// Times one spoken turn end to end with MOCK_LLM=1 (scripted streamed chat + STT) and the real TTS provider (cartesia or kokoro).
 //   MOCK_LLM=1 DB_FILE=/tmp/x.json tsx test/latency.ts
 import { startCall, reply } from '../src/agent.ts';
-import { warmUp } from '../src/tts.ts';
+import { warmUp, provider } from '../src/tts.ts';
 import { voiceLine } from '../src/turn.ts';
 import { transcribe } from '../src/ai.ts';
 import { env } from '../src/config.ts';
 
 if (!env.mockLlm) throw new Error('set MOCK_LLM=1');
-let t = Date.now(); await warmUp(); console.log('warm-up (kokoro + fillers)', Date.now() - t, 'ms');
+let t = Date.now(); await warmUp(); console.log(`tts provider: ${provider}`); console.log(`warm-up (${provider === 'kokoro' ? 'kokoro + ' : ''}fillers)`, Date.now() - t, 'ms');
 const { call } = startCall('web', undefined, 'launch');
 let firstClip: number | undefined; const clips: string[] = [];
 let t0 = 0;
@@ -22,4 +22,5 @@ for (let i = 0; i < 3; i++) {
   firstClip ??= timing.firstAudioMs;
 }
 console.log('clips sent', clips.join(' '));
+console.log(`provider ${provider} · first audio ${firstClip ?? '-'} ms`);
 process.exit(0);

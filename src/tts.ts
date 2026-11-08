@@ -1,7 +1,42 @@
-// Text-to-speech runs on this machine (Kokoro, open weights), so the reply text never leaves the box.
+// Text-to-speech. Two providers (TTS_PROVIDER, default cartesia when CARTESIA_API_KEY is set, else kokoro):
+// - cartesia: Cartesia Sonic over HTTPS. Fast and natural, but the reply TEXT goes to Cartesia (a third party, not a TEE).
+// - kokoro: open weights in a worker thread on this machine, so the reply text never leaves the box (~90 MB model).
+// With cartesia, Kokoro is never loaded unless TTS_FALLBACK=kokoro.
 import { Worker } from 'node:worker_threads';
+export type TtsProvider = 'cartesia' | 'kokoro';
+export const providerFor = (e: Record<string, string | undefined>): TtsProvider =>
+  e.TTS_PROVIDER === 'kokoro' || e.TTS_PROVIDER === 'cartesia' ? e.TTS_PROVIDER : e.CARTESIA_API_KEY ? 'cartesia' : 'kokoro';
+export const provider = providerFor(process.env);
+const kokoroEnabled = provider === 'kokoro' || process.env.TTS_FALLBACK === 'kokoro';
 const voice = (process.env.TTS_VOICE ?? 'af_heart') as any;
-const speed = Number(process.env.TTS_SPEED ?? 1.15);
+const speed = Number(process.env.TTS_SPEED ?? (provider === 'kokoro' ? 1.15 : 1));
+const RATE = 24000;
+
+// Cartesia: /tts/bytes per sentence (we already split by sentence), raw float32 PCM at 24 kHz mono, like Kokoro.
+// Voice default: "Jacqueline" (warm, en-US), from Cartesia's recommended voice-agent voices.
+const CARTESIA = {
+  url: process.env.CARTESIA_URL ?? 'https://api.cartesia.ai/tts/bytes',
+  version: process.env.CARTESIA_VERSION ?? '2026-08-14',
+  model: process.env.CARTESIA_MODEL ?? 'sonic-3.6',
+  voice: process.env.CARTESIA_VOICE_ID ?? '9626c31c-bec5-4cca-baa8-f8ba9e84c8bc',
+  timeoutMs: Number(process.env.CARTESIA_TIMEOUT_MS ?? 5000),
+};
+export async function cartesiaSpeak(text: string, key = process.env.CARTESIA_API_KEY ?? ''): Promise<Float32Array> {
+  if (!key) throw new Error('CARTESIA_API_KEY is not set');
+  const r = await fetch(CARTESIA.url, {
+    method: 'POST',
+    signal: AbortSignal.timeout(CARTESIA.timeoutMs),
+    headers: { Authorization: `Bearer ${key}`, 'Cartesia-Version': CARTESIA.version, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model_id: CARTESIA.model, transcript: text, voice: { id: CARTESIA.voice }, language: 'en',
+      output_format: { container: 'raw', encoding: 'pcm_f32le', sample_rate: RATE },
+      generation_config: { speed: Math.min(1.5, Math.max(0.6, speed)) },
+    }),
+  });
+  if (!r.ok) throw new Error(`cartesia ${r.status}: ${(await r.text().catch(() => '')).slice(0, 200)}`);
+  const buf = await r.arrayBuffer();
+  return new Float32Array(buf.slice(0, buf.byteLength - (buf.byteLength % 4)));
+}
 // Never voice emoji, markdown or symbols the model slips in.
 export const speakable = (t: string) => t.replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').replace(/[*_#~\`|<>]/g, '').replace(/\s+/g, ' ').trim();
 
@@ -22,7 +57,17 @@ function load() {
 const off = process.env.TTS === 'off';
 export async function speak(text: string): Promise<{ pcm: Float32Array; rate: number }> {
   const clean = speakable(text);
-  if (!clean || off) return { pcm: new Float32Array(0), rate: 24000 };
+  if (!clean || off) return { pcm: new Float32Array(0), rate: RATE };
+  if (provider === 'cartesia') {
+    try { return { pcm: trim(await cartesiaSpeak(clean), RATE), rate: RATE }; } catch (e) {
+      if (!kokoroEnabled) throw e;
+      console.error('cartesia failed, falling back to kokoro:', (e as Error).message);
+    }
+  }
+  return kokoro(clean);
+}
+
+async function kokoro(clean: string) {
   const w = await load();
   const id = ++seq;
   const m: any = await new Promise((ok) => { waiting.set(id, ok); w.postMessage({ id, text: clean }); });
@@ -58,10 +103,10 @@ export function filler(kind: FillerKind) {
 }
 
 let warm: Promise<void> | null = null;
-/** Loads Kokoro and renders the filler clips. Safe to call often; the work happens once. */
+/** Loads the voice (Kokoro only if it is the provider) and renders the filler clips. Safe to call often; runs once. */
 export const warmUp = () => (warm ??= (async () => {
   if (off) return;
-  await load();
+  if (provider === 'kokoro') await load();
   for (const [k, texts] of Object.entries(FILLER_TEXT) as [FillerKind, string[]][])
     fillers.set(k, await Promise.all(texts.map((t) => speak(t))));
 })());

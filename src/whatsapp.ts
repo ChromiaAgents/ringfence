@@ -106,7 +106,7 @@ async function onCallEvent(c: any) {
   }
   if (c.event !== 'connect' || c.session?.sdp_type !== 'offer') return;
 
-  const pc = new RTCPeerConnection({ codecs: { audio: [useOPUS()] }, iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+  const pc = new RTCPeerConnection({ codecs: { audio: [useOPUS()] }, iceServers: [{ urls: 'stun:stun.l.google.com:19302' }], ...(env.rtcPorts ? { icePortRange: env.rtcPorts } : {}) });
   const out = new MediaStreamTrack({ kind: 'audio' });
   const tr = pc.addTransceiver(out, { direction: 'sendrecv' });
   await pc.setRemoteDescription({ type: 'offer', sdp: c.session.sdp });

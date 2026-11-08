@@ -62,6 +62,8 @@ cloudflared tunnel route dns callhand callhand.<your-domain>
 cloudflared tunnel run --url http://localhost:8787 callhand
 ```
 
+For a plain VPS (Hetzner or DigitalOcean, Singapore) there is a ready setup: `Dockerfile`, `deploy/Caddyfile`, `deploy/callhand.service` and the steps in `deploy/README.md`.
+
 A reverse proxy works too (for example Caddy: `callhand.example.com { reverse_proxy localhost:8787 }`). WebSockets must pass through.
 
 To keep it running, a systemd unit:
@@ -114,21 +116,30 @@ Tan's `.env` already has these filled in:
 | Variable | Notes |
 | --- | --- |
 | `NEARAI_API_KEY` | NEAR AI Cloud. Spends credits: a logo is about $0.012, chat and speech cost cents. |
-| `NETWORK` | `testnet`. Switching to `mainnet` means real launches with real NEAR. Don't switch without Tan. |
+| `NETWORK` | `testnet` or `mainnet`. Mainnet means real launches and a real-money phone wallet (Base). Don't switch without Tan. |
 | `PUBLIC_URL` | **Change this** to your host's URL. |
 | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | The token needs replacing (see above). The app secret checks webhook signatures; requests that don't match get 401. |
 | `OWNER_WHATSAPP` | Tan's number. It reaches the owner desk with "owner ...". |
 | `OWNER_NEAR_ACCOUNT` | The mainnet account that receives deposits. |
 | `DASHBOARD_PASSWORD` | Basic auth for `/dashboard`, `/api/state` and `/api/owner`. |
 
-Phone wallet (testnet), empty until the deploy steps below are done:
+Phone wallet, empty until the deploy steps below are done:
 
 | Variable | Notes |
 | --- | --- |
-| `AGENT_ACCOUNT_ID` | Our agent account, e.g. `callhand-agent.testnet`. Each user's contract lets it spend within limits. |
+| `AGENT_ACCOUNT_ID` | Our agent account, e.g. `callhand-agent.near` (mainnet). Each user's contract lets it spend within limits. |
 | `AGENT_PRIVATE_KEY` | `ed25519:...` key of that account. Without it the wallet desk is a labelled dry run. |
-| `MPC_SIGNER` | Optional, default `v1.signer-prod.testnet`. |
-| `SEPOLIA_RPC` | Optional, default `https://ethereum-sepolia-rpc.publicnode.com`. |
+| `MPC_SIGNER` | Optional, default `v1.signer` on mainnet, `v1.signer-prod.testnet` on testnet. |
+| `RPC_<chainId>`, `SEPOLIA_RPC`, `EXTRA_CHAINS` | Optional EVM RPC overrides and extra chains (`src/chains.ts`). |
+| `WALLET_NEAR_PER_TX`, `WALLET_NEAR_PER_DAY`, `WALLET_EVM_PER_TX`, `WALLET_EVM_PER_DAY`, `WALLET_DELAY_SEC` | Optional: the limits the bind page proposes (defaults 1, 3, 0.0005, 0.002, 600). |
+
+Voice and hosting:
+
+| Variable | Notes |
+| --- | --- |
+| `TTS_PROVIDER` | `cartesia` (default when `CARTESIA_API_KEY` is set) or `kokoro`. Cartesia needs no 90 MB model; the reply text goes to Cartesia. |
+| `CARTESIA_API_KEY`, `CARTESIA_VOICE_ID` | Cartesia Sonic; default voice "Jacqueline". `TTS_FALLBACK=kokoro` falls back to local Kokoro on errors. |
+| `RTC_PORT_MIN`, `RTC_PORT_MAX` | UDP range for WhatsApp call audio, e.g. 40000 and 40100. Open it in the firewall. |
 
 These are optional and empty on purpose:
 
@@ -152,45 +163,69 @@ These are optional and empty on purpose:
 | `src/pay.ts`, `src/memecook.ts`, `src/justhoot.ts` | 1Click quotes and status; meme.cooking and JustHoot transaction building. |
 | `owner.yaml`, `launchpad.yaml` | Business rules and launch rules. They're re-read on every call, so no restart is needed. |
 
-## Phone wallet (testnet)
+## Phone wallet (mainnet, Base as the cross-chain demo)
 
-"Your phone number is a wallet": bind on `/wallet/bind`, then on a call "send 1 NEAR to bob.testnet" + spoken PIN. Contract `contracts/phone-wallet` (limits, allowlist, delay queue, Chain Signatures), desk `src/desks/wallet.ts`, logic `src/wallet.ts`, Sepolia `src/eth.ts`. README "Phone wallet" has the trust model. Testnet only; nothing has been deployed yet.
+**Unaudited prototype: keep small amounts.** "Your phone number is a wallet": bind on `/wallet/bind`, then on a call "send 1 NEAR to bob.near" or "send 0.0001 ETH on Base to 0x…" + spoken PIN. Contract `contracts/phone-wallet` (limits per asset, EVM chain allowlist, recipient allowlist, delay queue, Chain Signatures), desk `src/desks/wallet.ts`, logic `src/wallet.ts`, EVM `src/eth.ts`, chain registry `src/chains.ts`. README "Phone wallet" has the trust model. `NETWORK` picks the network: mainnet = `v1.signer` + Base (8453); testnet = `v1.signer-prod.testnet` + Sepolia. Nothing has been deployed yet.
+
+Mainnet defaults (proposed on the bind page, editable before signing; env `WALLET_*` changes the proposal): 1 NEAR per transfer, 3 per day; 0.0005 ETH per transfer, 0.002 per day on Base; new recipients wait 600 s. Other EVM chains (Ethereum, Arbitrum, Optimism, Polygon, BNB, Avalanche) are in the server's registry but each owner must `allow_chain` them first. The EVM address is the same on every chain.
 
 Tests: `cd contracts/phone-wallet && cargo test` (unit + local sandbox; needs Rust 1.95+, the `wasm32-unknown-unknown` target and `cargo install cargo-near`).
 
-### Deploy to testnet (Tan runs these; each step sends a testnet transaction)
+### Deploy to mainnet (Tan runs these; each step sends a real mainnet transaction and spends real NEAR or ETH)
 
-Uses near-cli-rs (`cargo install near-cli-rs` or `npx near-cli-rs`). Replace `alice.testnet` with your own testnet account and `<digits>` with your WhatsApp number, digits only.
+Uses near-cli-rs (`cargo install near-cli-rs` or `npx near-cli-rs`). Replace `team.near` with the team's funded account, `alice.near` with the user's own account, and `<digits>` with the WhatsApp number, digits only. The wasm in `public/phone_wallet.wasm` is already built from this commit; rebuild only after contract changes.
 
 ```bash
-# 1. The agent account (faucet-funded), its key saved in ~/.near-credentials
-near account create-account sponsor-by-faucet-service callhand-agent.testnet autogenerate-new-keypair save-to-legacy-keychain network-config testnet create
-# put in .env (never commit): AGENT_ACCOUNT_ID=callhand-agent.testnet
-#                            AGENT_PRIVATE_KEY=<"private_key" from ~/.near-credentials/testnet/callhand-agent.testnet.json>
+# 0. In .env (never commit):  NETWORK=mainnet
+#    (MPC_SIGNER defaults to v1.signer on mainnet; Base RPC defaults to https://mainnet.base.org, override with RPC_8453=)
 
-# 2. Build the contract the bind page deploys, then the app
+# 1. The agent account, funded by the team (it only pays gas: ~0.5 NEAR is plenty), key saved in ~/.near-credentials
+near account create-account fund-myself callhand-agent.near '0.5 NEAR' autogenerate-new-keypair save-to-legacy-keychain sign-as team.near network-config mainnet sign-with-keychain send
+# put in .env:  AGENT_ACCOUNT_ID=callhand-agent.near
+#               AGENT_PRIVATE_KEY=<"private_key" from ~/.near-credentials/mainnet/callhand-agent.near.json>
+# then restart the server (npm start / systemctl restart callhand)
+
+# 2. (only after contract changes) rebuild the wasm the bind page deploys, then the app
 cd contracts/phone-wallet && cargo near build non-reproducible-wasm && cp target/near/phone_wallet.wasm ../../public/ && cd ../..
-npm run build && npm start        # PUBLIC_URL must be reachable from your phone for the WhatsApp links
+npm run build
 
-# 3. Bind: open $PUBLIC_URL/wallet/bind, connect alice.testnet, get the WhatsApp code, set a PIN, Bind, then sign
-#    "create + fund 3 NEAR + deploy + init" in the wallet. If the wallet refuses a deploy action, sign it from the CLI
-#    instead (after "Bind" so the server has the PIN hash):
-near account create-account fund-myself phone.alice.testnet '3 NEAR' autogenerate-new-keypair save-to-legacy-keychain sign-as alice.testnet network-config testnet sign-with-legacy-keychain send
-near contract deploy phone.alice.testnet use-file public/phone_wallet.wasm with-init-call new json-args "{\"owner\":\"alice.testnet\",\"agent\":\"callhand-agent.testnet\",\"phone_hash\":\"$(printf %s '<digits>' | shasum -a 256 | cut -d' ' -f1)\",\"signer\":\"v1.signer-prod.testnet\"}" prepaid-gas '100 Tgas' attached-deposit '0 NEAR' network-config testnet sign-with-legacy-keychain send
-#    (the CLI path leaves a full-access key for phone.alice.testnet in your keychain: it is yours, the owner's)
+# 3. Bind (the user, with their own alice.near): open $PUBLIC_URL/wallet/bind, connect alice.near, get the WhatsApp code,
+#    set a PIN, Bind, check the limits and the EVM address shown, then sign "create + fund 2.5 NEAR + deploy + init".
+#    2.5 NEAR covers the contract's storage (~1.9 NEAR); step 4 adds the money it can spend.
+#    If the wallet refuses a deploy action, sign it from the CLI instead (after "Bind" so the server has the PIN hash):
+near account create-account fund-myself phone.alice.near '2.5 NEAR' autogenerate-new-keypair save-to-legacy-keychain sign-as alice.near network-config mainnet sign-with-keychain send
+near contract deploy phone.alice.near use-file public/phone_wallet.wasm with-init-call new json-args "{\"owner\":\"alice.near\",\"agent\":\"callhand-agent.near\",\"phone_hash\":\"$(printf %s '<digits>' | shasum -a 256 | cut -d' ' -f1)\",\"signer\":\"v1.signer\",\"evm_chain_ids\":[8453]}" prepaid-gas '100 Tgas' attached-deposit '0 NEAR' network-config mainnet sign-with-legacy-keychain send
+#    (no limits in the JSON = the safe defaults above; add "near_limit":{"per_tx":"<yocto>","per_day":"<yocto>"},
+#     "evm_limit":{...wei...}, "new_recipient_delay_sec":600 to change them. The CLI path leaves a full-access key for
+#     phone.alice.near in your keychain: it is yours, the owner's.)
 
-# 4. Save a recipient (owner call, 1 yoctoNEAR), then call the number and say "send 1 NEAR to bob dot testnet", then the PIN
-near contract call-function as-transaction phone.alice.testnet allow json-args '{"recipient":"bob.testnet"}' prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as alice.testnet network-config testnet sign-with-legacy-keychain send
+# 4. Fund with small NEAR: 2 NEAR on top of storage is enough for the demo
+near tokens alice.near send-near phone.alice.near '2 NEAR' network-config mainnet sign-with-keychain send
 
-# 5. Sepolia: ask "what's my wallet balance" (the reply includes the derived ETH address), fund that address from a
-#    Sepolia faucet, save the recipient, then text "send 0.001 ETH on Sepolia to 0x…" on WhatsApp and the PIN.
-near contract call-function as-transaction phone.alice.testnet allow json-args '{"recipient":"0x<recipient>"}' prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as alice.testnet network-config testnet sign-with-legacy-keychain send
+# 5. Save a recipient (owner call, 1 yoctoNEAR), then call the number and say "send 0.5 NEAR to bob dot near", then the PIN
+near contract call-function as-transaction phone.alice.near allow json-args '{"recipient":"bob.near"}' prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as alice.near network-config mainnet sign-with-keychain send
 
-# Check state any time (free view)
-near contract call-function as-read-only phone.alice.testnet get_state json-args {} network-config testnet now
+# 6. Base: ask "what's my wallet balance" (the reply and the bind page give the EVM address, the same on every chain).
+#    Send a little ETH on Base to that address (0.001 ETH covers 0.0001 ETH + gas many times; Base gas is cents or less).
+#    Save the recipient, then text "send 0.0001 ETH on Base to 0x…" on WhatsApp and say/text the PIN.
+#    If the address lacks gas, the agent says how much is missing and asks for no signature.
+near contract call-function as-transaction phone.alice.near allow json-args '{"recipient":"0x<recipient>"}' prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as alice.near network-config mainnet sign-with-keychain send
+
+# Optional: another EVM chain (limits in that chain's native units, wei)
+near contract call-function as-transaction phone.alice.near allow_chain json-args '{"chain_id":42161,"per_tx":"500000000000000","per_day":"2000000000000000"}' prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as alice.near network-config mainnet sign-with-keychain send
+
+# Check state any time (free view); stop the agent any time
+near contract call-function as-read-only phone.alice.near get_state json-args {} network-config mainnet now
+near contract call-function as-transaction phone.alice.near revoke_agent json-args {} prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as alice.near network-config mainnet sign-with-keychain send
 ```
 
-Then fill the three phone-wallet rows in README "Evidence".
+Record these three as README "Evidence":
+
+1. The bind transaction (create + deploy + init `phone.alice.near`), nearblocks.io link.
+2. A `transfer_near` by voice + PIN, nearblocks.io link.
+3. A Base transfer: the `request_signature` NEAR transaction (nearblocks.io) and the broadcast Base transaction (basescan.org).
+
+Testnet still works with `NETWORK=testnet` (Sepolia, `.testnet` accounts, `v1.signer-prod.testnet`): same steps with `network-config testnet`, `sponsor-by-faucet-service` for the agent account, and "send 0.001 ETH on Sepolia to 0x…".
 
 ## JustHoot
 

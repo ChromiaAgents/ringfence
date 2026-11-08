@@ -2,8 +2,10 @@
 // The owner (the user's main account) has full control. The agent (callhand's server account) may only spend
 // within the limits below; every limit is checked here, not by the AI.
 //
-// Assets: "near" (native transfers) and "eth:sepolia" (Chain Signatures: the contract asks the MPC signer to sign an
-// EIP-1559 transfer it has parsed itself, so the value and recipient it limits are the ones that get signed).
+// Assets: "near" (native transfers) and "evm:<chainId>" for any EVM chain the owner allows (Chain Signatures: the
+// contract asks the MPC signer to sign an EIP-1559 transfer it has parsed itself, so the chain, value and recipient it
+// limits are the ones that get signed). One path ("ethereum-1") gives the same address on every EVM chain.
+// UNAUDITED PROTOTYPE: keep small amounts.
 use near_sdk::json_types::{U128, U64};
 use near_sdk::{env, near, require, AccountId, Gas, NearToken, PanicOnDefault, Promise, PromiseOrValue};
 use std::collections::HashMap;
@@ -11,7 +13,8 @@ use std::collections::HashMap;
 const DAY_NS: u64 = 86_400_000_000_000;
 const SIGN_GAS: Gas = Gas::from_tgas(50);
 pub const ETH_PATH: &str = "ethereum-1";
-const SEPOLIA_CHAIN_ID: u64 = 11_155_111;
+pub const BASE_CHAIN_ID: u64 = 8453;
+pub fn evm_key(chain_id: u64) -> String { format!("evm:{chain_id}") }
 
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Debug, PartialEq)]
@@ -25,7 +28,7 @@ pub struct Pending {
     pub to: String,
     pub amount: U128,
     pub ready_at_ns: U64,
-    /// For "eth:sepolia": the unsigned EIP-1559 transaction (hex) to sign once ready.
+    /// For "evm:<id>": the unsigned EIP-1559 transaction (hex) to sign once ready.
     pub tx: Option<String>,
 }
 
@@ -39,6 +42,8 @@ pub struct PhoneWallet {
     phone_hash: String,
     signer: AccountId,
     limits: HashMap<String, Limit>,
+    /// EVM chain ids the agent may ask signatures for (each also needs a limit "evm:<id>").
+    chains: Vec<u64>,
     allowlist: Vec<String>,
     new_recipient_delay_sec: u64,
     day: u64,
@@ -54,6 +59,7 @@ pub struct State {
     pub phone_hash: String,
     pub signer: AccountId,
     pub limits: HashMap<String, Limit>,
+    pub chains: Vec<u64>,
     pub allowlist: Vec<String>,
     pub new_recipient_delay_sec: u64,
     pub day: u64,
@@ -64,19 +70,24 @@ pub struct State {
 
 #[near]
 impl PhoneWallet {
-    /// Defaults: 5 NEAR per transfer, 10 NEAR per day; 0.01 ETH per transfer, 0.02 ETH per day on Sepolia.
+    /// Defaults (mainnet-safe): 1 NEAR per transfer, 3 NEAR per day; on each EVM chain in `evm_chain_ids` (default
+    /// [8453] = Base) 0.0005 per transfer, 0.002 per day in that chain's native units; new recipients wait 600 s.
+    /// Every default can be overridden here at bind time, and later by the owner.
     #[init]
-    pub fn new(owner: AccountId, agent: AccountId, phone_hash: String, signer: Option<AccountId>) -> Self {
+    pub fn new(owner: AccountId, agent: AccountId, phone_hash: String, signer: Option<AccountId>, evm_chain_ids: Option<Vec<u64>>,
+               near_limit: Option<Limit>, evm_limit: Option<Limit>, new_recipient_delay_sec: Option<u64>) -> Self {
         require!(agent != owner, "the agent can't be the owner");
         let e18 = 10u128.pow(18);
         let e24 = 10u128.pow(24);
+        let chains = evm_chain_ids.unwrap_or_else(|| vec![BASE_CHAIN_ID]);
+        let evm = evm_limit.unwrap_or(Limit { per_tx: U128(e18 / 2000), per_day: U128(e18 / 500) });
         let mut limits = HashMap::new();
-        limits.insert("near".into(), Limit { per_tx: U128(5 * e24), per_day: U128(10 * e24) });
-        limits.insert("eth:sepolia".into(), Limit { per_tx: U128(e18 / 100), per_day: U128(e18 / 50) });
+        limits.insert("near".into(), near_limit.unwrap_or(Limit { per_tx: U128(e24), per_day: U128(3 * e24) }));
+        for c in &chains { limits.insert(evm_key(*c), evm.clone()); }
         Self {
             owner, agent: Some(agent), phone_hash,
-            signer: signer.unwrap_or_else(|| "v1.signer-prod.testnet".parse().unwrap()),
-            limits, allowlist: vec![], new_recipient_delay_sec: 600,
+            signer: signer.unwrap_or_else(|| "v1.signer".parse().unwrap()),
+            limits, chains, allowlist: vec![], new_recipient_delay_sec: new_recipient_delay_sec.unwrap_or(600),
             day: 0, spent: HashMap::new(), pending: vec![], next_id: 0,
         }
     }
@@ -87,6 +98,19 @@ impl PhoneWallet {
     pub fn set_limits(&mut self, asset: String, per_tx: U128, per_day: U128) {
         self.only_owner();
         self.limits.insert(asset, Limit { per_tx, per_day });
+    }
+    /// Lets the agent use an EVM chain, with its limits (native units of that chain, e.g. wei).
+    #[payable]
+    pub fn allow_chain(&mut self, chain_id: u64, per_tx: U128, per_day: U128) {
+        self.only_owner();
+        if !self.chains.contains(&chain_id) { self.chains.push(chain_id); }
+        self.limits.insert(evm_key(chain_id), Limit { per_tx, per_day });
+    }
+    #[payable]
+    pub fn disallow_chain(&mut self, chain_id: u64) {
+        self.only_owner();
+        self.chains.retain(|c| *c != chain_id);
+        self.limits.remove(&evm_key(chain_id));
     }
     #[payable]
     pub fn set_delay(&mut self, new_recipient_delay_sec: u64) {
@@ -145,11 +169,13 @@ impl PhoneWallet {
     /// `tx` is an unsigned EIP-1559 transfer (hex, 0x02 || rlp([...])). The contract reads chain id, recipient and
     /// value from it, refuses contract calls (non-empty data), applies the limits, then asks the MPC signer to sign
     /// keccak256(tx) on path "ethereum-1". The signer's response is this call's return value.
+    /// `chain` is "evm:<chainId>"; the chain must be allowed by the owner, have a limit, and match the tx's chain id.
     pub fn request_signature(&mut self, chain: String, tx: String) -> PromiseOrValue<U64> {
         self.only_agent();
-        require!(chain == "eth:sepolia", "only eth:sepolia is supported");
+        let id: u64 = chain.strip_prefix("evm:").and_then(|x| x.parse().ok()).unwrap_or_else(|| env::panic_str("chain must be evm:<chainId>"));
+        require!(self.chains.contains(&id), format!("chain {id} is not allowed by the owner"));
         let bytes = hex::decode(tx.trim_start_matches("0x")).unwrap_or_else(|_| env::panic_str("tx is not hex"));
-        let (to, value) = parse_eip1559(&bytes, SEPOLIA_CHAIN_ID);
+        let (to, value) = parse_eip1559(&bytes, id);
         self.check_tx(&chain, value);
         if !self.allowed(&to) { return PromiseOrValue::Value(U64(self.queue(&chain, to, U128(value), Some(tx)))); }
         self.spend(&chain, value);
@@ -166,7 +192,11 @@ impl PhoneWallet {
         self.spend(&p.asset, p.amount.0);
         match p.tx {
             None => { let _ = Promise::new(p.to.parse::<AccountId>().unwrap()).transfer(NearToken::from_yoctonear(p.amount.0)); PromiseOrValue::Value(U64(p.id)) }
-            Some(tx) => PromiseOrValue::Promise(self.sign(&hex::decode(tx.trim_start_matches("0x")).unwrap())),
+            Some(tx) => {
+                let id: u64 = p.asset.strip_prefix("evm:").and_then(|x| x.parse().ok()).unwrap();
+                require!(self.chains.contains(&id), format!("chain {id} is not allowed by the owner"));
+                PromiseOrValue::Promise(self.sign(&hex::decode(tx.trim_start_matches("0x")).unwrap()))
+            }
         }
     }
 
@@ -176,7 +206,7 @@ impl PhoneWallet {
         let today = env::block_timestamp() / DAY_NS;
         State {
             owner: self.owner.clone(), agent: self.agent.clone(), phone_hash: self.phone_hash.clone(), signer: self.signer.clone(),
-            limits: self.limits.clone(), allowlist: self.allowlist.clone(), new_recipient_delay_sec: self.new_recipient_delay_sec,
+            limits: self.limits.clone(), chains: self.chains.clone(), allowlist: self.allowlist.clone(), new_recipient_delay_sec: self.new_recipient_delay_sec,
             day: today,
             spent_today: if self.day == today { self.spent.iter().map(|(k, v)| (k.clone(), U128(*v))).collect() } else { HashMap::new() },
             pending: self.pending.clone(),
@@ -270,6 +300,7 @@ mod tests {
 
     const NEAR: u128 = 10u128.pow(24);
     // Built by ethers in test/wallet (same fields): Sepolia, nonce 7, 0.001 ETH to 0x1111…1111, 21000 gas.
+    pub const SEPOLIA: u64 = 11_155_111;
     pub const TX: &str = "02f183aa36a707843b9aca00847735940082520894111111111111111111111111111111111111111187038d7ea4c6800080c0";
 
     fn ctx(who: usize, t_sec: u64, deposit: u128) {
@@ -277,7 +308,15 @@ mod tests {
             .attached_deposit(NearToken::from_yoctonear(deposit)).account_balance(NearToken::from_near(100)).build());
     }
     // owner = alice (0), agent = bob (1)
-    fn wallet() -> PhoneWallet { ctx(0, 1000, 0); PhoneWallet::new(accounts(0), accounts(1), "h".into(), None) }
+    // Same, on Base (8453), 0.0001 ETH.
+    pub const BASE_TX: &str = "02ef82210507843b9aca008477359400825208941111111111111111111111111111111111111111865af3107a400080c0";
+    // Testnet-like wallet: Sepolia allowed, old-style 5/10 NEAR limits so the NEAR tests keep their numbers.
+    fn wallet() -> PhoneWallet {
+        ctx(0, 1000, 0);
+        PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, Some(vec![SEPOLIA]),
+            Some(Limit { per_tx: U128(5 * NEAR), per_day: U128(10 * NEAR) }), Some(Limit { per_tx: U128(10u128.pow(16)), per_day: U128(2 * 10u128.pow(16)) }), None)
+    }
+    fn mainnet_wallet() -> PhoneWallet { ctx(0, 1000, 0); PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None) }
 
     #[test]
     fn limits_and_allowlist() {
@@ -351,7 +390,7 @@ mod tests {
 
     #[test]
     fn parses_eip1559_transfer() {
-        let (to, value) = parse_eip1559(&hex::decode(TX).unwrap(), SEPOLIA_CHAIN_ID);
+        let (to, value) = parse_eip1559(&hex::decode(TX).unwrap(), SEPOLIA);
         assert_eq!(to, "0x1111111111111111111111111111111111111111");
         assert_eq!(value, 10u128.pow(15));
     }
@@ -359,16 +398,62 @@ mod tests {
     #[should_panic(expected = "wrong chain id")]
     fn rejects_other_chain() { parse_eip1559(&hex::decode(TX).unwrap(), 1); }
     #[test]
-    #[should_panic(expected = "over the per-transfer limit for eth:sepolia")]
+    #[should_panic(expected = "over the per-transfer limit for evm:11155111")]
     fn eth_limit_from_parsed_value() {
         let mut w = wallet();
-        ctx(0, 1000, 1); w.set_limits("eth:sepolia".into(), U128(10u128.pow(14)), U128(10u128.pow(18)));
-        ctx(1, 1000, 0); w.request_signature("eth:sepolia".into(), TX.into());
+        ctx(0, 1000, 1); w.set_limits("evm:11155111".into(), U128(10u128.pow(14)), U128(10u128.pow(18)));
+        ctx(1, 1000, 0); w.request_signature("evm:11155111".into(), TX.into());
     }
     #[test]
     fn eth_new_recipient_is_queued() {
         let mut w = wallet();
         ctx(1, 1000, 0);
-        assert!(matches!(w.request_signature("eth:sepolia".into(), TX.into()), PromiseOrValue::Value(U64(0))));
+        assert!(matches!(w.request_signature("evm:11155111".into(), TX.into()), PromiseOrValue::Value(U64(0))));
     }
+
+    #[test]
+    fn mainnet_defaults() {
+        let w = mainnet_wallet();
+        let s = w.get_state();
+        assert_eq!(s.signer.as_str(), "v1.signer");
+        assert_eq!(s.chains, vec![8453]);
+        assert_eq!(s.limits["near"], Limit { per_tx: U128(NEAR), per_day: U128(3 * NEAR) });
+        assert_eq!(s.limits["evm:8453"], Limit { per_tx: U128(5 * 10u128.pow(14)), per_day: U128(2 * 10u128.pow(15)) });
+        assert_eq!(s.new_recipient_delay_sec, 600);
+    }
+    #[test]
+    fn base_tx_parses_and_queues() {
+        let (to, value) = parse_eip1559(&hex::decode(BASE_TX).unwrap(), 8453);
+        assert_eq!(to, "0x1111111111111111111111111111111111111111");
+        assert_eq!(value, 10u128.pow(14));
+        let mut w = mainnet_wallet();
+        ctx(1, 1000, 0);
+        assert!(matches!(w.request_signature("evm:8453".into(), BASE_TX.into()), PromiseOrValue::Value(U64(0))));
+    }
+    #[test]
+    #[should_panic(expected = "chain 11155111 is not allowed")]
+    fn chain_not_allowed() { let mut w = mainnet_wallet(); ctx(1, 1000, 0); w.request_signature("evm:11155111".into(), TX.into()); }
+    #[test]
+    #[should_panic(expected = "wrong chain id")]
+    fn chain_key_must_match_tx() { let mut w = mainnet_wallet(); ctx(1, 1000, 0); w.request_signature("evm:8453".into(), TX.into()); }
+    #[test]
+    fn owner_allows_and_disallows_chain() {
+        let mut w = mainnet_wallet();
+        ctx(0, 1000, 1); w.allow_chain(42161, U128(1), U128(2));
+        assert!(w.get_state().chains.contains(&42161));
+        assert_eq!(w.get_state().limits["evm:42161"].per_day.0, 2);
+        w.disallow_chain(42161);
+        assert!(!w.get_state().chains.contains(&42161));
+        assert!(!w.get_state().limits.contains_key("evm:42161"));
+    }
+    #[test]
+    #[should_panic(expected = "no limit set for evm:8453")]
+    fn allowed_chain_without_limit_refused() {
+        let mut w = mainnet_wallet();
+        ctx(0, 1000, 1); w.limits.remove("evm:8453");
+        ctx(1, 1000, 0); w.request_signature("evm:8453".into(), BASE_TX.into());
+    }
+    #[test]
+    #[should_panic(expected = "only the owner")]
+    fn agent_cant_allow_chain() { let mut w = mainnet_wallet(); ctx(1, 1000, 1); w.allow_chain(1, U128(1), U128(1)); }
 }

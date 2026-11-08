@@ -6,7 +6,7 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { env } from './src/config.ts';
 import { attachVoice, handleWebhook } from './src/voice.ts';
-import { warmUp } from './src/tts.ts';
+import { warmUp, provider as ttsProvider } from './src/tts.ts';
 import { attest } from './src/ai.ts';
 
 const dev = process.argv.includes('--dev');
@@ -58,7 +58,7 @@ attachVoice(server);
 server.listen(env.port, () => {
   console.log(`callhand on ${env.publicUrl}  (call: /  launches: /launch/:id  dashboard: /dashboard)  network: ${env.network}`);
   const t = Date.now();
-  warmUp().then(() => console.log(`voice ready (kokoro + fillers, ${Date.now() - t} ms)`), (e) => console.error('tts warm-up', e));
+  warmUp().then(() => console.log(`voice ready (${ttsProvider} + fillers, ${Date.now() - t} ms)`), (e) => console.error('tts warm-up', e));
   // Fetch TEE attestations now so the first call doesn't wait for them (cached 10 min, refreshed on use).
   if (!env.mockLlm) for (const m of [env.llmModel, env.sttModel]) attest(m).then(() => console.log('attested', m), (e) => console.error('attest', m, e.message));
   else console.log('MOCK_LLM=1: scripted chat + STT, real TTS');

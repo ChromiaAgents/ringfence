@@ -1,18 +1,30 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
 import walletCss from '@near-wallet-selector/modal-ui/styles.css?url';
 import { Wordmark } from '../ui';
 import { useNearWallet } from '../near-wallet';
 
+const getCfg = createServerFn({ method: 'GET' }).handler(async () => {
+  const { env } = await import('../../src/config.ts');
+  const { chainById, defaultChainIds } = await import('../../src/chains.ts');
+  return { network: env.network, defaults: env.walletDefaults, chains: defaultChainIds(env.network).map((id) => chainById(id)!.name) };
+});
+
 export const Route = createFileRoute('/wallet/bind')({
+  loader: () => getCfg(),
   head: () => ({ meta: [{ title: 'Bind your wallet · callhand' }], links: [{ rel: 'stylesheet', href: walletCss }] }),
   component: Bind,
 });
 
-type Tx = { receiverId: string; deposit: string; init: { owner: string; agent: string; phone_hash: string; signer: string } };
+type Tx = { receiverId: string; deposit: string; evmAddress: string | null; init: Record<string, any> & { owner: string; agent: string } };
 
 function Bind() {
-  const w = useNearWallet('Connect the NEAR testnet account that will own your phone wallet.');
+  const cfg = Route.useLoaderData();
+  const sfx = cfg.network === 'mainnet' ? 'near' : 'testnet';
+  const explorer = cfg.network === 'mainnet' ? 'https://nearblocks.io' : 'https://testnet.nearblocks.io';
+  const w = useNearWallet(`Connect the NEAR ${cfg.network} account that will own your phone wallet.`, cfg.network);
+  const [lim, setLim] = useState(cfg.defaults);
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [pin, setPin] = useState('');
@@ -33,9 +45,14 @@ function Bind() {
     try {
       const code = new Uint8Array(await (await fetch('/phone_wallet.wasm')).arrayBuffer());
       const { parseNearAmount } = await import('near-api-js');
+      const { parseEther } = await import('ethers');
+      const y = (n: string) => parseNearAmount(n as `${number}`)!;
+      // The limits as edited here; the contract takes them at init and only the owner can change them later.
+      const init = { ...tx.init, near_limit: { per_tx: y(lim.nearPerTx), per_day: y(lim.nearPerDay) },
+        evm_limit: { per_tx: parseEther(lim.evmPerTx).toString(), per_day: parseEther(lim.evmPerDay).toString() }, new_recipient_delay_sec: Number(lim.delaySec) };
       const h = await w.send(tx.receiverId, (ac) => [
         ac.createAccount(), ac.transfer(BigInt(parseNearAmount(tx.deposit as `${number}`)!)), ac.deployContract(code),
-        ac.functionCall('new', tx.init, 100_000_000_000_000n, 0n),
+        ac.functionCall('new', init, 100_000_000_000_000n, 0n),
       ]);
       if (h) setHash(h);
     } catch (e: any) { w.setErr(e?.message ?? String(e)); } finally { setBusy(false); }
@@ -43,9 +60,11 @@ function Bind() {
 
   return (
     <main className="app pay">
-      <div className="brandrow"><Wordmark /><span className="pill wait">NEAR testnet</span></div>
+      <div className="brandrow"><Wordmark /><span className="pill wait">NEAR {cfg.network}</span></div>
       <h1>Your phone number is a wallet</h1>
-      <p className="muted">Bind your NEAR account to your WhatsApp number. Then on a call say “send 1 NEAR to bob.testnet”, confirm with your PIN, and it goes through within limits a contract enforces, not the AI.</p>
+      <p className="err" role="note"><b>Unaudited prototype: keep small amounts.</b> The phone-wallet contract has not been audited.{cfg.network === 'mainnet' ? ' This is NEAR mainnet: real money.' : ''}</p>
+
+      <p className="muted">Bind your NEAR account to your WhatsApp number. Then on a call say “send 1 NEAR to bob.{sfx}” or “send 0.0001 ETH on Base to 0x…”, confirm with your PIN, and it goes through within limits a contract enforces, not the AI.</p>
 
       <section className="card">
         <h2>1. Connect your NEAR wallet</h2>
@@ -78,11 +97,16 @@ function Bind() {
             <div className="row"><span>Fund it with</span><b>{tx.deposit} NEAR</b></div>
             <div className="row"><span>Owner: full control, withdraw any time</span><b className="mono">{tx.init.owner}</b></div>
             <div className="row"><span>Agent: may spend within limits only</span><b className="mono">{tx.init.agent}</b></div>
-            <div className="row"><span>Default limits</span><b>5 NEAR per transfer, 10 per day; 0.01 Sepolia ETH, 0.02 per day</b></div>
-            <div className="row"><span>New recipients</span><b>wait 10 minutes; you can cancel</b></div>
+            <div className="row"><span>EVM chains enabled</span><b>{cfg.chains.join(', ')} (add more later with allow_chain)</b></div>
+            {tx.evmAddress && <div className="row"><span>Your EVM address (same on every EVM chain)</span><b className="mono">{tx.evmAddress}</b></div>}
           </div>
+          <p className="muted small">Your EVM address is the same on every EVM chain: fund gas on whichever chain you want to use. The agent checks gas before it asks for a signature.</p>
+          <h3>Limits (change them before you sign)</h3>
+          {([['nearPerTx', 'NEAR per transfer'], ['nearPerDay', 'NEAR per day'], ['evmPerTx', 'EVM native coin per transfer (per chain)'], ['evmPerDay', 'EVM native coin per day (per chain)'], ['delaySec', 'New-recipient delay, seconds']] as const).map(([k, label]) => (
+            <div key={k}><label className="field-label" htmlFor={k}>{label}</label>
+              <input id={k} className="control" inputMode="decimal" value={String(lim[k])} onChange={(e) => setLim({ ...lim, [k]: k === 'delaySec' ? Number(e.target.value) || 0 : e.target.value })} /></div>))}
           <p className="explain">One transaction from your account: create account, transfer, deploy contract, call new. Nothing runs until you sign it in your wallet.</p>
-          {hash ? <p>Done. <a href={`https://testnet.nearblocks.io/txns/${hash}`} target="_blank" rel="noreferrer">See the transaction</a>. Call and say “send 1 NEAR to …”.</p>
+          {hash ? <p>Done. <a href={`${explorer}/txns/${hash}`} target="_blank" rel="noreferrer">See the transaction</a>. Call and say “send 1 NEAR to …”.</p>
             : <button className="btn green" onClick={sign} disabled={busy}>{busy ? 'Waiting for your wallet…' : 'Sign and create'}</button>}
           <details className="txdetails"><summary>Init arguments</summary><pre>{JSON.stringify(tx.init, null, 1)}</pre></details>
         </section>

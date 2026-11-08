@@ -220,8 +220,8 @@ export function mockStep(messages: Msg[], tools: unknown[]): { name: string; arg
     if (/^\s*(yes|yeah|yep|do it|go ahead|set it up)\b/i.test(u)) return { name: 'prepare_launch', args: { caller_confirmed: true } };
   }
   if (names.has('confirm_transfer')) {
-    const send = u.match(/(?:send|pay|transfer)\s+([\d.]+)\s*(near|eth)?\b.*?\bto\s+(\S+(?:\s+dot\s+\S+)*)/i);
-    if (send) return { name: 'prepare_transfer', args: { to: send[3].replace(/[.,!?]$/, ''), amount: send[1], asset: /eth/i.test(send[2] ?? '') || /sepolia/i.test(u) ? 'eth:sepolia' : 'near' } };
+    const send = u.match(/(?:send|pay|transfer)\s+([\d.]+)\s*([a-z]+)?\b(?:\s+on\s+([a-z0-9 ]+?))?\s+to\s+(\S+(?:\s+dot\s+\S+)*)/i);
+    if (send) return { name: 'prepare_transfer', args: { to: send[4].replace(/[.,!?]$/, ''), amount: send[1], asset: send[3] ? send[3].trim().toLowerCase() : /^near$/i.test(send[2] ?? 'near') ? 'near' : (send[2] ?? '').toLowerCase() } };
     if (/^[\s\d,.-]+$|^(\s*(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b[\s,.]*)+$/i.test(u)) return { name: 'confirm_transfer', args: { pin: u } };
     if (/\bbalance\b/i.test(u)) return { name: 'get_balance', args: {} };
   }

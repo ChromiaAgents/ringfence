@@ -62,7 +62,7 @@ With network but still no key: `npm run attest` verifies the TEE attestation of 
 | TEE attestation: Intel TDX quote signature + TCB status, key+nonce in report_data, NVIDIA GPUs via NRAS | `src/ai.ts` `attest`, `verifyIntelQuote`, `verifyGpu` | `npm run attest` (no key); `/proof`; `/api/proof?fresh=1` |
 | Every chat/vision reply's signature recovered and matched to the attested key | `src/ai.ts` `chat`, `verifyLater` | Needs `NEARAI_API_KEY`: call, then see **TEE-signed** badges on `/dashboard` |
 | Photo → job scope by a vision model in a TEE; photo stays on this server | `src/image.ts` `describePhoto`; `src/agent.ts` `photo` | Needs key: **Photo** button on the business desk |
-| Voice: local TTS (Kokoro), Whisper STT in a TEE, barge-in, fillers | `src/tts.ts`, `src/turn.ts`, `src/voice.ts` | `MOCK_LLM=1 npm run test:latency`; a browser call |
+| Voice: TTS (Cartesia Sonic in the cloud, or local Kokoro), Whisper STT in a TEE, barge-in, fillers | `src/tts.ts`, `src/turn.ts`, `src/voice.ts` | `MOCK_LLM=1 npm run test:latency`; a browser call |
 | WhatsApp calls (WebRTC/Opus), text and photos | `src/whatsapp.ts` | Needs Meta test number, see [WhatsApp setup](#whatsapp-setup-metas-free-test-number) |
 | Ledger of every refusal, filter hit, launch, booking, rule change | `src/store.ts` `log`; `/dashboard` | `npm run demo:check` step 6 |
 
@@ -70,7 +70,7 @@ With network but still no key: `npm run attest` verifies the TEE attestation of 
 
 - **Memecoins**: launching on meme.cooking (auction, testnet/mainnet) and JustHoot (instant RHEA DCL pool, mainnet) by voice; anti-rug rules in code (team cap with cliff and vesting, no promised returns, impersonation blocks, existing-ticker check against meme.cooking's indexer); the caller signs in their own wallet.
 - **Agents**: tool-calling desks on one runtime, each a config file + prompt + tools; rules enforced in tool code, not in the prompt; the owner edits the agent's rules by talking to it, with a diff and hard bounds.
-- **Privacy**: NEAR AI Cloud private inference for every model (chat, STT, vision, image), with attestation verified in this process (Intel TDX + NVIDIA NRAS) and signed replies; TTS runs locally so reply audio never leaves the box; photos are stored only on this server.
+- **Privacy**: NEAR AI Cloud private inference for every model (chat, STT, vision, image), with attestation verified in this process (Intel TDX + NVIDIA NRAS) and signed replies; speech-to-text and the LLM stay in NEAR AI TEEs; text-to-speech is either Cartesia (cloud: the reply text goes to Cartesia, a third party, not a TEE) or local Kokoro (`TTS_PROVIDER=kokoro`: the text never leaves the box); photos are stored only on this server.
 - **Security**: attestation verified rather than trusted, per-reply signature checks, impersonation and allocation rules, output filter, kill switches, owner rule changes bounded and logged, server never holds keys, owner pages behind basic auth (`DASHBOARD_PASSWORD`).
 - **Business**: an AI receptionist for a small business: photo-to-quote, bookings, and deposits in any token settled to USDC through NEAR Intents 1Click.
 
@@ -133,35 +133,46 @@ The launch desk supports two launchpads; the caller picks one or the agent sugge
 
 Code: `src/justhoot.ts`. Live view-only check: `npm run test:justhoot`. Not verified: no real JustHoot launch has been signed, and the token-id extraction from the launch logs is untested (the page always links the transaction and justhoot.fun).
 
-## Phone wallet (testnet): your phone number is a wallet on every chain
+## Phone wallet: your phone number is a wallet on every EVM chain
 
-Bind your NEAR testnet account to your WhatsApp number once on `/wallet/bind`. Then on a call: "send 1 NEAR to bob.testnet" (or "send 0.001 ETH on Sepolia to 0x…", easier typed in WhatsApp), hear it read back ("1 NEAR to bob dot testnet"), say your 4-digit PIN, and it executes on chain within limits a smart contract enforces, not the AI. The explorer link arrives on WhatsApp.
+> **Unaudited prototype: keep small amounts.** The phone-wallet contract has not been audited. On mainnet it moves real money; the defaults are deliberately small.
+
+Bind your NEAR account (`.near` on mainnet, `.testnet` on testnet, per `NETWORK`) to your WhatsApp number once on `/wallet/bind`. Then on a call: "send 1 NEAR to bob.near" or "send 0.0001 ETH on Base to 0x…" (addresses are easier typed in WhatsApp), hear it read back ("0.0001 ETH on Base to address 0x1111 ending 2222"), say your 4-digit PIN, and it executes on chain within limits a smart contract enforces, not the AI. The explorer link (nearblocks, basescan, arbiscan, …) arrives on WhatsApp.
 
 **How it works**
 
-1. `/wallet/bind`: connect your wallet (wallet selector), get a 6-digit code on WhatsApp, set a PIN (stored only as a salted scrypt hash). You then sign one transaction from your own account: create `phone.<you>.testnet`, fund it with 3 NEAR, deploy `contracts/phone-wallet`, call `new(owner = you, agent = AGENT_ACCOUNT_ID, phone_hash = sha256(your number), signer = v1.signer-prod.testnet)`. Nothing runs until you sign.
-2. On a call the router sends "send / transfer / balance / wallet" to the **wallet desk** (`src/desks/wallet.ts`): `get_balance`, `prepare_transfer({to, amount, asset})` (reads back), `confirm_transfer({pin})`. The PIN is checked against the hash; 3 wrong tries lock it for 15 minutes; the PIN is blanked from the stored transcript and the tool log.
-3. With the PIN right, the server calls your contract with the agent key (`near-api-js`): `transfer_near` for NEAR, `request_signature` for Sepolia.
+1. `/wallet/bind`: connect your wallet (wallet selector), get a 6-digit code on WhatsApp, set a PIN (stored only as a salted scrypt hash). The page shows your EVM address and the limits, which you can edit, then you sign one transaction from your own account: create `phone.<you>.near`, fund it, deploy `contracts/phone-wallet`, call `new(owner = you, agent = AGENT_ACCOUNT_ID, phone_hash = sha256(your number), signer = v1.signer, evm_chain_ids = [8453], near_limit, evm_limit, new_recipient_delay_sec)`. On testnet the signer is `v1.signer-prod.testnet` and the chain is Sepolia (11155111). Nothing runs until you sign.
+2. On a call the router sends "send / transfer / balance / wallet" to the **wallet desk** (`src/desks/wallet.ts`): `get_balance`, `prepare_transfer({to, amount, asset})` (reads back), `confirm_transfer({pin})`. `asset` is `near` or a chain name (`base`, `ethereum`, `arbitrum`, `optimism`, `polygon`, `bnb`, `avalanche`); plain "ETH" gets "which chain?". The PIN is checked against the hash; 3 wrong tries lock it for 15 minutes; the PIN is blanked from the stored transcript and the tool log.
+3. With the PIN right, the server calls your contract with the agent key (`near-api-js`): `transfer_near` for NEAR, `request_signature` for EVM chains.
 4. Over a limit, or a recipient not on your saved list: the agent says so and texts a link (`/wallet/send`) to sign it in your own wallet instead. An unbound number is told to bind first, with the link.
 
-**Sepolia through Chain Signatures.** The ETH address belongs to your phone-wallet contract (predecessor) and path `ethereum-1`, derived as NEAR's MPC does (`src/eth.ts`; matched against the live `derived_public_key` view of `v1.signer-prod.testnet` in `npm test`). The server builds an EIP-1559 transfer (nonce and fees from a public Sepolia RPC), the contract parses that unsigned transaction itself (minimal RLP: chain id must be 11155111, `to` an address, no calldata, no access list), applies the limits to the value it parsed, and calls `sign({request: {path, payload_v2: {Ecdsa: keccak256(tx)}, domain_id: 0}})` on the MPC signer with 1 yoctoNEAR. The signature comes back as the call's result; the server attaches it and broadcasts.
+**EVM chains through Chain Signatures.** One MPC path (`ethereum-1`) gives your contract **the same EVM address on every EVM chain**; you fund gas on whichever chain you want to use. The address is derived as NEAR's MPC does (`src/eth.ts`; checked in `npm test` against the live `derived_public_key` views of both `v1.signer` (mainnet) and `v1.signer-prod.testnet`). Chains come from a small registry (`src/chains.ts`: Ethereum 1, Base 8453, Arbitrum 42161, Optimism 10, Polygon 137, BNB Chain 56, Avalanche 43114, plus Sepolia; more with `EXTRA_CHAINS`, RPCs overridable with `RPC_<chainId>`). The server builds an EIP-1559 transfer (nonce and fees from the chain's public RPC) and **checks gas first**: if the address holds less than value + maxFee × 21000, it says how much is missing and which address to fund, and no signature is requested. The contract parses the unsigned transaction itself (minimal RLP: the chain id must be on the owner's chain allowlist and match `evm:<chainId>`, `to` an address, no calldata, no access list), applies that chain's limits to the value it parsed, and calls `sign({request: {path, payload_v2: {Ecdsa: keccak256(tx)}, domain_id: 0}})` on the MPC signer with 1 yoctoNEAR. The signature comes back as the call's result; the server attaches it and broadcasts to that chain.
 
-**Trust model and limits.** The contract is the only thing that can move funds, and it checks every agent call:
+**Which chains are on.** Mainnet: **Base** is enabled at bind with small limits. The other registry chains are known to the server but the contract refuses them until the owner allows them, with their own limits in that chain's native units (wei for ETH, BNB, POL, AVAX):
+
+```bash
+near contract call-function as-transaction phone.alice.near allow_chain json-args '{"chain_id":42161,"per_tx":"500000000000000","per_day":"2000000000000000"}' prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as alice.near network-config mainnet sign-with-keychain send
+```
+
+Next: non-EVM chains (Bitcoin, Solana through the same MPC signer's other domains) are not supported yet.
+
+**Trust model and limits.** The contract is the only thing that can move funds, and it checks every agent call. **It is an unaudited prototype: keep small amounts in it.**
 
 | Rule | Enforced in `contracts/phone-wallet/src/lib.rs` |
 | --- | --- |
-| Per transfer and per day, per asset (`near`, `eth:sepolia`) | Default 5 / 10 NEAR, 0.01 / 0.02 ETH; owner changes with `set_limits`. Over → panic with the reason |
+| Per transfer and per day, per asset (`near`, `evm:<chainId>`) | Mainnet defaults 1 / 3 NEAR and 0.0005 / 0.002 per EVM chain (native units); editable on the bind page before signing; owner changes later with `set_limits`. Over → panic with the reason |
+| EVM chains on an owner allowlist | `allow_chain(chain_id, per_tx, per_day)` / `disallow_chain`; a chain not allowed, or without a limit, is refused; the tx's chain id must match |
 | Saved recipients go instantly; new ones queue | `new_recipient_delay_sec` = 600; `execute(id)` after the delay, owner `cancel(id)` before |
-| Owner keeps full control | `withdraw(amount)` always works (the agent can't block it), `set_agent`, `revoke_agent`, `allow`/`disallow`, `set_delay`; all need 1 yoctoNEAR so a dapp's function-call key can't call them |
+| Owner keeps full control | `withdraw(amount)` always works (the agent can't block it), `set_agent`, `revoke_agent`, `allow`/`disallow`, `allow_chain`/`disallow_chain`, `set_delay`; all need 1 yoctoNEAR so a dapp's function-call key can't call them |
 | The agent is never the owner | checked at init and in `set_agent` |
-| Sepolia value and recipient are the ones signed | parsed from the transaction bytes the contract hashes and sends to the signer |
+| EVM chain, value and recipient are the ones signed | parsed from the transaction bytes the contract hashes and sends to the signer |
 | A phone can't borrow someone else's contract | the owner signs `phone_hash` at init; the server checks it before every call |
 
-What the AI can do if it goes wrong: ask the contract for transfers inside your limits to your saved recipients after a correct PIN. What the server operator could do with the agent key: the same, without the PIN (the PIN protects against someone else calling from a spoofed or stolen line, not against us). Your cap on that is the daily limit; `revoke_agent` ends it.
+What the AI can do if it goes wrong: ask the contract for transfers inside your limits to your saved recipients after a correct PIN. What the server operator could do with the agent key: the same, without the PIN (the PIN protects against someone else calling from a spoofed or stolen line, not against us). Your cap on that is the daily limit per asset; `revoke_agent` ends it.
 
-**Verified and not.** Verified locally: 16 contract unit tests (limits, day rollover with mocked time, allowlist vs delay queue, cancel, owner-only methods, revoke, RLP parsing) and a near-workspaces sandbox test (real transfers, the delay with fast-forward, owner withdraw while the agent is set, agent locked out of owner methods and after revoke, and `request_signature` routed to a mock MPC signer with the wallet as predecessor and the right request shape); `npm test` (PIN normalization, lockout, intent → tool args, refusals, ETH derivation against the live MPC view, EIP-1559 bytes identical to the contract's test vector, signature assembly); `demo:check` walks "send 1 NEAR to bob.testnet" + PIN to a clearly labelled **DRY RUN** (no `AGENT_PRIVATE_KEY`: nothing is sent). Not verified: nothing has been deployed or sent on testnet or Sepolia; the real MPC signer's response going through `getTransactionLastResult`; which wallets accept the create + deploy + init transaction on `/wallet/bind` (MyNearWallet does deploy actions; others may refuse; CLI fallback in HANDOVER.md); a queued Sepolia transfer can go stale (its nonce is fixed when queued). `ft_transfer` is not implemented.
+**Verified and not.** Verified locally: 23 contract unit tests (limits, mainnet defaults, day rollover with mocked time, allowlist vs delay queue, cancel, owner-only methods, revoke, RLP parsing, chain allowlist, chain id mismatch, chain without limit, Base tx vector) and a near-workspaces sandbox test (real transfers, the delay with fast-forward, owner withdraw while the agent is set, agent locked out of owner methods and after revoke, `request_signature` for Sepolia and Base routed to a mock MPC signer with the wallet as predecessor and the right request shape, a non-allowed chain refused); `npm test` (PIN normalization, lockout, intent → tool args incl. "on Base", chain registry, ETH derivation against the live mainnet and testnet MPC views, Sepolia and Base EIP-1559 bytes identical to the contract's test vectors, the gas-check refusal with a mocked RPC, signature assembly); `demo:check` walks "send 1 NEAR to bob.testnet" + PIN to a clearly labelled **DRY RUN**. Not verified: nothing has been deployed or sent on mainnet, testnet, Base or Sepolia; the real MPC signer's response going through `getTransactionLastResult`; which wallets accept the create + deploy + init transaction on `/wallet/bind` (CLI fallback in HANDOVER.md); a queued EVM transfer can go stale (its nonce and fees are fixed when queued); the public RPCs' rate limits. `ft_transfer` and ERC-20s are not implemented.
 
-Testnet only. `AGENT_ACCOUNT_ID` / `AGENT_PRIVATE_KEY` turn it on; without them it is a dry run.
+`AGENT_ACCOUNT_ID` / `AGENT_PRIVATE_KEY` turn it on; without them it is a dry run.
 
 ## Run it with keys
 
@@ -171,7 +182,7 @@ cp .env.example .env      # at least NEARAI_API_KEY; NETWORK=testnet by default
 npm run dev               # http://localhost:8787  (UI + voice + webhooks, one port)
 ```
 
-Production: `npm run build && npm start`. Demo data: `npm run seed`, then `DB_FILE=data/demo-db.json npm run dev`.
+Production: `npm run build && npm start`, or on a VPS with Docker/systemd + Caddy: `deploy/README.md`. Demo data: `npm run seed`, then `DB_FILE=data/demo-db.json npm run dev`.
 
 ### Environment
 
@@ -179,8 +190,12 @@ Production: `npm run build && npm start`. Demo data: `npm run seed`, then `DB_FI
 | --- | --- |
 | `NEARAI_API_KEY` | NEAR AI Cloud key. Needed for chat, STT, vision and logos. Attestation works without it |
 | `MOCK_LLM` | `1`: scripted model with tool calls, fake STT; no key needed |
-| `TTS` | `off`: text only, no local Kokoro voice |
-| `NETWORK` | `testnet` (default) or `mainnet` for launches |
+| `TTS` | `off`: text only, no voice at all |
+| `TTS_PROVIDER` | `cartesia` (default when `CARTESIA_API_KEY` is set) or `kokoro` (local). With cartesia the reply text goes to Cartesia; Kokoro is not loaded unless `TTS_FALLBACK=kokoro` |
+| `CARTESIA_API_KEY`, `CARTESIA_VOICE_ID`, `TTS_SPEED` | Cartesia Sonic (`/tts/bytes`, raw f32 PCM 24 kHz); default voice "Jacqueline" |
+| `RTC_PORT_MIN`, `RTC_PORT_MAX` | Fixed UDP range for WhatsApp call audio (e.g. 40000–40100), so a firewall can open it. See `deploy/README.md` |
+| `AGENT_ACCOUNT_ID`, `AGENT_PRIVATE_KEY` | Phone wallet agent on `NETWORK`; without them the wallet desk is a dry run |
+| `NETWORK` | `testnet` (default) or `mainnet` for launches and the phone wallet (mainnet: Base, `v1.signer`) |
 | `PUBLIC_URL` | Public URL of this server, used in launch and deposit links |
 | `PINATA_JWT` | Optional. Pins the coin's description and links to IPFS (the reference meme.cooking's app uses) |
 | `OWNER_NEAR_ACCOUNT` | Business desk: mainnet account that receives USDC deposits |
@@ -220,16 +235,16 @@ To be filled after the team runs them; none of these has been done by this code'
 | meme.cooking launch on testnet, signed through `/launch/:id` | TODO: testnet explorer link to the `create_meme` transaction |
 | JustHoot launch on mainnet, signed through `/launch/:id` | TODO: nearblocks link to the `launch_meme` transaction |
 | A real NEAR Intents 1Click deposit through `/pay/:jobId` | TODO: origin-chain deposit tx and the 1Click status / NEAR settlement tx |
-| Phone wallet: create + deploy + init `phone.<you>.testnet` through `/wallet/bind` | TODO: testnet explorer link |
-| Phone wallet: a NEAR transfer by voice + PIN (`transfer_near`) | TODO: testnet explorer link |
-| Phone wallet: a Sepolia transfer through Chain Signatures (`request_signature` + broadcast) | TODO: NEAR tx link and Sepolia Etherscan link |
+| Phone wallet: create + deploy + init `phone.<you>.near` through `/wallet/bind` | TODO: nearblocks.io link |
+| Phone wallet: a NEAR transfer by voice + PIN (`transfer_near`) | TODO: nearblocks.io link |
+| Phone wallet: a Base transfer through Chain Signatures (`request_signature` + broadcast) | TODO: nearblocks.io link and basescan.org link |
 | Demo video and X post | TODO |
 
 ## Verified, and not
 
 Verified here (2026-11-08): `npm test` 22 passed; `npm run typecheck` and `npm run build` pass; `npm run demo:check` all 9 steps pass with no `.env`; `npm run attest` verifies all four models (Intel TDX quote, TCB `UpToDate`, key+nonce binding, 8 NVIDIA H100 GPUs through NRAS); `create_meme_storage_cost` accepts our arguments on testnet and mainnet (`npm run test:meme`); the testnet contract whitelists `wrap.testnet`; the meme.cooking indexer is reachable; dry 1Click quotes return for Base USDC, Solana SOL and wNEAR (`npm run test:quote`).
 
-Not verified here: a real signed `create_meme` or `launch_meme` and a real 1Click deposit (they need a funded wallet and a person to sign; the launch and deposit paths never sign, see Evidence; the phone wallet's agent signs only testnet calls to a user's own limited contract, and none has been sent yet); the token-id extraction from JustHoot's launch logs; and the exact response shape of NEAR AI's image endpoint (we send the OpenAI-compatible `/v1/images/generations` request and accept `b64_json` or `url`; on failure the desk draws a placeholder coin and says so). The storage-cost view does not validate everything `create_meme` checks, so the first real launch is the true test of an empty `reference`/`reference_hash` and of `team_allocation`. `demo:check` uses the mock model, so it proves the tools, rules and pages, not the real model's choices.
+Not verified here: a real signed `create_meme` or `launch_meme` and a real 1Click deposit (they need a funded wallet and a person to sign; the launch and deposit paths never sign, see Evidence; the phone wallet's agent signs only calls to a user's own limited contract, and none has been sent yet); the token-id extraction from JustHoot's launch logs; and the exact response shape of NEAR AI's image endpoint (we send the OpenAI-compatible `/v1/images/generations` request and accept `b64_json` or `url`; on failure the desk draws a placeholder coin and says so). The storage-cost view does not validate everything `create_meme` checks, so the first real launch is the true test of an empty `reference`/`reference_hash` and of `team_allocation`. `demo:check` uses the mock model, so it proves the tools, rules and pages, not the real model's choices.
 
 ## Honest limitations
 

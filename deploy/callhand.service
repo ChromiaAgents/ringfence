@@ -1,0 +1,16 @@
+# /etc/systemd/system/callhand.service
+[Unit]
+Description=callhand
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=callhand
+WorkingDirectory=/opt/callhand
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

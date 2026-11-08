@@ -17,7 +17,9 @@ async fn phone_wallet_in_sandbox() -> anyhow::Result<()> {
     let carol = worker.dev_create_account().await?;
     let w = owner.create_subaccount("phone").initial_balance(NearToken::from_near(30)).transact().await?.into_result()?;
     let w = w.deploy(&wasm).await?.into_result()?;
-    w.call("new").args_json(json!({ "owner": owner.id(), "agent": agent.id(), "phone_hash": "abc", "signer": signer.id() })).transact().await?.into_result()?;
+    w.call("new").args_json(json!({ "owner": owner.id(), "agent": agent.id(), "phone_hash": "abc", "signer": signer.id(), "evm_chain_ids": [11155111, 8453],
+        "near_limit": { "per_tx": NearToken::from_near(5).as_yoctonear().to_string(), "per_day": NearToken::from_near(10).as_yoctonear().to_string() },
+        "evm_limit": { "per_tx": "10000000000000000", "per_day": "20000000000000000" } })).transact().await?.into_result()?;
     let one = NearToken::from_yoctonear(1);
     let owner_call = |m: &str, a: serde_json::Value| owner.call(w.id(), m).args_json(a).deposit(one).transact();
     owner_call("allow", json!({ "recipient": bob.id() })).await?.into_result()?;
@@ -29,7 +31,7 @@ async fn phone_wallet_in_sandbox() -> anyhow::Result<()> {
     agent.call(w.id(), "transfer_near").args_json(json!({ "to": bob.id(), "amount": NearToken::from_near(2) })).transact().await?.into_result()?;
     assert_eq!(bob.view_account().await?.balance.as_near(), before.as_near() + 2);
 
-    // over the per-transfer limit (5 NEAR by default)
+    // over the per-transfer limit (5 NEAR, set at init)
     let r = agent.call(w.id(), "transfer_near").args_json(json!({ "to": bob.id(), "amount": NearToken::from_near(6) })).transact().await?;
     assert!(format!("{:?}", r.into_result().unwrap_err()).contains("over the per-transfer limit"));
 
@@ -45,7 +47,7 @@ async fn phone_wallet_in_sandbox() -> anyhow::Result<()> {
 
     // Chain Signatures routing: the wallet contract is the predecessor at the signer, path ethereum-1, 1 yocto.
     let tx = "02f183aa36a707843b9aca00847735940082520894111111111111111111111111111111111111111187038d7ea4c6800080c0";
-    let sig: serde_json::Value = agent.call(w.id(), "request_signature").args_json(json!({ "chain": "eth:sepolia", "tx": tx })).max_gas().transact().await?.json()?;
+    let sig: serde_json::Value = agent.call(w.id(), "request_signature").args_json(json!({ "chain": "evm:11155111", "tx": tx })).max_gas().transact().await?.json()?;
     assert_eq!(sig["recovery_id"], 1);
     let (pred, req): (String, String) = signer.view("last").await?.json::<Option<(String, String)>>()?.unwrap();
     assert_eq!(pred, w.id().to_string());
@@ -54,7 +56,16 @@ async fn phone_wallet_in_sandbox() -> anyhow::Result<()> {
     assert_eq!(req["domain_id"], 0);
     assert_eq!(req["payload_v2"]["Ecdsa"].as_str().unwrap().len(), 64);
     let st: serde_json::Value = w.view("get_state").await?.json()?;
-    assert_eq!(st["spent_today"]["eth:sepolia"], "1000000000000000");
+    assert_eq!(st["spent_today"]["evm:11155111"], "1000000000000000");
+
+    // Base (8453) through the same path: the same derived address signs on every EVM chain
+    let base = "02ef82210507843b9aca008477359400825208941111111111111111111111111111111111111111865af3107a400080c0";
+    agent.call(w.id(), "request_signature").args_json(json!({ "chain": "evm:8453", "tx": base })).max_gas().transact().await?.into_result()?;
+    let st: serde_json::Value = w.view("get_state").await?.json()?;
+    assert_eq!(st["spent_today"]["evm:8453"], "100000000000000");
+    // a chain the owner never allowed is refused
+    let r = agent.call(w.id(), "request_signature").args_json(json!({ "chain": "evm:42161", "tx": base })).max_gas().transact().await?;
+    assert!(format!("{:?}", r.into_result().unwrap_err()).contains("not allowed by the owner"));
 
     // the agent can't call owner methods
     let r = agent.call(w.id(), "set_limits").args_json(json!({ "asset": "near", "per_tx": "1", "per_day": "1" })).deposit(one).transact().await?;

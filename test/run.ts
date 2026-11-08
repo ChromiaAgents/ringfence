@@ -195,12 +195,19 @@ await t('wallet: routing and intent → tool args', async () => {
   const step = (u: string) => mockStep([{ role: 'user', content: u }], walletDesk.tools);
   assert.deepEqual(step('send 1 NEAR to bob.testnet'), { name: 'prepare_transfer', args: { to: 'bob.testnet', amount: '1', asset: 'near' } });
   assert.deepEqual(step('send 5 near to bob dot testnet'), { name: 'prepare_transfer', args: { to: 'bob dot testnet', amount: '5', asset: 'near' } });
-  assert.deepEqual(step('send 0.001 ETH on Sepolia to 0x1111111111111111111111111111111111111111'), { name: 'prepare_transfer', args: { to: '0x1111111111111111111111111111111111111111', amount: '0.001', asset: 'eth:sepolia' } });
+  assert.deepEqual(step('send 0.001 ETH on Sepolia to 0x1111111111111111111111111111111111111111'), { name: 'prepare_transfer', args: { to: '0x1111111111111111111111111111111111111111', amount: '0.001', asset: 'sepolia' } });
+  assert.deepEqual(step('send 0.0001 ETH on Base to 0x1111111111111111111111111111111111111111'), { name: 'prepare_transfer', args: { to: '0x1111111111111111111111111111111111111111', amount: '0.0001', asset: 'base' } });
+  const { parseAsset } = await import('../src/desks/wallet.ts');
+  assert.equal(parseAsset('base'), 'evm:8453'); assert.equal(parseAsset('Arbitrum'), 'evm:42161'); assert.equal(parseAsset('bnb'), 'evm:56');
+  assert.equal(parseAsset('polygon'), 'evm:137'); assert.equal(parseAsset('evm:43114'), 'evm:43114'); assert.equal(parseAsset('sepolia'), 'evm:11155111');
+  assert.equal(parseAsset('near'), 'near'); assert.equal(parseAsset('eth'), null, 'plain ETH: which chain?'); assert.equal(parseAsset('doge'), null);
   assert.deepEqual(step('one two three four'), { name: 'confirm_transfer', args: { pin: 'one two three four' } });
   const { parseRecipient, readBack } = await import('../src/desks/wallet.ts');
   assert.equal(parseRecipient('Bob dot testnet', 'near'), 'bob.testnet');
   assert.equal(parseRecipient('bob.near', 'near'), null, 'testnet only');
   assert.equal(readBack({ to: 'bob.testnet', amount: '5', asset: 'near' }), '5 NEAR to bob dot testnet');
+  assert.equal(readBack({ to: '0x1111111111111111111111111111111111112222', amount: '0.0001', asset: 'evm:8453' }), '0.0001 ETH on Base to address 0x1111 ending 2222');
+  assert.equal(readBack({ to: '0x1111111111111111111111111111111111112222', amount: '0.1', asset: 'evm:56' }), '0.1 BNB on BNB Chain to address 0x1111 ending 2222');
 });
 await t('wallet: refusals (unbound number, bad input, nothing to confirm) and the labelled dry run', async () => {
   const { startCall } = await import('../src/agent.ts');
@@ -239,7 +246,7 @@ await t('wallet: Chain Signatures derivation matches the MPC contract (known vec
 await t('wallet: EIP-1559 tx building + MPC signature assembly', async () => {
   const { buildTransfer, attachSignature } = await import('../src/eth.ts');
   const { SigningKey, Transaction, keccak256, parseEther } = await import('ethers');
-  const tx = buildTransfer({ to: '0x' + '11'.repeat(20), valueWei: parseEther('0.001'), nonce: 7, maxFeePerGas: 2_000_000_000n, maxPriorityFeePerGas: 1_000_000_000n });
+  const tx = buildTransfer({ chainId: 11155111, to: '0x' + '11'.repeat(20), valueWei: parseEther('0.001'), nonce: 7, maxFeePerGas: 2_000_000_000n, maxPriorityFeePerGas: 1_000_000_000n });
   // Same bytes the Rust contract's parse_eip1559 test reads (contracts/phone-wallet/src/lib.rs, TX).
   assert.equal(tx.unsignedSerialized, '0x02f183aa36a707843b9aca00847735940082520894111111111111111111111111111111111111111187038d7ea4c6800080c0');
   const key = new SigningKey('0x' + '42'.repeat(32));
@@ -247,5 +254,60 @@ await t('wallet: EIP-1559 tx building + MPC signature assembly', async () => {
   const mpc = { big_r: { affine_point: (s.yParity ? '03' : '02') + s.r.slice(2) }, s: { scalar: s.s.slice(2) }, recovery_id: s.yParity };
   const signed = Transaction.from(attachSignature(tx, mpc).serialized);
   assert.equal(signed.from, (await import('ethers')).computeAddress(key.publicKey));
+});
+await t('wallet: mainnet derivation matches v1.signer (live derived_public_key, read once)', async () => {
+  const { deriveEthAddress, nearKeyToHex } = await import('../src/eth.ts');
+  // v1.signer (mainnet) public_key, and derived_public_key({path:"ethereum-1", predecessor:"phone.alice.near", domain_id:0}), read 2026-11-08.
+  const root = 'secp256k1:3tFRbMqmoa6AAALMrEFAYCEoHcqKxeW38YptwowBVBtXK1vo36HDbUWuR6EZmoK4JcH6HDkNMGGqP1ouV7VZUWya';
+  const derived = 'secp256k1:2LN9j2feYc4qHo8BAhzLKYtNmQn9tbUcm7g2ZY5Up3hJoWTJ9fcZyYSR7TXBZPvpyrhsuzeLfQnThfXp6qHsqTjC';
+  const d = deriveEthAddress(root, 'phone.alice.near');
+  assert.equal(d.publicKey, nearKeyToHex(derived));
+  assert.equal(d.address, '0xe73677504B69ff429C8AE723321D617C7abeEcA8'); // same address on Base, Arbitrum, BNB, ...
+});
+await t('wallet: Base EIP-1559 tx (chain id 8453) matches the contract test vector', async () => {
+  const { buildTransfer } = await import('../src/eth.ts');
+  const { parseEther, Transaction } = await import('ethers');
+  const tx = buildTransfer({ chainId: 8453, to: '0x' + '11'.repeat(20), valueWei: parseEther('0.0001'), nonce: 7, maxFeePerGas: 2_000_000_000n, maxPriorityFeePerGas: 1_000_000_000n });
+  assert.equal(tx.unsignedSerialized, '0x02ef82210507843b9aca008477359400825208941111111111111111111111111111111111111111865af3107a400080c0'); // lib.rs BASE_TX
+  assert.equal(Transaction.from(tx.unsignedSerialized).chainId, 8453n);
+});
+await t('wallet: gas check refuses before any signature request (mocked RPC)', async () => {
+  const { prepareTransfer, GasShortError } = await import('../src/eth.ts');
+  const { chainById } = await import('../src/chains.ts');
+  const base = chainById(8453)!;
+  const rpc = (balance: bigint): any => ({ getTransactionCount: async () => 3, getFeeData: async () => ({ maxFeePerGas: 10n ** 9n, maxPriorityFeePerGas: 10n ** 6n }), getBalance: async () => balance });
+  const value = 10n ** 14n, gas = 21000n * 10n ** 9n;
+  const e = await prepareTransfer(base, '0x' + '22'.repeat(20), '0x' + '11'.repeat(20), value, rpc(value)).catch((x) => x);
+  assert.ok(e instanceof GasShortError); assert.equal(e.missing, gas);
+  assert.match(e.message, /0\.000021 ETH short\. Fund 0x2222.* on Base/);
+  const ok = await prepareTransfer(base, '0x' + '22'.repeat(20), '0x' + '11'.repeat(20), value, rpc(value + gas));
+  assert.equal(ok.chainId, 8453n); assert.equal(ok.nonce, 3);
+});
+await t('chains: registry, aliases, defaults per network', async () => {
+  const { findChain, CHAINS, defaultChainIds, txUrl } = await import('../src/chains.ts');
+  for (const id of [1, 8453, 42161, 10, 137, 56, 43114]) assert.ok(CHAINS.some((c) => c.id === id), String(id));
+  assert.equal(findChain('avax')!.symbol, 'AVAX'); assert.equal(findChain('8453')!.name, 'Base'); assert.equal(findChain('eth'), undefined);
+  assert.deepEqual(defaultChainIds('mainnet'), [8453]); assert.deepEqual(defaultChainIds('testnet'), [11155111]);
+  assert.equal(txUrl(findChain('base')!, '0xab'), 'https://basescan.org/tx/0xab');
+});
+await t('tts: provider switch and Cartesia request/response (mocked fetch)', async () => {
+  const { providerFor, cartesiaSpeak, speakable } = await import('../src/tts.ts');
+  assert.equal(providerFor({ CARTESIA_API_KEY: 'k' }), 'cartesia'); assert.equal(providerFor({}), 'kokoro');
+  assert.equal(providerFor({ CARTESIA_API_KEY: 'k', TTS_PROVIDER: 'kokoro' }), 'kokoro');
+  assert.equal(speakable('Hi **there** 🎉'), 'Hi there');
+  const real = globalThis.fetch;
+  let seen: any;
+  globalThis.fetch = (async (url: string, init: any) => { seen = { url, init, body: JSON.parse(init.body) }; return new Response(new Float32Array([0, 0.5, -0.5]).buffer); }) as any;
+  try {
+    const pcm = await cartesiaSpeak('Hello there.', 'sk_test');
+    assert.deepEqual([...pcm], [0, 0.5, -0.5]);
+    assert.equal(seen.url, 'https://api.cartesia.ai/tts/bytes');
+    assert.equal(seen.init.headers.Authorization, 'Bearer sk_test'); assert.ok(seen.init.headers['Cartesia-Version']);
+    assert.deepEqual(seen.body.output_format, { container: 'raw', encoding: 'pcm_f32le', sample_rate: 24000 });
+    assert.equal(seen.body.transcript, 'Hello there.'); assert.ok(seen.body.voice.id);
+    globalThis.fetch = (async () => new Response('bad key', { status: 401 })) as any;
+    await assert.rejects(cartesiaSpeak('x', 'sk_test'), /cartesia 401/);
+    await assert.rejects(cartesiaSpeak('x', ''), /CARTESIA_API_KEY/);
+  } finally { globalThis.fetch = real; }
 });
 process.once("beforeExit", () => console.log(`${n} passed`));

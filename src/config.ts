@@ -73,8 +73,16 @@ export const env = {
   waAppSecret: process.env.WHATSAPP_APP_SECRET ?? '',
   ownerWhatsapp: (process.env.OWNER_WHATSAPP ?? '').replace(/\D/g, ''),
   dashboardPassword: process.env.DASHBOARD_PASSWORD ?? '',
-  // Phone wallet (testnet): the agent account allowed to spend within each user's contract limits.
+  // Phone wallet: the agent account allowed to spend within each user's contract limits (on NETWORK).
   agentAccountId: process.env.AGENT_ACCOUNT_ID ?? '',
   agentKey: process.env.AGENT_PRIVATE_KEY ?? '',
-  mpcSigner: process.env.MPC_SIGNER ?? 'v1.signer-prod.testnet',
+  mpcSigner: process.env.MPC_SIGNER || (process.env.NETWORK === 'mainnet' ? 'v1.signer' : 'v1.signer-prod.testnet'),
+  // Default limits proposed on /wallet/bind (the user can change them there before signing). Human units.
+  walletDefaults: {
+    nearPerTx: process.env.WALLET_NEAR_PER_TX ?? '1', nearPerDay: process.env.WALLET_NEAR_PER_DAY ?? '3',
+    evmPerTx: process.env.WALLET_EVM_PER_TX ?? '0.0005', evmPerDay: process.env.WALLET_EVM_PER_DAY ?? '0.002',
+    delaySec: Number(process.env.WALLET_DELAY_SEC ?? 600),
+  },
+  // WebRTC (WhatsApp calls): fixed UDP range so a firewall can open it. Empty = werift's random ports.
+  rtcPorts: process.env.RTC_PORT_MIN && process.env.RTC_PORT_MAX ? ([Number(process.env.RTC_PORT_MIN), Number(process.env.RTC_PORT_MAX)] as [number, number]) : undefined,
 };

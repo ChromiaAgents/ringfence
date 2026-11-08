@@ -3,6 +3,7 @@
 // inside the system prompt sent to the TEE model.
 // ponytail: drafts live in memory, so carry-over survives hang-up but not a server restart.
 import { db, type Call } from './store.ts';
+import { env } from './config.ts';
 import { draftOf, carryDraft } from './desks/launch.ts';
 
 const day = (t: number) => new Date(t).toISOString().slice(0, 10);
@@ -28,7 +29,7 @@ export function recap(call: Call): string {
   const prev = earlier(call).slice(-3);
   // The bound wallet (never balances: those are read live by the wallet desk).
   const w = call.from ? db.wallets.find((x) => x.phone === call.from!.replace(/\D/g, '')) : undefined;
-  const wallet = w ? `\nThis number is bound to the NEAR testnet wallet ${w.contract} (owner ${w.owner}).` : '';
+  const wallet = w ? `\nThis number is bound to the NEAR ${env.network} wallet ${w.contract} (owner ${w.owner}).` : '';
   if (!prev.length) return wallet;
   const lines = prev.map((c) => {
     const bits = [`${day(c.startedAt)}, ${c.desk ?? 'no'} desk`];
