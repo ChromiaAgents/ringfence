@@ -2,7 +2,7 @@
 
 For Johnson. Tan sends you the `.env` separately (by DM). Nothing secret is in this repo.
 
-Repo: https://github.com/ChromiaAgents/callhand (private, branch `main`).
+Repo: https://github.com/ChromiaAgents/ringfence (private, branch `main`).
 
 ## What it is
 
@@ -45,7 +45,7 @@ State is one JSON file, `data/db.json`, plus customer photos in `data/photos/`. 
 ## Deploy steps
 
 ```bash
-git clone git@github.com:ChromiaAgents/callhand.git && cd callhand
+git clone git@github.com:ChromiaAgents/ringfence.git && cd ringfence
 npm ci
 cp /path/from/tan/.env .env        # then edit PUBLIC_URL, see below
 npm run typecheck && npm test      # expect "14 passed"

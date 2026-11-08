@@ -33,7 +33,7 @@ sudo apt-get update && sudo apt-get install -y caddy
 
 # App, as its own user
 sudo useradd --system --create-home --home-dir /opt/ringfence ringfence
-sudo -u ringfence git clone git@github.com:ChromiaAgents/callhand.git /opt/ringfence   # or rsync the repo
+sudo -u ringfence git clone git@github.com:ChromiaAgents/ringfence.git /opt/ringfence   # or rsync the repo
 cd /opt/ringfence
 sudo -u ringfence npm ci
 sudo -u ringfence npm run build
