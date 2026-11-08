@@ -175,6 +175,8 @@ export async function ethAddressOf(b: Binding) {
 
 /** Any allowed EVM chain. prepareTransfer checks gas first: no signature request without it (GasShortError). */
 export async function sendEvm(b: Binding, chainId: number, to: string, wei: bigint) {
+  // The default (NEAR-only) wallet wasm has no request_signature: never call it unless EVM_ENABLED.
+  if (!env.evmEnabled) throw new Error('Only NEAR transfers for now (EVM_ENABLED is off).');
   const chain = chainById(chainId);
   if (!chain) throw new Error(`unknown chain ${chainId}`);
   const tx = await prepareTransfer(chain, await ethAddressOf(b), to, wei);

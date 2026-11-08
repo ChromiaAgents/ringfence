@@ -1,12 +1,25 @@
 // Local sandbox only (near-workspaces starts its own near-sandbox; nothing touches testnet).
-//   cd contracts/phone-wallet && cargo test --test sandbox
+//   cd contracts/phone-wallet && cargo test --test sandbox                  (NEAR-only build, the default)
+//   cd contracts/phone-wallet && cargo test --test sandbox --features evm   (with Chain Signatures)
 use near_workspaces::types::NearToken;
 use serde_json::json;
+
+/// compile_project builds default features only; the EVM build goes through cargo near directly.
+#[cfg(feature = "evm")]
+async fn wallet_wasm() -> anyhow::Result<Vec<u8>> {
+    let st = std::process::Command::new("cargo")
+        .args(["near", "build", "non-reproducible-wasm", "--no-abi", "--features", "evm", "--out-dir", "target/near-evm"])
+        .env_remove("CARGO_TARGET_DIR").status()?;
+    anyhow::ensure!(st.success(), "cargo near build --features evm failed");
+    Ok(std::fs::read("target/near-evm/phone_wallet.wasm")?)
+}
+#[cfg(not(feature = "evm"))]
+async fn wallet_wasm() -> anyhow::Result<Vec<u8>> { Ok(near_workspaces::compile_project("./").await?) }
 
 #[tokio::test]
 async fn phone_wallet_in_sandbox() -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
-    let wasm = near_workspaces::compile_project("./").await?;
+    let wasm = wallet_wasm().await?;
     let mock = near_workspaces::compile_project("../mock-signer").await?;
 
     let signer = worker.dev_deploy(&mock).await?;
@@ -45,6 +58,19 @@ async fn phone_wallet_in_sandbox() -> anyhow::Result<()> {
     agent.call(w.id(), "execute").args_json(json!({ "pending_id": id })).transact().await?.into_result()?;
     assert_eq!(carol.view_account().await?.balance.as_near(), c0.as_near() + 1);
 
+    // NEAR-only build: the EVM path isn't in the wasm at all, and the chains passed at init are ignored.
+    #[cfg(not(feature = "evm"))]
+    {
+        let st: serde_json::Value = w.view("get_state").await?.json()?;
+        assert_eq!(st["chains"], json!([]));
+        assert!(st["limits"].get("evm:8453").is_none());
+        let r = agent.call(w.id(), "request_signature").args_json(json!({ "chain": "evm:11155111", "tx": "02" })).max_gas().transact().await?;
+        assert!(format!("{:?}", r.into_result().unwrap_err()).contains("MethodNotFound"));
+        let r = owner_call("allow_chain", json!({ "chain_id": 1, "per_tx": "1", "per_day": "1" })).await?;
+        assert!(format!("{:?}", r.into_result().unwrap_err()).contains("MethodNotFound"));
+    }
+    #[cfg(feature = "evm")]
+    {
     // Chain Signatures routing: the wallet contract is the predecessor at the signer, path ethereum-1, 1 yocto.
     let tx = "02f183aa36a707843b9aca00847735940082520894111111111111111111111111111111111111111187038d7ea4c6800080c0";
     let sig: serde_json::Value = agent.call(w.id(), "request_signature").args_json(json!({ "chain": "evm:11155111", "tx": tx })).max_gas().transact().await?.json()?;
@@ -65,7 +91,9 @@ async fn phone_wallet_in_sandbox() -> anyhow::Result<()> {
     assert_eq!(st["spent_today"]["evm:8453"], (100_000_000_000_000u128 + 21_000 * 2_000_000_000).to_string());
     // a chain the owner never allowed is refused
     let r = agent.call(w.id(), "request_signature").args_json(json!({ "chain": "evm:42161", "tx": base })).max_gas().transact().await?;
-    assert!(format!("{:?}", r.into_result().unwrap_err()).contains("not allowed by the owner"));
+    assert!(format!("{:?}", r.into_result().unwrap_err()).contains("chain not allowed by the owner"));
+
+    }
 
     // the agent can't call owner methods
     let r = agent.call(w.id(), "set_limits").args_json(json!({ "asset": "near", "per_tx": "1", "per_day": "1" })).deposit(one).transact().await?;

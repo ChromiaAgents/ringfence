@@ -10,8 +10,10 @@ fn near(y: u128) -> f64 { y as f64 / Y as f64 }
 #[tokio::test]
 async fn factory_in_sandbox() -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
-    let factory_wasm = near_workspaces::compile_project("./").await?;
-    let wallet_wasm = near_workspaces::compile_project("../phone-wallet").await?;
+    // FACTORY_WASM / WALLET_WASM: measure the exact files contracts/build.sh produced (what goes to mainnet).
+    let load = |var: &str| std::env::var(var).ok().map(std::fs::read).transpose();
+    let factory_wasm = match load("FACTORY_WASM")? { Some(w) => w, None => near_workspaces::compile_project("./").await? };
+    let wallet_wasm = match load("WALLET_WASM")? { Some(w) => w, None => near_workspaces::compile_project("../phone-wallet").await? };
     let root = worker.root_account()?;
     // like mainnet: the factory is a top-level-ish named account and wallets are its sub-accounts
     let factory = root.create_subaccount("ringfence-wallet").initial_balance(NearToken::from_near(50)).transact().await?.into_result()?;
@@ -20,7 +22,9 @@ async fn factory_in_sandbox() -> anyhow::Result<()> {
     let family = worker.dev_create_account().await?;
     let payer = worker.dev_create_account().await?;
     let liho = worker.dev_create_account().await?;
-    factory.deploy(&factory_wasm).await?.into_result()?;
+    let fd = factory.deploy(&factory_wasm).await?;
+    let deploy_gas_burnt = fd.details.total_gas_burnt;
+    fd.into_result()?;
     factory.call(factory.id(), "new").args_json(json!({ "owner": custody.id(), "agent": agent.id() })).transact().await?.into_result()?;
     let h1 = "1".repeat(64);
     let h2 = "2".repeat(64);
@@ -115,6 +119,9 @@ async fn factory_in_sandbox() -> anyhow::Result<()> {
     assert!(err(family.call(&w3, "accept_owner").transact().await?).contains("24 h waiting period"));
 
     // costs, for HANDOVER.md
+    let fv = factory.view_account().await?;
+    println!("COST factory wasm bytes: {}; factory storage_usage after deploy, init and 3 wallets: {} bytes = {:.5} NEAR locked; deploy gas burnt {} ({:.5} NEAR at 1e8 yocto/gas)",
+        factory_wasm.len(), fv.storage_usage, near(fv.storage_usage as u128 * 10_000_000_000_000_000_000), deploy_gas_burnt, near(deploy_gas_burnt.as_gas() as u128 * 100_000_000));
     let wasm_len = wallet_wasm.len() as u128;
     println!("COST wasm bytes: {wasm_len}");
     println!("COST global upload (factory balance drop): {:.5} NEAR", near(f0 - f1));

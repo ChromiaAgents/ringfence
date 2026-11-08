@@ -354,6 +354,9 @@ await t('NEAR only: EVM sends refused while EVM_ENABLED is off; building quotes 
   }
   const w: any = await walletDesk.run(startCall('web').call, 'prepare_transfer', { to: '0x1111111111111111111111111111111111111111', amount: '0.0001', asset: 'base' });
   assert.equal(w.reason, ONLY_NEAR, 'browser demo too');
+  // the default wallet wasm has no request_signature: the server must never call it with EVM off
+  const { sendEvm } = await import('../src/wallet.ts');
+  await assert.rejects(sendEvm({ contract: 'x.testnet' } as any, 8453, '0x1111111111111111111111111111111111111111', 1n), /EVM_ENABLED is off/);
   const r = startCall('web').call;
   assert.equal(await reply(r.id, 'I need a quote for a new kitchen'), NOT_OFFERED);
   assert.equal(r.desk, undefined, 'not routed to the business desk');

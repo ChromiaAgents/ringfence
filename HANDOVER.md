@@ -180,18 +180,24 @@ Mainnet defaults (proposed on the bind page, editable before signing; env `WALLE
 
 Phone-wallet additions: `propose_owner(new_owner)` / `accept_owner()` (called by the new account) / `cancel_owner_transfer()` hand a custodial wallet to the family; the agent can never be proposed or accept. `freeze(until_ts)` (unix seconds) blocks every agent spend, including `execute`, until then; `unfreeze()`. Withdraw and all owner calls still work while frozen.
 
-Measured costs (local sandbox, protocol params identical to mainnet protocol 88: storage 0.00001 NEAR/byte, global contracts 0.0001 NEAR/byte):
+Measured costs (local sandbox, protocol params identical to mainnet protocol 88: storage 0.00001 NEAR/byte, global contracts 0.0001 NEAR/byte, burned), on the exact files `contracts/build.sh` produces:
 
-| What | NEAR |
-|---|---|
-| Deploy the factory code on ringfence-wallet.near (156,705 bytes) | ~1.57 |
-| One-time global upload of the phone wallet (196,503 bytes x 0.0001) | 19.65 |
-| Each wallet with the global contract (446 bytes of storage) | 0.013 + gas |
-| Each wallet if it deployed its own copy instead | ~1.98 |
+| What | Before | Now (NEAR only) |
+|---|---|---|
+| Phone wallet wasm | 196,503 bytes | 152,373 bytes |
+| One-time global upload of the phone wallet (bytes x 0.0001, burned) | 19.65 | **15.24** |
+| Factory wasm | 156,705 bytes | 134,407 bytes |
+| Deploy the factory code on ringfence-wallet.near (bytes x 0.00001, locked as storage, not burned) + gas (10.2 Tgas, ~0.001) | ~1.57 | **~1.35** |
+| Each wallet with the global contract (455 bytes of storage; 0.010 left on the wallet + 0.003 to the factory) | 0.013 + gas | 0.013 + gas |
+| Each wallet if it deployed its own copy instead | ~1.98 | ~1.53 |
 
-So the global contract pays for itself from the 11th wallet. Shrinking the wallet wasm shrinks the upload in proportion.
+So the global contract pays for itself from the 11th wallet. Every byte off the wallet wasm is 0.0001 NEAR off the upload.
 
-Tests: `cd contracts/phone-wallet && cargo test` and `cd contracts/factory && cargo test` (prints the costs with `-- --nocapture`) (unit + local sandbox; needs Rust 1.95+, the `wasm32-unknown-unknown` target and `cargo install cargo-near`).
+**The wallet is NEAR only by default.** All EVM / Chain Signatures code (`request_signature`, `allow_chain`, `disallow_chain`, the RLP parser, the MPC call) is behind the cargo feature `evm`, off by default; those methods don't exist in the default wasm (the sandbox test checks they fail with MethodNotFound). Every NEAR rule is unchanged: owner, agent, limits, recipients, delay queue (capped at 10), withdraw, revoke, freeze, claim (propose/accept/cancel, custodial mode, 24 h delay), views. `get_state` has the same JSON shape (`chains` is `[]`; `evm_chain_ids`/`evm_limit` at init are accepted and ignored). The server never calls `request_signature` unless `EVM_ENABLED=1`, and then the wallet must be built with `contracts/build.sh --evm` (167,730 bytes by plain `cargo near build`, ~16.8 NEAR to upload). Other size work: a Vec-backed map instead of HashMap in the wallet state, static panic strings instead of `format!` (limit errors no longer print the numbers; the messages start the same, e.g. "over the per-transfer limit"), no "queued" log line, ASCII lowercase for recipients (account ids and 0x addresses are ASCII), no ABI embedded, local paths remapped out of panic messages, and `wasm-opt -Oz` on top of cargo near's `-O` with the same wasm features. The factory writes its two maps straight to storage (same keys and layout as `near_sdk::store::LookupMap`, no cache) and builds the wallet's init args with a struct instead of `json!`.
+
+Build: `contracts/build.sh` (needs `brew install binaryen` for the `-Oz` pass; without it the wallet is ~1 KB bigger). It writes both `target/near/*.wasm` and `public/phone_wallet.wasm`.
+
+Tests: `cd contracts/phone-wallet && cargo test` (and `cargo test --features evm` for the EVM path) and `cd contracts/factory && cargo test` (prints the costs with `-- --nocapture`; set `FACTORY_WASM=` and `WALLET_WASM=` to the build.sh outputs to measure the exact mainnet files) (unit + local sandbox; needs Rust 1.95+, the `wasm32-unknown-unknown` target and `cargo install cargo-near`).
 
 ### Deploy to mainnet (Tan runs these; each step sends a real mainnet transaction and spends real NEAR or ETH)
 
@@ -208,12 +214,12 @@ near account create-account fund-myself ringfence-agent.near '0.5 NEAR' autogene
 # then restart the server (npm start / systemctl restart ringfence)
 
 # 2. (only after contract changes) rebuild the wasm the bind page deploys, then the app
-cd contracts/phone-wallet && cargo near build non-reproducible-wasm && cp target/near/phone_wallet.wasm ../../public/ && cd ../..
+contracts/build.sh            # add --evm only if EVM_ENABLED=1 (the evm_chain_ids below need it)
 npm run build
 
 # 3. Bind (the user, with their own alice.near): open $PUBLIC_URL/wallet/bind, connect alice.near, get the WhatsApp code,
 #    set a PIN, Bind, check the limits and the EVM address shown, then sign "create + fund 2.5 NEAR + deploy + init".
-#    2.5 NEAR covers the contract's storage (~1.9 NEAR); step 4 adds the money it can spend.
+#    2.5 NEAR covers the contract's storage (~1.55 NEAR); step 4 adds the money it can spend.
 #    If the wallet refuses a deploy action, sign it from the CLI instead (after "Bind" so the server has the PIN hash):
 near account create-account fund-myself phone.alice.near '2.5 NEAR' autogenerate-new-keypair save-to-legacy-keychain sign-as alice.near network-config mainnet sign-with-keychain send
 near contract deploy phone.alice.near use-file public/phone_wallet.wasm with-init-call new json-args "{\"owner\":\"alice.near\",\"agent\":\"ringfence-agent.near\",\"phone_hash\":\"$(printf %s '<digits>' | shasum -a 256 | cut -d' ' -f1)\",\"signer\":\"v1.signer\",\"evm_chain_ids\":[8453]}" prepaid-gas '100 Tgas' attached-deposit '0 NEAR' network-config mainnet sign-with-legacy-keychain send
@@ -246,17 +252,17 @@ near contract call-function as-transaction phone.alice.near revoke_agent json-ar
 The accounts exist: ringfence-wallet.near (factory), ringfence-custody.near (custody and factory owner), ringfence-agent.near (agent). Import their keys into the CLI keychain from `.env` (`near account import-account using-private-key ...`) or use `sign-with-plaintext-private-key` interactively; never paste keys into the shell history.
 
 ```bash
-# 0. Fund ringfence-wallet.near with 22 NEAR: ~1.57 factory code + 19.65 global upload + gas and a small buffer.
-#    ringfence-custody.near needs ~0.1 NEAR for gas, plus 0.013 NEAR per wallet it creates.
+# 0. Fund ringfence-wallet.near with 17.5 NEAR: ~1.35 factory code storage + 15.24 global upload (burned) + gas and
+#    a small buffer. ringfence-custody.near needs ~0.1 NEAR for gas, plus 0.013 NEAR per wallet it creates.
 
-# 1. Build both wasm files from this commit
-(cd contracts/phone-wallet && cargo near build non-reproducible-wasm)
-(cd contracts/factory && cargo near build non-reproducible-wasm)
+# 1. Build both wasm files from this commit (NEAR only; needs `brew install binaryen` for the final -Oz pass)
+contracts/build.sh
+wc -c contracts/phone-wallet/target/near/phone_wallet.wasm   # 152,373 bytes for this commit = 15.24 NEAR to upload
 
 # 2. Deploy and initialise the factory
 near contract deploy ringfence-wallet.near use-file contracts/factory/target/near/wallet_factory.wasm with-init-call new json-args '{"owner":"ringfence-custody.near","agent":"ringfence-agent.near"}' prepaid-gas '30 Tgas' attached-deposit '0 NEAR' network-config mainnet sign-with-keychain send
 
-# 3. Upload the phone wallet as a global contract (burns 19.65 NEAR from ringfence-wallet.near)
+# 3. Upload the phone wallet as a global contract (burns bytes x 0.0001 = 15.24 NEAR from ringfence-wallet.near)
 near contract call-function as-transaction ringfence-wallet.near upload_wallet_code file-args contracts/phone-wallet/target/near/phone_wallet.wasm prepaid-gas '300 Tgas' attached-deposit '0 NEAR' sign-as ringfence-custody.near network-config mainnet sign-with-keychain send
 near contract call-function as-read-only ringfence-wallet.near get_config json-args '{}' network-config mainnet now
 

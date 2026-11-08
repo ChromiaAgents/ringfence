@@ -5,9 +5,14 @@
 // Assets: "near" (native transfers) and "evm:<chainId>" for any EVM chain the owner allows (Chain Signatures: the
 // contract asks the MPC signer to sign an EIP-1559 transfer it has parsed itself, so the chain, value and recipient it
 // limits are the ones that get signed). One path ("ethereum-1") gives the same address on every EVM chain.
+// The EVM path is behind the cargo feature "evm" (off by default): the default build is NEAR only and much smaller,
+// which matters because mainnet charges per byte for the global contract upload. State and get_state are the same in
+// both builds (signer, chains and Pending.tx stay, unused, in the NEAR-only build).
 // UNAUDITED PROTOTYPE: keep small amounts.
 use near_sdk::json_types::{U128, U64};
-use near_sdk::{env, near, require, AccountId, Gas, NearToken, PanicOnDefault, Promise, PromiseOrValue};
+use near_sdk::{env, near, require, AccountId, NearToken, PanicOnDefault, Promise, PromiseOrValue};
+#[cfg(feature = "evm")]
+use near_sdk::Gas;
 use std::collections::HashMap;
 
 const DAY_NS: u64 = 86_400_000_000_000;
@@ -15,10 +20,58 @@ const DAY_NS: u64 = 86_400_000_000_000;
 pub const CLAIM_DELAY_NS: u64 = DAY_NS;
 /// At most this many queued transfers (a compromised agent could otherwise fill storage and grow gas).
 pub const MAX_PENDING: usize = 10;
+#[cfg(feature = "evm")]
 const SIGN_GAS: Gas = Gas::from_tgas(50);
+#[cfg(feature = "evm")]
 pub const ETH_PATH: &str = "ethereum-1";
+#[cfg(feature = "evm")]
 pub const BASE_CHAIN_ID: u64 = 8453;
+#[cfg(feature = "evm")]
 pub fn evm_key(chain_id: u64) -> String { format!("evm:{chain_id}") }
+
+/// String-keyed map kept as a short Vec (a wallet has a handful of assets): much less wasm than a HashMap.
+/// The view (get_state) still returns JSON objects.
+#[derive(near_sdk::borsh::BorshSerialize, near_sdk::borsh::BorshDeserialize, Clone)]
+#[cfg_attr(near_abi, derive(near_sdk::borsh::BorshSchema))]
+#[borsh(crate = "near_sdk::borsh")]
+pub struct Map<V>(Vec<(String, V)>);
+impl<V> Default for Map<V> { fn default() -> Self { Self(Vec::new()) } }
+impl<V: Clone> Map<V> {
+    pub fn get(&self, k: &str) -> Option<&V> { self.0.iter().find(|(x, _)| x == k).map(|(_, v)| v) }
+    pub fn insert(&mut self, k: String, v: V) {
+        match self.0.iter_mut().find(|(x, _)| *x == k) { Some(e) => e.1 = v, None => self.0.push((k, v)) }
+    }
+    pub fn remove(&mut self, k: &str) { self.0.retain(|(x, _)| x != k); }
+    pub fn map<W>(&self, f: impl Fn(&V) -> W) -> Map<W> { Map(self.0.iter().map(|(k, v)| (k.clone(), f(v))).collect()) }
+    pub fn contains_key(&self, k: &str) -> bool { self.get(k).is_some() }
+    pub fn len(&self) -> usize { self.0.len() }
+    pub fn is_empty(&self) -> bool { self.0.is_empty() }
+}
+impl<V: Clone> core::ops::Index<&str> for Map<V> {
+    type Output = V;
+    fn index(&self, k: &str) -> &V { self.get(k).unwrap() }
+}
+/// JSON: an object {"near": ...}, as a HashMap would give.
+impl<V: near_sdk::serde::Serialize> near_sdk::serde::Serialize for Map<V> {
+    fn serialize<S: near_sdk::serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        use near_sdk::serde::ser::SerializeMap;
+        let mut m = s.serialize_map(Some(self.0.len()))?;
+        for (k, v) in &self.0 { m.serialize_entry(k, v)?; }
+        m.end()
+    }
+}
+/// Only for the derive on State (never called on chain, so it adds nothing to the wasm).
+impl<'de, V: near_sdk::serde::Deserialize<'de>> near_sdk::serde::Deserialize<'de> for Map<V> {
+    fn deserialize<D: near_sdk::serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        HashMap::<String, V>::deserialize(d).map(|m| Map(m.into_iter().collect()))
+    }
+}
+/// ABI generation (cargo near's host pass, see build.rs): describe it as the object it serializes to.
+#[cfg(near_abi)]
+impl<V: near_sdk::schemars::JsonSchema> near_sdk::schemars::JsonSchema for Map<V> {
+    fn schema_name() -> String { HashMap::<String, V>::schema_name() }
+    fn json_schema(g: &mut near_sdk::schemars::r#gen::SchemaGenerator) -> near_sdk::schemars::schema::Schema { HashMap::<String, V>::json_schema(g) }
+}
 
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Debug, PartialEq)]
@@ -45,13 +98,13 @@ pub struct PhoneWallet {
     /// who must be the owner (factory rule), so the server can check the number was bound by this owner.
     phone_hash: String,
     signer: AccountId,
-    limits: HashMap<String, Limit>,
+    limits: Map<Limit>,
     /// EVM chain ids the agent may ask signatures for (each also needs a limit "evm:<id>").
     chains: Vec<u64>,
     allowlist: Vec<String>,
     new_recipient_delay_sec: u64,
     day: u64,
-    spent: HashMap<String, u128>,
+    spent: Map<u128>,
     pending: Vec<Pending>,
     next_id: u64,
     /// Two-step ownership transfer (custodial claim): the owner proposes, the new account accepts.
@@ -70,12 +123,12 @@ pub struct State {
     pub agent: Option<AccountId>,
     pub phone_hash: String,
     pub signer: AccountId,
-    pub limits: HashMap<String, Limit>,
+    pub limits: Map<Limit>,
     pub chains: Vec<u64>,
     pub allowlist: Vec<String>,
     pub new_recipient_delay_sec: u64,
     pub day: u64,
-    pub spent_today: HashMap<String, U128>,
+    pub spent_today: Map<U128>,
     pub pending: Vec<Pending>,
     pub balance: U128,
     pub pending_owner: Option<AccountId>,
@@ -89,23 +142,30 @@ impl PhoneWallet {
     /// Defaults (mainnet-safe): 0.2 NEAR per transfer, 0.5 NEAR per day; on each EVM chain in `evm_chain_ids` (default
     /// [8453] = Base) 0.0005 per transfer, 0.002 per day in that chain's native units; new recipients wait 600 s.
     /// Every default can be overridden here at bind time, and later by the owner.
+    /// Without the "evm" feature, `evm_chain_ids` and `evm_limit` are accepted but ignored: no chain, no EVM limit.
     #[init]
     pub fn new(owner: AccountId, agent: AccountId, phone_hash: String, signer: Option<AccountId>, evm_chain_ids: Option<Vec<u64>>,
                near_limit: Option<Limit>, evm_limit: Option<Limit>, new_recipient_delay_sec: Option<u64>,
                recipients: Option<Vec<String>>, custodial: Option<bool>) -> Self {
         require!(agent != owner, "the agent can't be the owner");
-        let e18 = 10u128.pow(18);
-        let e24 = 10u128.pow(24);
-        let chains = evm_chain_ids.unwrap_or_else(|| vec![BASE_CHAIN_ID]);
-        let evm = evm_limit.unwrap_or(Limit { per_tx: U128(e18 / 2000), per_day: U128(e18 / 500) });
-        let mut limits = HashMap::new();
-        limits.insert("near".into(), near_limit.unwrap_or(Limit { per_tx: U128(e24 / 5), per_day: U128(e24 / 2) }));
-        for c in &chains { limits.insert(evm_key(*c), evm.clone()); }
+        const E24: u128 = 10u128.pow(24); // compile-time constants: no u128 division in the wasm
+        let mut limits = Map::default();
+        limits.insert("near".into(), near_limit.unwrap_or(Limit { per_tx: U128(E24 / 5), per_day: U128(E24 / 2) }));
+        #[cfg(feature = "evm")]
+        let chains = {
+            const E18: u128 = 10u128.pow(18);
+            let chains = evm_chain_ids.unwrap_or_else(|| vec![BASE_CHAIN_ID]);
+            let evm = evm_limit.unwrap_or(Limit { per_tx: U128(E18 / 2000), per_day: U128(E18 / 500) });
+            for c in &chains { limits.insert(evm_key(*c), evm.clone()); }
+            chains
+        };
+        #[cfg(not(feature = "evm"))]
+        let chains = { let _ = (evm_chain_ids, evm_limit); vec![] };
         Self {
             owner, agent: Some(agent), phone_hash,
             signer: signer.unwrap_or_else(|| "v1.signer".parse().unwrap()),
-            limits, chains, allowlist: recipients.unwrap_or_default().iter().map(|r| r.to_lowercase()).collect(), new_recipient_delay_sec: new_recipient_delay_sec.unwrap_or(600),
-            day: 0, spent: HashMap::new(), pending: vec![], next_id: 0, pending_owner: None, frozen_until_ns: 0,
+            limits, chains, allowlist: recipients.unwrap_or_default().iter().map(|r| r.to_ascii_lowercase()).collect(), new_recipient_delay_sec: new_recipient_delay_sec.unwrap_or(600),
+            day: 0, spent: Map::default(), pending: vec![], next_id: 0, pending_owner: None, frozen_until_ns: 0,
             custodial: custodial.unwrap_or(false), claim_ready_ns: 0,
         }
     }
@@ -118,12 +178,14 @@ impl PhoneWallet {
         self.limits.insert(asset, Limit { per_tx, per_day });
     }
     /// Lets the agent use an EVM chain, with its limits (native units of that chain, e.g. wei).
+    #[cfg(feature = "evm")]
     #[payable]
     pub fn allow_chain(&mut self, chain_id: u64, per_tx: U128, per_day: U128) {
         self.only_owner(); self.not_custodial();
         if !self.chains.contains(&chain_id) { self.chains.push(chain_id); }
         self.limits.insert(evm_key(chain_id), Limit { per_tx, per_day });
     }
+    #[cfg(feature = "evm")]
     #[payable]
     pub fn disallow_chain(&mut self, chain_id: u64) {
         self.only_owner();
@@ -138,13 +200,13 @@ impl PhoneWallet {
     #[payable]
     pub fn allow(&mut self, recipient: String) {
         self.only_owner();
-        let r = recipient.to_lowercase();
+        let r = recipient.to_ascii_lowercase();
         if !self.allowlist.contains(&r) { self.allowlist.push(r); }
     }
     #[payable]
     pub fn disallow(&mut self, recipient: String) {
         self.only_owner();
-        let r = recipient.to_lowercase();
+        let r = recipient.to_ascii_lowercase();
         self.allowlist.retain(|x| *x != r);
     }
     #[payable]
@@ -227,10 +289,11 @@ impl PhoneWallet {
     /// value from it, refuses contract calls (non-empty data), applies the limits, then asks the MPC signer to sign
     /// keccak256(tx) on path "ethereum-1". The signer's response is this call's return value.
     /// `chain` is "evm:<chainId>"; the chain must be allowed by the owner, have a limit, and match the tx's chain id.
+    #[cfg(feature = "evm")]
     pub fn request_signature(&mut self, chain: String, tx: String) -> PromiseOrValue<U64> {
         self.only_agent();
         let id: u64 = chain.strip_prefix("evm:").and_then(|x| x.parse().ok()).unwrap_or_else(|| env::panic_str("chain must be evm:<chainId>"));
-        require!(self.chains.contains(&id), format!("chain {id} is not allowed by the owner"));
+        require!(self.chains.contains(&id), "chain not allowed by the owner");
         let bytes = hex::decode(tx.trim_start_matches("0x")).unwrap_or_else(|_| env::panic_str("tx is not hex"));
         let (to, value, max_fee) = parse_eip1559(&bytes, id);
         // gas counts too: value + gasLimit * maxFeePerGas is what the account can lose.
@@ -251,11 +314,15 @@ impl PhoneWallet {
         self.spend(&p.asset, p.amount.0);
         match p.tx {
             None => { let _ = Promise::new(p.to.parse::<AccountId>().unwrap()).transfer(NearToken::from_yoctonear(p.amount.0)); PromiseOrValue::Value(U64(p.id)) }
+            #[cfg(feature = "evm")]
             Some(tx) => {
                 let id: u64 = p.asset.strip_prefix("evm:").and_then(|x| x.parse().ok()).unwrap();
-                require!(self.chains.contains(&id), format!("chain {id} is not allowed by the owner"));
+                require!(self.chains.contains(&id), "chain not allowed by the owner");
                 PromiseOrValue::Promise(self.sign(&hex::decode(tx.trim_start_matches("0x")).unwrap()))
             }
+            // Only request_signature queues a tx, and it doesn't exist in this build.
+            #[cfg(not(feature = "evm"))]
+            Some(_) => env::panic_str("evm is off"),
         }
     }
 
@@ -267,7 +334,7 @@ impl PhoneWallet {
             owner: self.owner.clone(), agent: self.agent.clone(), phone_hash: self.phone_hash.clone(), signer: self.signer.clone(),
             limits: self.limits.clone(), chains: self.chains.clone(), allowlist: self.allowlist.clone(), new_recipient_delay_sec: self.new_recipient_delay_sec,
             day: today,
-            spent_today: if self.day == today { self.spent.iter().map(|(k, v)| (k.clone(), U128(*v))).collect() } else { HashMap::new() },
+            spent_today: if self.day == today { self.spent.map(|v| U128(*v)) } else { Map::default() },
             pending: self.pending.clone(),
             balance: U128(env::account_balance().as_yoctonear()),
             pending_owner: self.pending_owner.clone(), frozen_until_ns: U64(self.frozen_until_ns),
@@ -288,11 +355,11 @@ impl PhoneWallet {
     fn not_custodial(&self) { require!(!self.custodial, "custodial wallet: claim it to your own account first"); }
     /// One saved list, split by kind: a saved 0x address is for EVM chains only, never NEAR's eth-implicit 0x account.
     fn allowed(&self, asset: &str, to: &str) -> bool {
-        let to = to.to_lowercase();
+        let to = to.to_ascii_lowercase();
         (asset == "near") != to.starts_with("0x") && self.allowlist.contains(&to)
     }
     fn limit(&self, asset: &str) -> Limit {
-        self.limits.get(asset).cloned().unwrap_or_else(|| env::panic_str(&format!("no limit set for {asset}")))
+        self.limits.get(asset).cloned().unwrap_or_else(|| env::panic_str("no limit set for this asset"))
     }
     fn spent_today(&self, asset: &str) -> u128 {
         if self.day == env::block_timestamp() / DAY_NS { *self.spent.get(asset).unwrap_or(&0) } else { 0 }
@@ -300,23 +367,24 @@ impl PhoneWallet {
     fn check_tx(&self, asset: &str, amount: u128) {
         let l = self.limit(asset);
         require!(amount > 0, "amount must be above zero");
-        require!(amount <= l.per_tx.0, format!("over the per-transfer limit for {asset}: {} > {}", amount, l.per_tx.0));
-        require!(self.spent_today(asset) + amount <= l.per_day.0, format!("over the daily limit for {asset}: {} spent today, {} more asked, limit {}", self.spent_today(asset), amount, l.per_day.0));
+        require!(amount <= l.per_tx.0, "over the per-transfer limit");
+        require!(self.spent_today(asset) + amount <= l.per_day.0, "over the daily limit");
     }
     fn spend(&mut self, asset: &str, amount: u128) {
         let today = env::block_timestamp() / DAY_NS;
-        if self.day != today { self.day = today; self.spent.clear(); }
-        *self.spent.entry(asset.to_string()).or_insert(0) += amount;
+        if self.day != today { self.day = today; self.spent = Map::default(); }
+        let total = self.spent.get(asset).copied().unwrap_or(0) + amount;
+        self.spent.insert(asset.into(), total);
     }
     fn queue(&mut self, asset: &str, to: String, amount: U128, tx: Option<String>) -> u64 {
         require!(self.pending.len() < MAX_PENDING, "too many queued transfers: the owner can cancel them");
         let id = self.next_id;
         self.next_id += 1;
         let ready_at_ns = U64(env::block_timestamp() + self.new_recipient_delay_sec * 1_000_000_000);
-        self.pending.push(Pending { id, asset: asset.into(), to: to.to_lowercase(), amount, ready_at_ns, tx });
-        env::log_str(&format!("queued {id}: new recipient, runs after {}s unless the owner cancels", self.new_recipient_delay_sec));
+        self.pending.push(Pending { id, asset: asset.into(), to: to.to_ascii_lowercase(), amount, ready_at_ns, tx });
         id
     }
+    #[cfg(feature = "evm")]
     fn sign(&self, tx: &[u8]) -> Promise {
         let args = format!(r#"{{"request":{{"path":"{}","payload_v2":{{"Ecdsa":"{}"}},"domain_id":0}}}}"#, ETH_PATH, hex::encode(env::keccak256(tx)));
         Promise::new(self.signer.clone()).function_call("sign", args.into_bytes(), NearToken::from_yoctonear(1), SIGN_GAS)
@@ -326,6 +394,7 @@ impl PhoneWallet {
 // ---- minimal RLP: just enough to read a plain EIP-1559 transfer ----
 
 /// Returns (payload, rest, is_list) for the first RLP item in `b`.
+#[cfg(feature = "evm")]
 fn rlp_item(b: &[u8]) -> (&[u8], &[u8], bool) {
     require!(!b.is_empty(), "bad rlp");
     let p = b[0] as usize;
@@ -339,12 +408,14 @@ fn rlp_item(b: &[u8]) -> (&[u8], &[u8], bool) {
     require!(b.len() >= start + len, "bad rlp length");
     (&b[start..start + len], &b[start + len..], list)
 }
+#[cfg(feature = "evm")]
 fn be(b: &[u8]) -> u128 {
     require!(b.len() <= 16, "number too large");
     b.iter().fold(0u128, |a, x| (a << 8) | *x as u128)
 }
 
 /// 0x02 || rlp([chainId, nonce, maxPriorityFee, maxFee, gas, to, value, data, accessList]) → ("0x…to", value, gas * maxFee).
+#[cfg(feature = "evm")]
 pub fn parse_eip1559(tx: &[u8], chain_id: u64) -> (String, u128, u128) {
     require!(tx.first() == Some(&2), "not an EIP-1559 transaction");
     let (body, rest, list) = rlp_item(&tx[1..]);
@@ -369,7 +440,9 @@ mod tests {
 
     const NEAR: u128 = 10u128.pow(24);
     // Built by ethers in test/wallet (same fields): Sepolia, nonce 7, 0.001 ETH to 0x1111…1111, 21000 gas.
+    #[allow(dead_code)]
     pub const SEPOLIA: u64 = 11_155_111;
+    #[allow(dead_code)]
     pub const TX: &str = "02f183aa36a707843b9aca00847735940082520894111111111111111111111111111111111111111187038d7ea4c6800080c0";
 
     fn ctx(who: usize, t_sec: u64, deposit: u128) {
@@ -378,6 +451,7 @@ mod tests {
     }
     // owner = alice (0), agent = bob (1)
     // Same, on Base (8453), 0.0001 ETH.
+    #[allow(dead_code)]
     pub const BASE_TX: &str = "02ef82210507843b9aca008477359400825208941111111111111111111111111111111111111111865af3107a400080c0";
     // Testnet-like wallet: Sepolia allowed, old-style 5/10 NEAR limits so the NEAR tests keep their numbers.
     fn wallet() -> PhoneWallet {
@@ -457,22 +531,26 @@ mod tests {
     #[should_panic(expected = "Requires attached deposit of exactly 1 yoctoNEAR")]
     fn owner_methods_need_one_yocto() { let mut w = wallet(); ctx(0, 1000, 0); w.allow("x".into()); }
 
+    #[cfg(feature = "evm")]
     #[test]
     fn parses_eip1559_transfer() {
         let (to, value, _) = parse_eip1559(&hex::decode(TX).unwrap(), SEPOLIA);
         assert_eq!(to, "0x1111111111111111111111111111111111111111");
         assert_eq!(value, 10u128.pow(15));
     }
+    #[cfg(feature = "evm")]
     #[test]
     #[should_panic(expected = "wrong chain id")]
     fn rejects_other_chain() { parse_eip1559(&hex::decode(TX).unwrap(), 1); }
+    #[cfg(feature = "evm")]
     #[test]
-    #[should_panic(expected = "over the per-transfer limit for evm:11155111")]
+    #[should_panic(expected = "over the per-transfer limit")]
     fn eth_limit_from_parsed_value() {
         let mut w = wallet();
         ctx(0, 1000, 1); w.set_limits("evm:11155111".into(), U128(10u128.pow(14)), U128(10u128.pow(18)));
         ctx(1, 1000, 0); w.request_signature("evm:11155111".into(), TX.into());
     }
+    #[cfg(feature = "evm")]
     #[test]
     fn eth_new_recipient_is_queued() {
         let mut w = wallet();
@@ -485,11 +563,17 @@ mod tests {
         let w = mainnet_wallet();
         let s = w.get_state();
         assert_eq!(s.signer.as_str(), "v1.signer");
-        assert_eq!(s.chains, vec![8453]);
         assert_eq!(s.limits["near"], Limit { per_tx: U128(NEAR / 5), per_day: U128(NEAR / 2) });
-        assert_eq!(s.limits["evm:8453"], Limit { per_tx: U128(5 * 10u128.pow(14)), per_day: U128(2 * 10u128.pow(15)) });
+        #[cfg(feature = "evm")]
+        {
+            assert_eq!(s.chains, vec![8453]);
+            assert_eq!(s.limits["evm:8453"], Limit { per_tx: U128(5 * 10u128.pow(14)), per_day: U128(2 * 10u128.pow(15)) });
+        }
+        #[cfg(not(feature = "evm"))]
+        { assert!(s.chains.is_empty()); assert_eq!(s.limits.len(), 1, "NEAR only: no EVM limits even if asked"); }
         assert_eq!(s.new_recipient_delay_sec, 600);
     }
+    #[cfg(feature = "evm")]
     #[test]
     fn base_tx_parses_and_queues() {
         let (to, value, _) = parse_eip1559(&hex::decode(BASE_TX).unwrap(), 8453);
@@ -499,12 +583,15 @@ mod tests {
         ctx(1, 1000, 0);
         assert!(matches!(w.request_signature("evm:8453".into(), BASE_TX.into()), PromiseOrValue::Value(U64(0))));
     }
+    #[cfg(feature = "evm")]
     #[test]
-    #[should_panic(expected = "chain 11155111 is not allowed")]
+    #[should_panic(expected = "chain not allowed")]
     fn chain_not_allowed() { let mut w = mainnet_wallet(); ctx(1, 1000, 0); w.request_signature("evm:11155111".into(), TX.into()); }
+    #[cfg(feature = "evm")]
     #[test]
     #[should_panic(expected = "wrong chain id")]
     fn chain_key_must_match_tx() { let mut w = mainnet_wallet(); ctx(1, 1000, 0); w.request_signature("evm:8453".into(), TX.into()); }
+    #[cfg(feature = "evm")]
     #[test]
     fn owner_allows_and_disallows_chain() {
         let mut w = mainnet_wallet();
@@ -515,13 +602,15 @@ mod tests {
         assert!(!w.get_state().chains.contains(&42161));
         assert!(!w.get_state().limits.contains_key("evm:42161"));
     }
+    #[cfg(feature = "evm")]
     #[test]
-    #[should_panic(expected = "no limit set for evm:8453")]
+    #[should_panic(expected = "no limit set")]
     fn allowed_chain_without_limit_refused() {
         let mut w = mainnet_wallet();
         ctx(0, 1000, 1); w.limits.remove("evm:8453");
         ctx(1, 1000, 0); w.request_signature("evm:8453".into(), BASE_TX.into());
     }
+    #[cfg(feature = "evm")]
     #[test]
     #[should_panic(expected = "only the owner")]
     fn agent_cant_allow_chain() { let mut w = mainnet_wallet(); ctx(1, 1000, 1); w.allow_chain(1, U128(1), U128(1)); }
@@ -651,6 +740,7 @@ mod tests {
         ctx(0, 1000, 1); w.cancel_all();
         assert!(w.get_state().pending.is_empty());
     }
+    #[cfg(feature = "evm")]
     #[test]
     fn evm_gas_counts_against_limits() {
         let mut w = wallet();
@@ -659,8 +749,9 @@ mod tests {
         // 0.001 ETH value + 21000 gas * 2 gwei max fee
         assert_eq!(w.get_state().spent_today["evm:11155111"].0, 10u128.pow(15) + 21_000 * 2_000_000_000);
     }
+    #[cfg(feature = "evm")]
     #[test]
-    #[should_panic(expected = "over the per-transfer limit for evm:11155111")]
+    #[should_panic(expected = "over the per-transfer limit")]
     fn evm_huge_fee_refused() {
         let mut w = wallet();
         // value exactly at the limit: the fee pushes it over

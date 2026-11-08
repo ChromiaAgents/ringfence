@@ -2,9 +2,8 @@
 // The phone-wallet wasm is uploaded once as a NEAR global contract (NEP-591, by code hash); each new wallet only
 // references it, so a wallet costs its account storage, not a copy of the code.
 // UNAUDITED PROTOTYPE: keep small amounts.
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::{Base58CryptoHash, U128};
-use near_sdk::serde_json::json;
-use near_sdk::store::LookupMap;
 use near_sdk::{env, near, require, AccountId, Gas, NearToken, PanicOnDefault, Promise, PromiseError};
 
 /// Left on the new wallet account for its storage (account + state, about 0.6 KB measured, see tests/sandbox.rs).
@@ -17,6 +16,36 @@ const CALLBACK_GAS: Gas = Gas::from_tgas(10);
 #[near(serializers = [json])]
 pub struct Limit { pub per_tx: U128, pub per_day: U128 }
 
+/// The phone wallet's init args (NEAR only: no EVM chains).
+#[derive(near_sdk::serde::Serialize)]
+#[serde(crate = "near_sdk::serde")]
+struct WalletInit<'a> {
+    owner: &'a AccountId, agent: &'a AccountId, phone_hash: &'a str, evm_chain_ids: [u64; 0], near_limit: Option<Limit>,
+    new_recipient_delay_sec: Option<u64>, recipients: Option<Vec<String>>, custodial: Option<bool>,
+}
+
+/// A string-keyed map straight on storage, with exactly the layout of near_sdk::store::LookupMap (borsh: the prefix;
+/// entry key: prefix ++ borsh(key); value: borsh(value)) but without its in-memory cache, which costs wasm bytes.
+#[near(serializers = [borsh])]
+pub struct StrMap { prefix: Box<[u8]> }
+impl StrMap {
+    pub fn new(prefix: &[u8]) -> Self { Self { prefix: prefix.into() } }
+    fn key(&self, k: &str) -> Vec<u8> {
+        let mut b = self.prefix.to_vec();
+        b.extend_from_slice(&(k.len() as u32).to_le_bytes());
+        b.extend_from_slice(k.as_bytes());
+        b
+    }
+    pub fn get<V: BorshDeserialize>(&self, k: &str) -> Option<V> {
+        env::storage_read(&self.key(k)).map(|v| V::try_from_slice(&v).unwrap_or_else(|_| env::abort()))
+    }
+    pub fn contains_key(&self, k: &str) -> bool { env::storage_has_key(&self.key(k)) }
+    pub fn insert<V: BorshSerialize>(&mut self, k: &str, v: &V) {
+        env::storage_write(&self.key(k), &near_sdk::borsh::to_vec(v).unwrap_or_else(|_| env::abort()));
+    }
+    pub fn remove(&mut self, k: &str) { env::storage_remove(&self.key(k)); }
+}
+
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct Factory {
@@ -25,16 +54,16 @@ pub struct Factory {
     agent: AccountId,
     code_hash: Option<[u8; 32]>,
     /// phone_hash -> wallet account
-    wallets: LookupMap<String, AccountId>,
+    wallets: StrMap,
     /// short ids already used (an id is a prefix of a phone_hash)
-    ids: LookupMap<String, ()>,
+    ids: StrMap,
 }
 
 #[near]
 impl Factory {
     #[init]
     pub fn new(owner: AccountId, agent: AccountId) -> Self {
-        Self { owner, agent, code_hash: None, wallets: LookupMap::new(b"w"), ids: LookupMap::new(b"i") }
+        Self { owner, agent, code_hash: None, wallets: StrMap::new(b"w"), ids: StrMap::new(b"i") }
     }
 
     /// Creates <id>.<factory> running the phone-wallet global contract and initialises it. Attach at least
@@ -52,22 +81,22 @@ impl Factory {
         let agent = agent.unwrap_or_else(|| self.agent.clone());
         require!(agent != owner, "the agent can't be the owner");
         let deposit = env::attached_deposit();
-        require!(deposit >= Self::min_deposit(), format!("attach at least {} yoctoNEAR", Self::min_deposit().as_yoctonear()));
+        require!(deposit >= Self::min_deposit(), "attach at least min_deposit() (0.013 NEAR)");
 
         let mut n = 12;
         while self.ids.contains_key(&phone_hash[..n]) { n += 4; } // never reaches 64: the full hash is unique
         let id = phone_hash[..n].to_string();
-        let account: AccountId = format!("{id}.{}", env::current_account_id()).parse().unwrap();
-        self.ids.insert(id.clone(), ());
-        self.wallets.insert(phone_hash.clone(), account.clone());
+        let account: AccountId = [&id, ".", env::current_account_id().as_str()].concat().parse().unwrap();
+        self.ids.insert(&id, &());
+        self.wallets.insert(&phone_hash, &account);
 
-        let args = json!({ "owner": owner, "agent": agent, "phone_hash": phone_hash, "evm_chain_ids": [],
-            "near_limit": near_limit, "new_recipient_delay_sec": new_recipient_delay_sec, "recipients": recipients, "custodial": custodial });
+        let args = near_sdk::serde_json::to_vec(&WalletInit { owner: &owner, agent: &agent, phone_hash: &phone_hash, evm_chain_ids: [],
+            near_limit, new_recipient_delay_sec, recipients, custodial }).unwrap_or_else(|_| env::abort());
         Promise::new(account)
             .create_account()
             .transfer(WALLET_STORAGE)
             .use_global_contract(code_hash)
-            .function_call("new", args.to_string().into_bytes(), NearToken::from_yoctonear(0), INIT_GAS)
+            .function_call("new", args, NearToken::from_yoctonear(0), INIT_GAS)
             .then(Self::ext(env::current_account_id()).with_static_gas(CALLBACK_GAS)
                 .on_created(phone_hash, id, env::predecessor_account_id(), U128(deposit.as_yoctonear())))
     }
@@ -78,7 +107,7 @@ impl Factory {
                       #[callback_result] r: Result<(), PromiseError>) -> Option<AccountId> {
         let used = WALLET_STORAGE.saturating_add(FACTORY_STORAGE).as_yoctonear();
         let (refund, out) = match r {
-            Ok(()) => (deposit.0 - used, self.wallets.get(&phone_hash).cloned()),
+            Ok(()) => (deposit.0 - used, self.wallets.get(&phone_hash)),
             Err(_) => { self.wallets.remove(&phone_hash); self.ids.remove(&id); (deposit.0, None) }
         };
         if refund > 0 { let _ = Promise::new(payer).transfer(NearToken::from_yoctonear(refund)); }
@@ -95,7 +124,7 @@ impl Factory {
     // ---- view ----
 
     pub fn min_deposit() -> NearToken { WALLET_STORAGE.saturating_add(FACTORY_STORAGE) }
-    pub fn get_wallet(&self, phone_hash: String) -> Option<AccountId> { self.wallets.get(&phone_hash).cloned() }
+    pub fn get_wallet(&self, phone_hash: String) -> Option<AccountId> { self.wallets.get(&phone_hash) }
     pub fn get_config(&self) -> (AccountId, AccountId, Option<Base58CryptoHash>) {
         (self.owner.clone(), self.agent.clone(), self.code_hash.map(Into::into))
     }
