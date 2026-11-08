@@ -35,7 +35,7 @@ sudo apt-get update && sudo apt-get install -y caddy
 sudo useradd --system --create-home --home-dir /opt/ringfence ringfence
 sudo -u ringfence git clone git@github.com:ChromiaAgents/ringfence.git /opt/ringfence   # or rsync the repo
 cd /opt/ringfence
-sudo -u ringfence npm ci
+sudo -u ringfence npm ci --onnxruntime-node-install-cuda=skip
 sudo -u ringfence npm run build
 ```
 
@@ -89,5 +89,5 @@ Caddy stays on the host as above. Keep `data/` on the volume.
 ## Update
 
 ```bash
-cd /opt/ringfence && sudo -u ringfence git pull && sudo -u ringfence npm ci && sudo -u ringfence npm run build && sudo systemctl restart ringfence
+cd /opt/ringfence && sudo -u ringfence git pull && sudo -u ringfence npm ci --onnxruntime-node-install-cuda=skip && sudo -u ringfence npm run build && sudo systemctl restart ringfence
 ```
