@@ -1,4 +1,4 @@
-// The wallet desk: "send 5 NEAR to bob.testnet", read back, confirmed with a spoken 4-digit PIN, then the agent
+// The wallet desk: "send 5 NEAR to liho.testnet", read back, confirmed with a spoken 4-digit PIN, then the agent
 // calls the caller's phone-wallet contract, which enforces the limits. Over a limit or to a new recipient, the caller
 // gets a link to sign in their own wallet instead. NETWORK picks testnet or mainnet. UNAUDITED: keep small amounts.
 import { parseUnits, formatUnits } from 'ethers';
@@ -19,7 +19,7 @@ const chainOf = (a: Asset) => (a === 'near' ? undefined : chainById(Number(a.sli
 const suffix = () => (env.network === 'mainnet' ? 'near' : 'testnet');
 const chainList = () => CHAINS.filter((c) => !!c.testnet === (env.network === 'testnet')).map((c) => c.name).join(', ');
 
-/** Spoken recipients: "bob dot near" → bob.near; "0x12AB…" kept as an address. */
+/** Spoken recipients: "liho dot near" → liho.near; "0x12AB…" kept as an address. */
 export function parseRecipient(raw: string, asset: Asset): string | null {
   const s = String(raw ?? '').trim().toLowerCase().replace(/\s+dot\s+/g, '.').replace(/\s+/g, '');
   if (asset !== 'near') return /^0x[0-9a-f]{40}$/.test(s) ? s : null;
@@ -31,7 +31,7 @@ export const parseAsset = (a: string): Asset | null => {
   const c = findChain(a);
   return c ? `evm:${c.id}` : null;
 };
-/** "5 NEAR to bob dot near" / "0.0001 ETH on Base to address 0x1111 ending 1111": what the agent reads back. */
+/** "5 NEAR to liho dot near" / "0.0001 ETH on Base to address 0x1111 ending 1111": what the agent reads back. */
 export const readBack = (t: { to: string; amount: string; asset: Asset }) => {
   const c = chainOf(t.asset);
   return `${t.amount} ${c ? `${c.symbol} on ${c.name}` : 'NEAR'} to ${t.to.startsWith('0x') ? `address ${t.to.slice(0, 6)} ending ${t.to.slice(-4)}` : t.to.replace(/\./g, ' dot ')}`;
@@ -45,13 +45,13 @@ const fmt = (asset: string, base: bigint | string) => {
 
 const tools = [
   { type: 'function', function: { name: 'get_balance', description: "The caller's phone-wallet balance and today's limits.", parameters: { type: 'object', properties: {} } } },
-  { type: 'function', function: { name: 'prepare_transfer', description: 'Get a transfer ready. Read back the returned read_back and ask for their 4-digit PIN.', parameters: { type: 'object', properties: { to: { type: 'string', description: 'NEAR account like bob.near (bob.testnet on testnet), or a 0x address for an EVM chain' }, amount: { type: 'string' }, asset: { type: 'string', description: '"near", or the EVM chain name for its native coin: base, ethereum, arbitrum, optimism, polygon, bnb, avalanche (sepolia on testnet)' } }, required: ['to', 'amount', 'asset'] } } },
+  { type: 'function', function: { name: 'prepare_transfer', description: 'Get a transfer ready. Read back the returned read_back and ask for their 4-digit PIN.', parameters: { type: 'object', properties: { to: { type: 'string', description: 'NEAR account like liho.near (liho.testnet on testnet), or a 0x address for an EVM chain' }, amount: { type: 'string' }, asset: { type: 'string', description: '"near", or the EVM chain name for its native coin: base, ethereum, arbitrum, optimism, polygon, bnb, avalanche (sepolia on testnet)' } }, required: ['to', 'amount', 'asset'] } } },
   { type: 'function', function: { name: 'confirm_transfer', description: 'After the caller says their PIN. Pass exactly what they said.', parameters: { type: 'object', properties: { pin: { type: 'string' } }, required: ['pin'] } } },
 ];
 
 export const ONLY_NEAR = 'Only NEAR transfers for now, sorry. I can send NEAR, or check your balance.';
 const system = () => `You are Ringfence's wallet desk. The caller's WhatsApp number is bound to their own NEAR ${env.network} wallet contract; ${env.evmEnabled ? `you can send NEAR, or the native coin of an EVM chain the owner allowed (${chainList()}),` : 'you can send NEAR (only NEAR for now: politely decline other chains or coins),'} within limits the contract enforces.
-For a transfer: call prepare_transfer, read back its read_back exactly ("5 NEAR to bob dot ${suffix()}") and ask for their 4-digit PIN. When they say it, call confirm_transfer with what they said. Never repeat the PIN aloud.${env.evmEnabled ? ' If they say just "ETH", ask which chain.\nTheir EVM address is the same on every EVM chain: they fund gas on whichever chain they want to use.' : ''}
+For a transfer: call prepare_transfer, read back its read_back exactly ("5 NEAR to liho dot ${suffix()}") and ask for their 4-digit PIN. When they say it, call confirm_transfer with what they said. Never repeat the PIN aloud.${env.evmEnabled ? ' If they say just "ETH", ask which chain.\nTheir EVM address is the same on every EVM chain: they fund gas on whichever chain they want to use.' : ''}
 If a tool refuses, say why in plain words. If a link was sent, say it's on WhatsApp. ${env.network === 'mainnet' ? 'This is mainnet, real money, and an unaudited prototype: suggest small amounts.' : 'Testnet only: no real money.'} Never give financial advice.`;
 
 async function run(call: Call, name: string, a: any): Promise<unknown> {
@@ -78,7 +78,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     if (!asset) return refuse(`Which chain? I can send NEAR, or the native coin on ${chainList()}.`);
     const chain = chainOf(asset);
     const to = parseRecipient(a.to, asset);
-    if (!to) return refuse(asset === 'near' ? `I need a NEAR ${env.network} account, like bob dot ${suffix()}.` : `I need a 0x address for ${chain!.name}: text it to me.`);
+    if (!to) return refuse(asset === 'near' ? `I need a NEAR ${env.network} account, like liho dot ${suffix()}.` : `I need a 0x address for ${chain!.name}: text it to me.`);
     const amount = String(a.amount ?? '').trim();
     if (!/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0) return refuse('How much? Say a number.');
     const t: Transfer = { to, amount, asset, base: asset === 'near' ? nearToYocto(Number(amount)) : parseUnits(amount, chain!.decimals) };
@@ -135,9 +135,9 @@ function browserDemo(call: Call, name: string, a: any): unknown {
   if (name === 'get_balance') return { ok: true, dryRun: true, demo: true, note };
   if (name === 'prepare_transfer') {
     const asset = parseAsset(a.asset);
-    if (asset !== 'near') return { ok: false, reason: 'The browser demo walks a NEAR transfer. Try "send 0.5 NEAR to alice.near".' };
+    if (asset !== 'near') return { ok: false, reason: 'The browser demo walks a NEAR transfer. Try "send 0.5 NEAR to liho.near".' };
     const to = String(a.to ?? '').trim().toLowerCase().replace(/\s+dot\s+/g, '.').replace(/\s+/g, '');
-    if (!/^([a-z0-9_-]+\.)*[a-z0-9_-]+\.(near|testnet)$/.test(to)) return { ok: false, reason: 'I need a NEAR account, like alice dot near.' };
+    if (!/^([a-z0-9_-]+\.)*[a-z0-9_-]+\.(near|testnet)$/.test(to)) return { ok: false, reason: 'I need a NEAR account, like liho dot near.' };
     const amount = String(a.amount ?? '').trim();
     if (!/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0) return { ok: false, reason: 'How much? Say a number.' };
     if (Number(amount) > DEMO_LIMIT.per_tx) return { ok: false, demo: true, reason: `That is over the ${DEMO_LIMIT.per_tx} ${DEMO_LIMIT.unit} per-transfer default, so the contract would refuse it. Try 0.5 NEAR.` };

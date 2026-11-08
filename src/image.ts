@@ -24,11 +24,10 @@ export async function generateLogo(vibe: string, name: string): Promise<{ icon: 
 
 /** Fallback when the image model is unavailable (no key, outage): a plain sticker coin drawn here, labelled as such. */
 export async function drawLogo(ticker: string) {
-  const fills = ['#00EC97', '#93F091', '#CC91F0', '#FFB0C2'];
-  const fill = fills[[...ticker].reduce((n, c) => n + c.charCodeAt(0), 0) % fills.length];
+  const fill = '#00EC97'; // NEAR mint on the site's warm black with dark lettering; no gold or yellow
   const t = ticker.replace(/[^A-Z0-9]/g, '').slice(0, 8);
   const size = t.length <= 3 ? 64 : t.length <= 5 ? 46 : 32;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#FFF8F8"/><circle cx="136" cy="136" r="104" fill="#1F1A23"/><circle cx="124" cy="124" r="104" fill="${fill}" stroke="#1F1A23" stroke-width="8"/><text x="124" y="124" dy=".35em" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="${size}" fill="#1F1A23">${t}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#0C0A08"/><circle cx="136" cy="136" r="104" fill="#2C2722"/><circle cx="124" cy="124" r="104" fill="${fill}" stroke="#0C0A08" stroke-width="8"/><text x="124" y="124" dy=".35em" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="${size}" fill="#0C0A08">${t}</text></svg>`;
   return { ...(await toIcon(Buffer.from(svg))), model: 'drawn locally' };
 }
 

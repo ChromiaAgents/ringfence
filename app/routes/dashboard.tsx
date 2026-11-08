@@ -1,7 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useState } from 'react';
-import { AttRow, Signed, Wordmark, time, usd, type Att, type Proof } from '../ui';
+import { AttRow, Makers, Signed, SiteFooter, Wordmark, time, type Att, type Proof } from '../ui';
+
+// The builder (quote, jobs, deposits, owner settings line) is switched off: same flag as the voice line (src/agent.ts
+// routes building work to 'not_offered'). Its data stays in the store; nothing of it is shown while this is false.
+const BUILDER = false;
 
 // First paint comes with data; the page then polls /api/state every 3 s.
 const getState = createServerFn({ method: 'GET' }).handler(async () => (await import('../backend.ts')).snapshot(false));
@@ -33,7 +37,7 @@ function Dashboard() {
   const [s, setS] = useState<State | null>(Route.useLoaderData());
   const [err, setErr] = useState('');
   const [open, setOpen] = useState<string | null>(null);
-  const [desk, setDesk] = useState<'all' | 'launch' | 'business' | 'owner'>('all');
+  const [desk, setDesk] = useState<'all' | 'launch' | 'wallet' | 'business' | 'owner'>('all');
   useEffect(() => {
     const load = () => fetch('/api/state').then(async (r) => (r.ok ? (setS(await r.json()), setErr('')) : setErr(`The server answered ${r.status}.`))).catch(() => setErr('Can’t reach the server.'));
     load(); const i = setInterval(load, 3000); return () => clearInterval(i);
@@ -46,9 +50,9 @@ function Dashboard() {
   const blocked = (l: Launch) => s.launchpad.blocked_tickers.includes(l.params.symbol.toUpperCase()) || s.launchpad.blocked_names.some((n) => `${l.params.name} ${l.params.symbol}`.toLowerCase().includes(n));
   const launches = s.launches.filter((l) => !blocked(l));
   // The business (building-quote) desk is not offered any more: its old calls and ledger lines stay in the store but are not shown.
-  const calls = s.calls.filter((c) => c.desk !== 'business' && (desk === 'all' || c.desk === desk));
-  const ledger = s.ledger.filter((l) => l.desk !== 'business' && !['quote', 'booking', 'deposit_link', 'photo'].includes(l.kind) && (desk === 'all' || l.desk === desk));
-  const refused = s.ledger.filter((l) => l.kind === 'refused' || l.kind === 'filtered');
+  const calls = s.calls.filter((c) => (BUILDER || (c.desk !== 'business' && c.desk !== 'owner')) && (desk === 'all' || c.desk === desk));
+  const ledger = s.ledger.filter((l) => (BUILDER || (l.desk !== 'business' && l.desk !== 'owner' && !['quote', 'booking', 'deposit_link', 'photo', 'rules_proposed', 'rules_changed'].includes(l.kind))) && (desk === 'all' || l.desk === desk));
+  const refused = s.ledger.filter((l) => (BUILDER || l.desk !== 'business') && (l.kind === 'refused' || l.kind === 'filtered'));
   const call = calls.find((c) => c.id === open) ?? calls[0];
   const signed = call ? call.turns.filter((t) => t.who === 'agent' && t.proof?.status === 'verified').length : 0;
   const agentTurns = call ? call.turns.filter((t) => t.who === 'agent' && t.proof).length : 0;
@@ -56,32 +60,32 @@ function Dashboard() {
   return (
     <div className="app dash">
       <aside className="side">
-        <div className="ws"><Wordmark /><div>Wallet and launch desks<br />NEAR {s.network}</div></div>
+        <div className="ws"><Wordmark /><div>Wallet and launch desks<br />NEAR {s.network}</div><Makers /></div>
         <nav aria-label="Sections">
           <a className="on" href="#overview">Overview</a>
           <a href="#launches">Launches</a>
           <a href="#ledger">Ledger</a>
           <a href="#rules">Rules</a>
-          <a href="#settings">Settings line</a>
+          {BUILDER && <a href="#settings">Settings line</a>}
         </nav>
-        <p className="foot-note">Rules come from launchpad.yaml and owner.yaml and are enforced in code, not by the model.</p>
+        <p className="foot-note">Launch rules come from launchpad.yaml and are checked in code. Spending limits live in each phone-wallet contract.</p>
       </aside>
 
       <main className="canvas" id="overview">
         <div className="titlerow">
           <div>
             <h1>Calls</h1>
-            <p className="muted">The last {s.calls.length} calls across the desks{err ? ` · ${err}` : ''}</p>
+            <p className="muted">The last {calls.length} calls on the wallet and launch desks{err ? ` · ${err}` : ''}</p>
           </div>
           <div className="seg" role="radiogroup" aria-label="Filter by desk">
-            {(['all', 'launch', 'owner'] as const).map((k) => <button key={k} role="radio" aria-checked={desk === k} className={desk === k ? 'on' : ''} onClick={() => setDesk(k)}>{k === 'all' ? 'All desks' : k[0].toUpperCase() + k.slice(1)}</button>)}
+            {(BUILDER ? (['all', 'wallet', 'launch', 'business', 'owner'] as const) : (['all', 'wallet', 'launch'] as const)).map((k) => <button key={k} role="radio" aria-checked={desk === k} className={desk === k ? 'on' : ''} onClick={() => setDesk(k)}>{k === 'all' ? 'All desks' : k[0].toUpperCase() + k.slice(1)}</button>)}
           </div>
         </div>
 
         <div className="grid">
           <div className="stack">
             <section className="card kpis" aria-label="Totals">
-              <div><div className="l">Calls</div><div className="v">{s.calls.length}</div><div className="c">{s.calls.filter((c) => !c.endedAt).length} live now</div></div>
+              <div><div className="l">Calls</div><div className="v">{calls.length}</div><div className="c">{calls.filter((c) => !c.endedAt).length} live now</div></div>
               <div><div className="l">Launches</div><div className="v">{launches.length}</div><div className="c">{launches.filter((l) => l.status === 'live').length} live on meme.cooking</div></div>
               <div><div className="l">Refused or filtered</div><div className="v">{refused.length}</div><div className="c">in the last {s.ledger.length} ledger lines</div></div>
             </section>
@@ -140,10 +144,10 @@ function Dashboard() {
               </div>
             </section>
 
-            <section className="railsec" id="settings" aria-labelledby="sh">
+            {BUILDER && <section className="railsec" id="settings" aria-labelledby="sh">
               <h2 id="sh">Settings line</h2>
               <OwnerDesk />
-            </section>
+            </section>}
 
             <section className="railsec" id="rules" aria-labelledby="rh">
               <h2 id="rh">Rules</h2>
@@ -166,6 +170,7 @@ function Dashboard() {
             </section>
           </div>
         </div>
+        <SiteFooter />
       </main>
     </div>
   );

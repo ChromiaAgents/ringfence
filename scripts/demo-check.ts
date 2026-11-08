@@ -109,9 +109,9 @@ try {
     must(!kinds.includes('booking'), 'a booking was made');
     return `${s.ledger.length} entries`;
   });
-  await step('wallet desk: send 1 NEAR to bob.testnet, read back, PIN, dry run (no agent key)', async () => {
-    const r = await call('wallet&from=15550001234', ['send 1 NEAR to bob.testnet', 'one two three four']);
-    must(r.said.some((s) => /1 NEAR to bob dot testnet/.test(s)), 'no read-back: ' + r.said.join(' | '));
+  await step('wallet desk: send 1 NEAR to liho.testnet, read back, PIN, dry run (no agent key)', async () => {
+    const r = await call('wallet&from=15550001234', ['send 1 NEAR to liho.testnet', 'one two three four']);
+    must(r.said.some((s) => /1 NEAR to liho dot testnet/.test(s)), 'no read-back: ' + r.said.join(' | '));
     must(r.said.some((s) => /dry run/i.test(s)), 'no dry-run reply: ' + r.said.join(' | '));
     const s = JSON.parse((await get('/api/state')).text);
     must(s.ledger.some((l: any) => l.kind === 'wallet' && /DRY RUN/.test(l.detail)), 'no DRY RUN ledger entry');

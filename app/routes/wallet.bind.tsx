@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
 import walletCss from '../styles/wallet-modal.css?url';
-import { Makers, Wordmark } from '../ui';
+import { Makers, SiteFooter, Wordmark } from '../ui';
 import { useNearWallet } from '../near-wallet';
 
 const getCfg = createServerFn({ method: 'GET' }).handler(async () => {
@@ -59,12 +59,13 @@ function Bind() {
   }
 
   return (
+    <>
     <main className="app pay">
       <div className="brandrow"><Wordmark /><Makers /><span className="pill wait">NEAR {cfg.network}</span></div>
       <h1>Your phone number is a wallet</h1>
       <p className="err" role="note"><b>Unaudited prototype: keep small amounts.</b> The phone-wallet contract has not been audited.{cfg.network === 'mainnet' ? ' This is NEAR mainnet: real money.' : ''}</p>
 
-      <p className="muted">Bind your NEAR account to your WhatsApp number. Then on a call say “send 1 NEAR to bob.{sfx}”, confirm with your PIN, and it goes through within limits a contract enforces, not the AI.</p>
+      <p className="muted">Bind your NEAR account to your WhatsApp number. Then on a call say “send 0.5 NEAR to liho.{sfx}” and confirm with your PIN. The contract checks your limits before anything moves.</p>
 
       <section className="card">
         <h2>1. Connect your NEAR wallet</h2>
@@ -113,5 +114,7 @@ function Bind() {
       )}
       {w.err && <p className="err" role="alert">{w.err}</p>}
     </main>
+    <SiteFooter />
+    </>
   );
 }

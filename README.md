@@ -1,6 +1,6 @@
 # Ringfence
 
-**Call to pay. A NEAR contract you own caps what the AI can spend.** Your phone number is a NEAR wallet. Call it from WhatsApp or the browser, say "send 0.5 NEAR to alice.near", hear it read back, confirm with a spoken PIN, and it's sent, but only within the limits in your contract.
+**Call to pay. A NEAR contract you own caps what the AI can spend.** Your phone number is a NEAR wallet. Call it from WhatsApp or the browser, say "send 0.5 NEAR to liho.near", hear it read back, confirm with a spoken PIN, and it's sent, but only within the limits in your contract.
 
 > **Status: nothing has been signed on chain yet.** The links will go in [Evidence](#evidence-on-chain) as soon as the first mainnet transfers exist. Until then this is a tested design with a dry run you can check yourself (`npm run demo:check`, no keys needed).
 
@@ -26,7 +26,7 @@
 
 | Say | What happens | Who signs |
 | --- | --- | --- |
-| "Send 0.5 NEAR to alice.near" | Read back, you say your 4-digit PIN, `transfer_near` on your phone-wallet contract. To a recipient you haven't saved, the agent doesn't send: you get a link to sign it in your own wallet. The contract's 600 s queue is the backstop if the agent key ever asks for a new recipient directly | The agent key, inside your contract's limits |
+| "Send 0.5 NEAR to liho.near" | Read back, you say your 4-digit PIN, `transfer_near` on your phone-wallet contract. To a recipient you haven't saved, the agent doesn't send: you get a link to sign it in your own wallet. The contract's 600 s queue is the backstop if the agent key ever asks for a new recipient directly | The agent key, inside your contract's limits |
 | "What's my balance?" | `get_balance` on your phone wallet | Nobody (read only) |
 
 Over a limit, or to a recipient not on your saved list: the agent says so and gives a link to sign it yourself instead.
@@ -67,7 +67,7 @@ PASS  launch desk: refuses ticker NEAR, then prepares a launch over the call soc
 PASS  launch page renders (/launch/:id) with the agreed terms  ($ZZOTR on justhoot (mainnet), prepared, logo: drawn locally; nothing signed)
 PASS  building quotes are not offered: the router declines instead of opening the business desk  (Sorry, we don't do building quotes or bookings. …)
 PASS  ledger records the refusal and the launch  (4 entries)
-PASS  wallet desk: send 1 NEAR to bob.testnet, read back, PIN, dry run (no agent key)  (stopped before signing: DRY RUN)
+PASS  wallet desk: send 1 NEAR to liho.testnet, read back, PIN, dry run (no agent key)  (stopped before signing: DRY RUN)
 PASS  wallet desk: an EVM send is refused politely (EVM_ENABLED off)
 PASS  /wallet/bind page renders
 PASS  dashboard and /proof pages render
@@ -77,7 +77,7 @@ To click through it yourself: `MOCK_LLM=1 npm start` (add `TTS=off` to skip down
 
 | Desk | Type | You should see |
 | --- | --- | --- |
-| Wallet | `send 1 NEAR to bob.testnet`, then a 4-digit PIN | Read back, then a result clearly labelled **DRY RUN** (no agent key set, nothing is signed) |
+| Wallet | `send 1 NEAR to liho.testnet`, then a 4-digit PIN | Read back, then a result clearly labelled **DRY RUN** (no agent key set, nothing is signed) |
 | Launch | `Call it Sleepy Otter, ticker NEAR` | "Sorry, I can't do that: NEAR is the ticker of an existing asset" (refused in `checkTicker`), logged as Refused on `/dashboard` |
 | Launch | `Call it Sleepy Otter, ticker ZZOTR` | Accepted |
 | Launch | `Logo vibe: a sleepy otter on a pillow` | Without a key the image model is skipped and a placeholder coin is drawn locally (the page says so) |
@@ -127,7 +127,7 @@ With network but still no key: `npm run attest` verifies the TEE attestation of 
 
 > **Unaudited prototype: keep small amounts.** The phone-wallet contract has not been audited. On mainnet it moves real money; the defaults are deliberately small.
 
-Bind your NEAR account (`.near` on mainnet, `.testnet` on testnet, per `NETWORK`) to your WhatsApp number once on `/wallet/bind`. Then on a call: "send 1 NEAR to bob.near", hear it read back ("1 NEAR to bob dot near"), say your 4-digit PIN, and it executes on chain within limits a smart contract enforces, not the AI. The nearblocks link arrives on WhatsApp. (With `EVM_ENABLED=1` the same flow also takes "send 0.0001 ETH on Base to 0x…"; off by default.)
+Bind your NEAR account (`.near` on mainnet, `.testnet` on testnet, per `NETWORK`) to your WhatsApp number once on `/wallet/bind`. Then on a call: "send 0.5 NEAR to liho.near", hear it read back ("1 NEAR to bob dot near"), say your 4-digit PIN, and it executes on chain within limits a smart contract enforces, not the AI. The nearblocks link arrives on WhatsApp. (With `EVM_ENABLED=1` the same flow also takes "send 0.0001 ETH on Base to 0x…"; off by default.)
 
 **How it works**
 
@@ -141,7 +141,7 @@ Bind your NEAR account (`.near` on mainnet, `.testnet` on testnet, per `NETWORK`
 **Which chains are on (only with `EVM_ENABLED=1`).** Mainnet: **Base** is enabled at bind with small limits. The other registry chains are known to the server but the contract refuses them until the owner allows them, with their own limits in that chain's native units (wei for ETH, BNB, POL, AVAX):
 
 ```bash
-near contract call-function as-transaction phone.alice.near allow_chain json-args '{"chain_id":42161,"per_tx":"500000000000000","per_day":"2000000000000000"}' prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as alice.near network-config mainnet sign-with-keychain send
+near contract call-function as-transaction phone.you.near allow_chain json-args '{"chain_id":42161,"per_tx":"500000000000000","per_day":"2000000000000000"}' prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as alice.near network-config mainnet sign-with-keychain send
 ```
 
 Next: non-EVM chains (Bitcoin, Solana through the same MPC signer's other domains) are not supported yet.
@@ -160,7 +160,7 @@ Next: non-EVM chains (Bitcoin, Solana through the same MPC signer's other domain
 
 What the AI can do if it goes wrong: ask the contract for transfers inside your limits to your saved recipients after a correct PIN. What the server operator could do with the agent key: the same, without the PIN (the PIN protects against someone else calling from a spoofed or stolen line, not against us). Your cap on that is the daily limit per asset; `revoke_agent` ends it.
 
-**Verified and not.** Verified locally: 23 contract unit tests (limits, mainnet defaults, day rollover with mocked time, allowlist vs delay queue, cancel, owner-only methods, revoke, RLP parsing, chain allowlist, chain id mismatch, chain without limit, Base tx vector) and a near-workspaces sandbox test (real transfers, the delay with fast-forward, owner withdraw while the agent is set, agent locked out of owner methods and after revoke, `request_signature` for Sepolia and Base routed to a mock MPC signer with the wallet as predecessor and the right request shape, a non-allowed chain refused); `npm test` (PIN normalization, lockout, intent → tool args incl. "on Base", chain registry, ETH derivation against the live mainnet and testnet MPC views, Sepolia and Base EIP-1559 bytes identical to the contract's test vectors, the gas-check refusal with a mocked RPC, signature assembly); `demo:check` walks "send 1 NEAR to bob.testnet" + PIN to a clearly labelled **DRY RUN**. Not verified: nothing has been deployed or sent on mainnet, testnet, Base or Sepolia; the real MPC signer's response going through `getTransactionLastResult`; which wallets accept the create + deploy + init transaction on `/wallet/bind` (CLI fallback in HANDOVER.md); a queued EVM transfer can go stale (its nonce and fees are fixed when queued); the public RPCs' rate limits. `ft_transfer` and ERC-20s are not implemented.
+**Verified and not.** Verified locally: 23 contract unit tests (limits, mainnet defaults, day rollover with mocked time, allowlist vs delay queue, cancel, owner-only methods, revoke, RLP parsing, chain allowlist, chain id mismatch, chain without limit, Base tx vector) and a near-workspaces sandbox test (real transfers, the delay with fast-forward, owner withdraw while the agent is set, agent locked out of owner methods and after revoke, `request_signature` for Sepolia and Base routed to a mock MPC signer with the wallet as predecessor and the right request shape, a non-allowed chain refused); `npm test` (PIN normalization, lockout, intent → tool args incl. "on Base", chain registry, ETH derivation against the live mainnet and testnet MPC views, Sepolia and Base EIP-1559 bytes identical to the contract's test vectors, the gas-check refusal with a mocked RPC, signature assembly); `demo:check` walks "send 1 NEAR to liho.testnet" + PIN to a clearly labelled **DRY RUN**. Not verified: nothing has been deployed or sent on mainnet, testnet, Base or Sepolia; the real MPC signer's response going through `getTransactionLastResult`; which wallets accept the create + deploy + init transaction on `/wallet/bind` (CLI fallback in HANDOVER.md); a queued EVM transfer can go stale (its nonce and fees are fixed when queued); the public RPCs' rate limits. `ft_transfer` and ERC-20s are not implemented.
 
 `AGENT_ACCOUNT_ID` / `AGENT_PRIVATE_KEY` turn it on; without them it is a dry run.
 
@@ -180,7 +180,7 @@ With `NEARAI_API_KEY` set (see [Run it with keys](#run-it-with-keys)), open `htt
 
 ### Wallet desk
 
-Bind first on `/wallet/bind` (see [Phone wallet](#phone-wallet-your-phone-number-is-a-near-wallet)). Then call and say "send 1 NEAR to bob.near", listen to the read back, and say your PIN. Without `AGENT_ACCOUNT_ID` and `AGENT_PRIVATE_KEY` the result is a labelled DRY RUN.
+Bind first on `/wallet/bind` (see [Phone wallet](#phone-wallet-your-phone-number-is-a-near-wallet)). Then call and say "send 0.5 NEAR to liho.near", listen to the read back, and say your PIN. Without `AGENT_ACCOUNT_ID` and `AGENT_PRIVATE_KEY` the result is a labelled DRY RUN.
 
 ### Launch desk
 

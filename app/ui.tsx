@@ -13,14 +13,15 @@ export function Wordmark({ href = '/' }: { href?: string }) {
   );
 }
 
-// "by Chromia × evalengine": the makers' lockup, light-on-dark versions (the -light/-dark pairs are in /brand for a mint section).
+// The makers' lockup: "Chromia × evalengine × NEAR" (light-on-dark marks; the -dark files are for light grounds).
 export function Makers({ size = 'sm' }: { size?: 'sm' | 'lg' }) {
   return (
-    <span className={`makers ${size}`}>
-      <span className="by">by</span>
+    <span className={`makers ${size}`} aria-label="By Chromia and evalengine, built on NEAR">
       <img src="/brand/chromia-logo-dark.svg" alt="Chromia" width={800} height={184} />
       <span className="x" aria-hidden="true">×</span>
       <img src="/brand/evalengine-wordmark-light.svg" alt="evalengine" width={600} height={120} />
+      <span className="x" aria-hidden="true">×</span>
+      <span className="near"><img src="/brand/near-mark-light.svg" alt="" width={24} height={24} />NEAR</span>
     </span>
   );
 }
@@ -33,7 +34,7 @@ export function SiteFooter({ credits }: { credits?: ReactNode }) {
     <>
       {credits && <p className="site-credits">{credits}</p>}
       <footer className="site-foot">
-        <span className="foot-id"><span>Ringfence, a NEAR hackathon entry</span><Makers size="lg" /></span>
+        <span className="foot-id"><span>Ringfence, built for the NEAR hackathon</span><Makers size="lg" /></span>
         <nav aria-label="Site"><a href="/#call">Try a call</a><a href="/proof">Proof</a><a href="/wallet/bind">Bind your number</a><a href="/dashboard">Dashboard</a><a href={CODE_URL}>Code</a></nav>
         <span className="r">2026 · MIT licence</span>
       </footer>

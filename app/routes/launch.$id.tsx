@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useRef, useState } from 'react';
 import walletCss from '../styles/wallet-modal.css?url';
-import { Makers, Wordmark } from '../ui';
+import { Makers, SiteFooter, Wordmark } from '../ui';
 
 type Launch = {
   id: string; network: 'mainnet' | 'testnet'; launchpad: 'meme_cooking' | 'justhoot'; contract: string; tokenId: string | null; tokenUrl: string | null; status: 'prepared' | 'signed' | 'live' | 'failed';
@@ -102,13 +102,14 @@ function LaunchPage() {
     }
   }
 
-  if (!l) return <main className="app pay"><div className="brandrow"><Wordmark /><Makers /></div><h1>This launch link doesn’t exist</h1><p className="muted">Check the link in your message, or call the launch desk again.</p></main>;
+  if (!l) return <main className="app pay"><div className="brandrow"><Wordmark /><Makers /></div><h1>This launch link doesn’t exist</h1><p className="muted">Check the link in your message, or call the launch desk again.</p><SiteFooter /></main>;
   const p = l.params;
   const live = l.status === 'live';
   const jh = l.launchpad === 'justhoot';
   const padName = jh ? 'JustHoot' : 'meme.cooking';
 
   return (
+    <>
     <main className="app pay launch">
       <div className="brandrow"><Wordmark /><Makers /><span className={`pill ${l.network === 'mainnet' ? 'warn' : 'wait'}`} title={l.network === 'mainnet' && l.launchpad === 'justhoot' ? 'JustHoot runs on NEAR mainnet only, so this launch is on mainnet even when the rest of the demo is on testnet.' : undefined}>NEAR {l.network}{l.network === 'mainnet' && l.launchpad === 'justhoot' ? ' · JustHoot is mainnet-only' : ''}</span></div>
 
@@ -195,6 +196,8 @@ function LaunchPage() {
 
       {!live && <Fund launch={l} account={account} yocto={tx?.cost.totalYocto} />}
     </main>
+    <SiteFooter />
+    </>
   );
 }
 
