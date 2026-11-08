@@ -167,9 +167,31 @@ These are optional and empty on purpose:
 
 **Unaudited prototype: keep small amounts.** "Your phone number is a wallet": bind on `/wallet/bind`, then on a call "send 1 NEAR to bob.near" or "send 0.0001 ETH on Base to 0x…" + spoken PIN. Contract `contracts/phone-wallet` (limits per asset, EVM chain allowlist, recipient allowlist, delay queue, Chain Signatures), desk `src/desks/wallet.ts`, logic `src/wallet.ts`, EVM `src/eth.ts`, chain registry `src/chains.ts`. README "Phone wallet" has the trust model. `NETWORK` picks the network: mainnet = `v1.signer` + Base (8453); testnet = `v1.signer-prod.testnet` + Sepolia. Nothing has been deployed yet.
 
-Mainnet defaults (proposed on the bind page, editable before signing; env `WALLET_*` changes the proposal): 1 NEAR per transfer, 3 per day; 0.0005 ETH per transfer, 0.002 per day on Base; new recipients wait 600 s. Other EVM chains (Ethereum, Arbitrum, Optimism, Polygon, BNB, Avalanche) are in the server's registry but each owner must `allow_chain` them first. The EVM address is the same on every chain.
+Mainnet defaults (proposed on the bind page, editable before signing; env `WALLET_*` changes the proposal): 0.2 NEAR per transfer, 0.5 per day; 0.0005 ETH per transfer, 0.002 per day on Base; new recipients wait 600 s. Other EVM chains (Ethereum, Arbitrum, Optimism, Polygon, BNB, Avalanche) are in the server's registry but each owner must `allow_chain` them first. The EVM address is the same on every chain.
 
-Tests: `cd contracts/phone-wallet && cargo test` (unit + local sandbox; needs Rust 1.95+, the `wasm32-unknown-unknown` target and `cargo install cargo-near`).
+### Wallet factory (ringfence-wallet.near)
+
+`contracts/factory` makes one wallet per phone number at `<id>.ringfence-wallet.near` (`<id>` = first 12 hex chars of the phone hash, longer on a clash). The phone-wallet wasm is uploaded once as a NEAR global contract (NEP-591, by hash); each wallet only points at it.
+
+- `new(owner, agent)`: `owner` = ringfence-custody.near (controls the factory), `agent` = default agent for new wallets.
+- `create_wallet(phone_hash, owner, agent?, near_limit?, new_recipient_delay_sec?, recipients?)` payable, at least 0.013 NEAR (`min_deposit`); returns the wallet account. 0.010 stays on the wallet for its storage, 0.003 pays the factory's entries, the rest is refunded. Refuses a phone_hash that already has a wallet; on failure everything is refunded. `owner` can be any account, named or 64-hex implicit; never the agent.
+- `upload_wallet_code` (factory owner only): the raw wasm as input. Publishes it as a global contract and makes new wallets use it. Existing wallets keep their code.
+- Views: `get_wallet(phone_hash)`, `get_config()` = (owner, agent, code hash), `min_deposit()`.
+
+Phone-wallet additions: `propose_owner(new_owner)` / `accept_owner()` (called by the new account) / `cancel_owner_transfer()` hand a custodial wallet to the family; the agent can never be proposed or accept. `freeze(until_ts)` (unix seconds) blocks every agent spend, including `execute`, until then; `unfreeze()`. Withdraw and all owner calls still work while frozen.
+
+Measured costs (local sandbox, protocol params identical to mainnet protocol 88: storage 0.00001 NEAR/byte, global contracts 0.0001 NEAR/byte):
+
+| What | NEAR |
+|---|---|
+| Deploy the factory code on ringfence-wallet.near (156,705 bytes) | ~1.57 |
+| One-time global upload of the phone wallet (196,503 bytes x 0.0001) | 19.65 |
+| Each wallet with the global contract (446 bytes of storage) | 0.013 + gas |
+| Each wallet if it deployed its own copy instead | ~1.98 |
+
+So the global contract pays for itself from the 11th wallet. Shrinking the wallet wasm shrinks the upload in proportion.
+
+Tests: `cd contracts/phone-wallet && cargo test` and `cd contracts/factory && cargo test` (prints the costs with `-- --nocapture`) (unit + local sandbox; needs Rust 1.95+, the `wasm32-unknown-unknown` target and `cargo install cargo-near`).
 
 ### Deploy to mainnet (Tan runs these; each step sends a real mainnet transaction and spends real NEAR or ETH)
 
@@ -217,6 +239,38 @@ near contract call-function as-transaction phone.alice.near allow_chain json-arg
 # Check state any time (free view); stop the agent any time
 near contract call-function as-read-only phone.alice.near get_state json-args {} network-config mainnet now
 near contract call-function as-transaction phone.alice.near revoke_agent json-args {} prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as alice.near network-config mainnet sign-with-keychain send
+```
+
+### Deploy the wallet factory to mainnet (Tan runs these; real NEAR. Nothing here has been run.)
+
+The accounts exist: ringfence-wallet.near (factory), ringfence-custody.near (custody and factory owner), ringfence-agent.near (agent). Import their keys into the CLI keychain from `.env` (`near account import-account using-private-key ...`) or use `sign-with-plaintext-private-key` interactively; never paste keys into the shell history.
+
+```bash
+# 0. Fund ringfence-wallet.near with 22 NEAR: ~1.57 factory code + 19.65 global upload + gas and a small buffer.
+#    ringfence-custody.near needs ~0.1 NEAR for gas, plus 0.013 NEAR per wallet it creates.
+
+# 1. Build both wasm files from this commit
+(cd contracts/phone-wallet && cargo near build non-reproducible-wasm)
+(cd contracts/factory && cargo near build non-reproducible-wasm)
+
+# 2. Deploy and initialise the factory
+near contract deploy ringfence-wallet.near use-file contracts/factory/target/near/wallet_factory.wasm with-init-call new json-args '{"owner":"ringfence-custody.near","agent":"ringfence-agent.near"}' prepaid-gas '30 Tgas' attached-deposit '0 NEAR' network-config mainnet sign-with-keychain send
+
+# 3. Upload the phone wallet as a global contract (burns 19.65 NEAR from ringfence-wallet.near)
+near contract call-function as-transaction ringfence-wallet.near upload_wallet_code file-args contracts/phone-wallet/target/near/phone_wallet.wasm prepaid-gas '300 Tgas' attached-deposit '0 NEAR' sign-as ringfence-custody.near network-config mainnet sign-with-keychain send
+near contract call-function as-read-only ringfence-wallet.near get_config json-args '{}' network-config mainnet now
+
+# 4. Create Mum's wallet (custodial; the family claims it in step 5). <digits> = WhatsApp number, digits only.
+near contract call-function as-transaction ringfence-wallet.near create_wallet json-args "{\"phone_hash\":\"$(printf %s '<digits>' | shasum -a 256 | cut -d' ' -f1)\",\"owner\":\"ringfence-custody.near\",\"recipients\":[\"liho.near\"]}" prepaid-gas '100 Tgas' attached-deposit '0.013 NEAR' sign-as ringfence-custody.near network-config mainnet sign-with-keychain send
+#    Or straight to the family's own account: "owner":"liho.near" (no claim needed). Then fund the wallet:
+near tokens liho.near send-near <id>.ringfence-wallet.near '1 NEAR' network-config mainnet sign-with-keychain send
+
+# 5. Claim: custody proposes the family's account, the family accepts from its own wallet
+near contract call-function as-transaction <id>.ringfence-wallet.near propose_owner json-args '{"new_owner":"liho.near"}' prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as ringfence-custody.near network-config mainnet sign-with-keychain send
+near contract call-function as-transaction <id>.ringfence-wallet.near accept_owner json-args '{}' prepaid-gas '30 Tgas' attached-deposit '0 NEAR' sign-as liho.near network-config mainnet sign-with-keychain send
+
+# Reject button / emergency: freeze the agent for an hour (owner), unfreeze later
+near contract call-function as-transaction <id>.ringfence-wallet.near freeze json-args "{\"until_ts\":\"$(( $(date +%s) + 3600 ))\"}" prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as liho.near network-config mainnet sign-with-keychain send
 ```
 
 Record these three as README "Evidence":

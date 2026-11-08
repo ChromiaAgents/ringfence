@@ -81,7 +81,7 @@ export const env = {
   evmEnabled: /^(1|true|yes)$/i.test(process.env.EVM_ENABLED ?? ''),
   // Default limits proposed on /wallet/bind (the user can change them there before signing). Human units.
   walletDefaults: {
-    nearPerTx: process.env.WALLET_NEAR_PER_TX ?? '1', nearPerDay: process.env.WALLET_NEAR_PER_DAY ?? '3',
+    nearPerTx: process.env.WALLET_NEAR_PER_TX ?? '0.2', nearPerDay: process.env.WALLET_NEAR_PER_DAY ?? '0.5',
     evmPerTx: process.env.WALLET_EVM_PER_TX ?? '0.0005', evmPerDay: process.env.WALLET_EVM_PER_DAY ?? '0.002',
     delaySec: Number(process.env.WALLET_DELAY_SEC ?? 600),
   },

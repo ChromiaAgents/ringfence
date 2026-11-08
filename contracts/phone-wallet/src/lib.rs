@@ -50,6 +50,10 @@ pub struct PhoneWallet {
     spent: HashMap<String, u128>,
     pending: Vec<Pending>,
     next_id: u64,
+    /// Two-step ownership transfer (custodial claim): the owner proposes, the new account accepts.
+    pending_owner: Option<AccountId>,
+    /// Agent spends are refused until this time (ns). The owner's own actions are never frozen.
+    frozen_until_ns: u64,
 }
 
 #[near(serializers = [json])]
@@ -66,29 +70,32 @@ pub struct State {
     pub spent_today: HashMap<String, U128>,
     pub pending: Vec<Pending>,
     pub balance: U128,
+    pub pending_owner: Option<AccountId>,
+    pub frozen_until_ns: U64,
 }
 
 #[near]
 impl PhoneWallet {
-    /// Defaults (mainnet-safe): 1 NEAR per transfer, 3 NEAR per day; on each EVM chain in `evm_chain_ids` (default
+    /// Defaults (mainnet-safe): 0.2 NEAR per transfer, 0.5 NEAR per day; on each EVM chain in `evm_chain_ids` (default
     /// [8453] = Base) 0.0005 per transfer, 0.002 per day in that chain's native units; new recipients wait 600 s.
     /// Every default can be overridden here at bind time, and later by the owner.
     #[init]
     pub fn new(owner: AccountId, agent: AccountId, phone_hash: String, signer: Option<AccountId>, evm_chain_ids: Option<Vec<u64>>,
-               near_limit: Option<Limit>, evm_limit: Option<Limit>, new_recipient_delay_sec: Option<u64>) -> Self {
+               near_limit: Option<Limit>, evm_limit: Option<Limit>, new_recipient_delay_sec: Option<u64>,
+               recipients: Option<Vec<String>>) -> Self {
         require!(agent != owner, "the agent can't be the owner");
         let e18 = 10u128.pow(18);
         let e24 = 10u128.pow(24);
         let chains = evm_chain_ids.unwrap_or_else(|| vec![BASE_CHAIN_ID]);
         let evm = evm_limit.unwrap_or(Limit { per_tx: U128(e18 / 2000), per_day: U128(e18 / 500) });
         let mut limits = HashMap::new();
-        limits.insert("near".into(), near_limit.unwrap_or(Limit { per_tx: U128(e24), per_day: U128(3 * e24) }));
+        limits.insert("near".into(), near_limit.unwrap_or(Limit { per_tx: U128(e24 / 5), per_day: U128(e24 / 2) }));
         for c in &chains { limits.insert(evm_key(*c), evm.clone()); }
         Self {
             owner, agent: Some(agent), phone_hash,
             signer: signer.unwrap_or_else(|| "v1.signer".parse().unwrap()),
-            limits, chains, allowlist: vec![], new_recipient_delay_sec: new_recipient_delay_sec.unwrap_or(600),
-            day: 0, spent: HashMap::new(), pending: vec![], next_id: 0,
+            limits, chains, allowlist: recipients.unwrap_or_default().iter().map(|r| r.to_lowercase()).collect(), new_recipient_delay_sec: new_recipient_delay_sec.unwrap_or(600),
+            day: 0, spent: HashMap::new(), pending: vec![], next_id: 0, pending_owner: None, frozen_until_ns: 0,
         }
     }
 
@@ -134,6 +141,37 @@ impl PhoneWallet {
         self.only_owner();
         require!(agent != self.owner, "the agent can't be the owner");
         self.agent = Some(agent);
+    }
+    /// Step 1 of handing the wallet over (e.g. custody -> the family's own account). The agent can never become owner.
+    #[payable]
+    pub fn propose_owner(&mut self, new_owner: AccountId) {
+        self.only_owner();
+        require!(Some(&new_owner) != self.agent.as_ref(), "the agent can't be the owner");
+        self.pending_owner = Some(new_owner);
+    }
+    /// Step 2: the proposed account accepts.
+    pub fn accept_owner(&mut self) {
+        let me = env::predecessor_account_id();
+        require!(self.pending_owner.as_ref() == Some(&me), "not the proposed owner");
+        require!(Some(&me) != self.agent.as_ref(), "the agent can't be the owner");
+        self.owner = me;
+        self.pending_owner = None;
+    }
+    #[payable]
+    pub fn cancel_owner_transfer(&mut self) {
+        self.only_owner();
+        self.pending_owner = None;
+    }
+    /// Blocks every agent spend until `until_ts` (unix seconds). Used by the Reject button.
+    #[payable]
+    pub fn freeze(&mut self, until_ts: U64) {
+        self.only_owner();
+        self.frozen_until_ns = until_ts.0.saturating_mul(1_000_000_000);
+    }
+    #[payable]
+    pub fn unfreeze(&mut self) {
+        self.only_owner();
+        self.frozen_until_ns = 0;
     }
     #[payable]
     pub fn revoke_agent(&mut self) {
@@ -184,7 +222,7 @@ impl PhoneWallet {
 
     /// Runs a queued transfer once its delay has passed. Day limits are checked again now.
     pub fn execute(&mut self, pending_id: u64) -> PromiseOrValue<U64> {
-        require!(self.agent.as_ref() == Some(&env::predecessor_account_id()) || env::predecessor_account_id() == self.owner, "only the agent or the owner");
+        if env::predecessor_account_id() != self.owner { self.only_agent(); }
         let i = self.pending.iter().position(|p| p.id == pending_id).unwrap_or_else(|| env::panic_str("no such pending transfer"));
         require!(env::block_timestamp() >= self.pending[i].ready_at_ns.0, "new recipient: still in the waiting period");
         let p = self.pending.remove(i);
@@ -211,6 +249,7 @@ impl PhoneWallet {
             spent_today: if self.day == today { self.spent.iter().map(|(k, v)| (k.clone(), U128(*v))).collect() } else { HashMap::new() },
             pending: self.pending.clone(),
             balance: U128(env::account_balance().as_yoctonear()),
+            pending_owner: self.pending_owner.clone(), frozen_until_ns: U64(self.frozen_until_ns),
         }
     }
 
@@ -222,6 +261,7 @@ impl PhoneWallet {
     }
     fn only_agent(&self) {
         require!(self.agent.as_ref() == Some(&env::predecessor_account_id()), "only the agent");
+        require!(env::block_timestamp() >= self.frozen_until_ns, "frozen by the owner");
     }
     fn allowed(&self, to: &str) -> bool { self.allowlist.contains(&to.to_lowercase()) }
     fn limit(&self, asset: &str) -> Limit {
@@ -314,9 +354,9 @@ mod tests {
     fn wallet() -> PhoneWallet {
         ctx(0, 1000, 0);
         PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, Some(vec![SEPOLIA]),
-            Some(Limit { per_tx: U128(5 * NEAR), per_day: U128(10 * NEAR) }), Some(Limit { per_tx: U128(10u128.pow(16)), per_day: U128(2 * 10u128.pow(16)) }), None)
+            Some(Limit { per_tx: U128(5 * NEAR), per_day: U128(10 * NEAR) }), Some(Limit { per_tx: U128(10u128.pow(16)), per_day: U128(2 * 10u128.pow(16)) }), None, None)
     }
-    fn mainnet_wallet() -> PhoneWallet { ctx(0, 1000, 0); PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None) }
+    fn mainnet_wallet() -> PhoneWallet { ctx(0, 1000, 0); PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None, None) }
 
     #[test]
     fn limits_and_allowlist() {
@@ -417,7 +457,7 @@ mod tests {
         let s = w.get_state();
         assert_eq!(s.signer.as_str(), "v1.signer");
         assert_eq!(s.chains, vec![8453]);
-        assert_eq!(s.limits["near"], Limit { per_tx: U128(NEAR), per_day: U128(3 * NEAR) });
+        assert_eq!(s.limits["near"], Limit { per_tx: U128(NEAR / 5), per_day: U128(NEAR / 2) });
         assert_eq!(s.limits["evm:8453"], Limit { per_tx: U128(5 * 10u128.pow(14)), per_day: U128(2 * 10u128.pow(15)) });
         assert_eq!(s.new_recipient_delay_sec, 600);
     }
@@ -456,4 +496,87 @@ mod tests {
     #[test]
     #[should_panic(expected = "only the owner")]
     fn agent_cant_allow_chain() { let mut w = mainnet_wallet(); ctx(1, 1000, 1); w.allow_chain(1, U128(1), U128(1)); }
+
+    #[test]
+    fn recipients_at_init_are_allowlisted() {
+        ctx(0, 1000, 0);
+        let mut w = PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None, Some(vec!["Charlie".into()]));
+        ctx(1, 1000, 0);
+        assert_eq!(w.transfer_near(accounts(2), U128(NEAR / 10)), None);
+    }
+    #[test]
+    fn claim_propose_accept() {
+        let mut w = wallet();
+        ctx(0, 1000, 1); w.propose_owner(accounts(3));
+        assert_eq!(w.get_state().pending_owner, Some(accounts(3)));
+        ctx(3, 1000, 0); w.accept_owner();
+        let s = w.get_state();
+        assert_eq!(s.owner, accounts(3));
+        assert_eq!(s.pending_owner, None);
+        ctx(3, 1000, 1); w.withdraw(U128(1)); // the new owner has control
+    }
+    #[test]
+    #[should_panic(expected = "only the owner")]
+    fn old_owner_loses_control_after_claim() {
+        let mut w = wallet();
+        ctx(0, 1000, 1); w.propose_owner(accounts(3));
+        ctx(3, 1000, 0); w.accept_owner();
+        ctx(0, 1000, 1); w.withdraw(U128(1));
+    }
+    #[test]
+    #[should_panic(expected = "not the proposed owner")]
+    fn cancelled_claim_cant_be_accepted() {
+        let mut w = wallet();
+        ctx(0, 1000, 1); w.propose_owner(accounts(3)); w.cancel_owner_transfer();
+        ctx(3, 1000, 0); w.accept_owner();
+    }
+    #[test]
+    #[should_panic(expected = "not the proposed owner")]
+    fn stranger_cant_accept() { let mut w = wallet(); ctx(0, 1000, 1); w.propose_owner(accounts(3)); ctx(4, 1000, 0); w.accept_owner(); }
+    #[test]
+    #[should_panic(expected = "the agent can't be the owner")]
+    fn agent_cant_be_proposed() { let mut w = wallet(); ctx(0, 1000, 1); w.propose_owner(accounts(1)); }
+    #[test]
+    #[should_panic(expected = "the agent can't be the owner")]
+    fn agent_set_after_proposal_cant_accept() {
+        let mut w = wallet();
+        ctx(0, 1000, 1); w.propose_owner(accounts(3)); w.set_agent(accounts(3));
+        ctx(3, 1000, 0); w.accept_owner();
+    }
+    #[test]
+    #[should_panic(expected = "only the owner")]
+    fn agent_cant_propose() { let mut w = wallet(); ctx(1, 1000, 1); w.propose_owner(accounts(1)); }
+    #[test]
+    #[should_panic(expected = "frozen by the owner")]
+    fn freeze_blocks_agent() {
+        let mut w = wallet();
+        ctx(0, 1000, 1); w.allow("charlie".into()); w.freeze(U64(2000));
+        ctx(1, 1999, 0); w.transfer_near(accounts(2), U128(1));
+    }
+    #[test]
+    fn freeze_ends_and_unfreeze() {
+        let mut w = wallet();
+        ctx(0, 1000, 1); w.allow("charlie".into()); w.freeze(U64(2000));
+        ctx(1, 2000, 0); assert_eq!(w.transfer_near(accounts(2), U128(1)), None); // freeze over
+        ctx(0, 2000, 1); w.freeze(U64(9999)); w.unfreeze();
+        ctx(1, 2001, 0); assert_eq!(w.transfer_near(accounts(2), U128(1)), None);
+    }
+    #[test]
+    #[should_panic(expected = "frozen by the owner")]
+    fn freeze_blocks_agent_execute() {
+        let mut w = wallet();
+        ctx(1, 1000, 0); let id = w.transfer_near(accounts(3), U128(NEAR)).unwrap();
+        ctx(0, 1000, 1); w.freeze(U64(5000));
+        ctx(1, 2000, 0); w.execute(id);
+    }
+    #[test]
+    fn owner_works_while_frozen() {
+        let mut w = wallet();
+        ctx(1, 1000, 0); let id = w.transfer_near(accounts(3), U128(NEAR)).unwrap();
+        ctx(0, 1000, 1); w.freeze(U64(5000)); w.withdraw(U128(1));
+        ctx(0, 2000, 0); w.execute(id); // the owner may still run a queued transfer
+    }
+    #[test]
+    #[should_panic(expected = "only the owner")]
+    fn agent_cant_unfreeze() { let mut w = wallet(); ctx(1, 1000, 1); w.unfreeze(); }
 }

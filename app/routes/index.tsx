@@ -277,7 +277,7 @@ function Scam() {
       <div className="txt">
         <h2 id="scam-h" className="rise">A caller can talk Mum into a payment, and they can talk an AI into one too.</h2>
         <p className="rise" style={i(1)}>Say someone claiming to be her bank asks for 50 NEAR, and the AI falls for it and asks for the PIN.</p>
-        <p className="rise" style={i(2)}>The contract still refuses. 50 is over the 1 NEAR per-transfer limit, and safe-vault.near isn’t saved, so a smaller send would wait 10 minutes for the owner to cancel it.</p>
+        <p className="rise" style={i(2)}>The contract still refuses. 50 is over the 0.2 NEAR per-transfer limit, and safe-vault.near isn’t saved, so a smaller send would wait 10 minutes for the owner to cancel it.</p>
         <p className="worst rise" style={i(3)}>If we went rogue, a bound wallet would lose at most 3 NEAR a day.</p>
       </div>
     </section>
@@ -288,7 +288,7 @@ function Scam() {
 // Mirrors contracts/phone-wallet/src/lib.rs and src/desks/wallet.ts with the mainnet default limits. For a recipient
 // you haven't saved, the voice agent doesn't send at all: it texts you a link to sign it in your own wallet. The
 // contract's 10-minute queue is the backstop if the agent key ever asks for a new recipient directly. NEAR only on the site.
-const L = { tx: 1, day: 3, unit: 'NEAR', dp: 1 };
+const L = { tx: 0.2, day: 0.5, unit: 'NEAR', dp: 2 };
 
 function Seg<T extends string | number>({ label, value, set, opts }: { label: string; value: T; set: (v: T) => void; opts: [T, string][] }) {
   return (
@@ -304,7 +304,7 @@ function Fence() {
   const [rec, setRec] = useState<'saved' | 'new'>('saved');
   const [revoked, setRevoked] = useState(false);
   const l = L;
-  const a = amt / 10;
+  const a = amt / 50;
   const after = spent * l.day + a;
   const fmt = (v: number) => String(+v.toFixed(l.dp));
   const to = rec === 'saved' ? 'liho.near' : 'safe-vault.near';
@@ -336,16 +336,16 @@ function Fence() {
         <h2 id="fence-h" className="rise">What the AI can’t do</h2>
         <p className="demo-note rise">A model of the contract’s rules with the mainnet defaults. Nothing here touches a chain.</p>
         <div className="blk rise">
-          <h3>1 NEAR per transfer</h3>
+          <h3>0.2 NEAR per transfer</h3>
           <p>Ask for more and the agent tells you, then sends a link to sign it yourself.</p>
           <div className="ctl"><label htmlFor="amt">Amount: <output htmlFor="amt">{fmt(a)} {l.unit}</output></label>
             <div className="rng" style={{ '--p': `${((amt - 1) / 19) * 100}%` } as CSSProperties}><input type="range" id="amt" min={1} max={20} step={1} value={amt} onChange={(e) => setAmt(+e.target.value)} /></div>
           </div>
         </div>
         <div className="blk rise">
-          <h3>3 NEAR a day</h3>
+          <h3>0.5 NEAR a day</h3>
           <p>Per asset. It is the most that can move in a day, whoever runs the operator.</p>
-          <Seg label="Already sent today" value={spent} set={setSpent} opts={[[0, 'Nothing'], [0.4, '1.2 NEAR'], [0.9, '2.7 NEAR']]} />
+          <Seg label="Already sent today" value={spent} set={setSpent} opts={[[0, 'Nothing'], [0.4, '0.2 NEAR'], [0.9, '0.45 NEAR']]} />
         </div>
         <div className="blk rise">
           <h3>New recipients wait 10 minutes</h3>

@@ -41,7 +41,7 @@ Over a limit, or to a recipient not on your saved list: the agent says so and gi
 - **The operator can spend without the PIN.** The server holds the agent key. The PIN protects against someone else calling from a spoofed or stolen line, not against us. Your cap on that is the daily limit per asset; `revoke_agent` ends it, and `withdraw` always works.
 - **Your phone number is not the security.** Binding is signed by the NEAR account owner. Against a SIM swap or a spoofed caller ID, what protects you is only the PIN plus the caps. The PIN is 4 digits; 3 wrong tries lock it for 15 minutes, so trying every PIN takes about 35 days, during which at most the daily cap could move.
 - **The PIN passes through the AI.** Speech-to-text and the language model hear it, inside NEAR AI TEEs. It is stored only in scrambled form (a salted hash) and blanked from the stored transcript and tool log.
-- **The contract is unaudited.** Keep small amounts in it. Mainnet defaults: 1 NEAR per transfer and 3 per day; 600 s wait for new recipients.
+- **The contract is unaudited.** Keep small amounts in it. Mainnet defaults: 0.2 NEAR per transfer and 0.5 per day; 600 s wait for new recipients.
 - **Known privacy limits.** Reply text goes to Cartesia when Cartesia is the voice (not a TEE); `TTS_PROVIDER=kokoro` keeps it on the box. This app server itself is not attested, so transcripts and the PIN path pass through an ordinary server. On WhatsApp, Meta carries the call and sees its metadata.
 - **Nothing has been signed on chain yet.** See [Evidence](#evidence-on-chain).
 
