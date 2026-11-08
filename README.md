@@ -38,7 +38,7 @@ Over a limit, or to a recipient not on your saved list: the agent says so and gi
 ## Trust model
 
 - **The contract sets the limits. The AI can't change them.** Limits, chains and recipients are checked in `contracts/phone-wallet/src/lib.rs`. A confused or tricked model can at most ask for transfers inside your limits, to your saved recipients, after a correct PIN.
-- **The operator can spend without the PIN.** The server holds the agent key. The PIN protects against someone else calling from a spoofed or stolen line, not against us. Your cap on that is the daily limit per asset; `revoke_agent` ends it, and `withdraw` always works.
+- **The operator can spend without the PIN.** The server holds the agent key. The PIN protects against someone else calling from a spoofed or stolen line, not against us. Your cap on that is the daily limit per asset; `revoke_agent` ends it, and `withdraw` always works. Or hold the agent key yourself: [SELF-HOST.md](SELF-HOST.md).
 - **Your phone number is not the security.** Binding is signed by the NEAR account owner. Against a SIM swap or a spoofed caller ID, what protects you is only the PIN plus the caps. The PIN is 4 digits; 3 wrong tries lock it for 15 minutes, so trying every PIN takes about 35 days, during which at most the daily cap could move.
 - **The PIN passes through the AI.** Speech-to-text and the language model hear it, inside NEAR AI TEEs. It is stored only in scrambled form (a salted hash) and blanked from the stored transcript and tool log.
 - **The contract is unaudited.** Keep small amounts in it. Mainnet defaults: 0.2 NEAR per transfer and 0.5 per day; 600 s wait for new recipients.
@@ -232,7 +232,7 @@ cp .env.example .env      # at least NEARAI_API_KEY; NETWORK=testnet by default
 npm run dev               # http://localhost:8787  (UI + voice + webhooks, one port)
 ```
 
-Production: `npm run build && npm start`, or on a VPS with Docker/systemd + Caddy: `deploy/README.md`. Demo data: `npm run seed`, then `DB_FILE=data/demo-db.json npm run dev`.
+Production: `npm run build && npm start`, or on a VPS with Docker/systemd + Caddy: `deploy/README.md`. Run your own operator (your agent key, your WhatsApp number) in about 15 minutes: [SELF-HOST.md](SELF-HOST.md). Demo data: `npm run seed`, then `DB_FILE=data/demo-db.json npm run dev`.
 
 ### Environment
 
