@@ -171,6 +171,30 @@ The server logs to stdout:
 - **Privacy pitch:** a remote TTS server sees the reply text. The pitch is "models in TEEs, nobody in the middle", so say this in the write-up, or keep TTS on the same box as the server.
 - **Distance:** network round-trip adds about 50–250 ms. Still much faster than CPU Kokoro.
 
+## Plan for a top 3 place
+
+The deadline is **14 Nov 2026, 23:59 UTC**: the repo must be public, the X post up and the submission sent by then. Judging is 16–18 Nov. Prizes are 1st, 2nd and 3rd in each of 13 tracks, plus one grand prize. We list every track that fits: `business`, `privacy`, `agents`, `security`, and `memecoins` if item 5 lands.
+
+Claude Code and Codex screen every entry first: they check the README reproduces, verify the features and give a first score. Humans decide after that. So everything below is about evidence a machine can check, and a demo a judge can open.
+
+| # | Item | Owner | Status |
+| --- | --- | --- | --- |
+| 1 | **Hosted demo with the browser call** on a public URL, kept up until 25 Nov. Judges can't use the WhatsApp test number (it only replies to 5 approved numbers). | Johnson | todo |
+| 2 | **GPU voice on the Spark** to cut the lag before the agent speaks (now about 3–5 s). | Johnson | todo |
+| 3 | **README a machine can run with no keys**: offline tests, `npm run demo:check`, a "feature → code → how to verify" table. | Claude | in progress |
+| 4 | **Full TEE attestation check**, including Intel's signature on the security proof (and the GPU's if possible), shown on a public `/proof` page; `npm run attest`. | Claude | in progress |
+| 5 | **A memecoin mechanic: "the coin has a brain".** Each launched coin gets its own AI hotline, paid for by NEARON staking credit bound to the coin. Ask the NEARON team: can a meme.cooking or JustHoot coin be bound, and when is mainnet planned? | Tan + NEARON team | ask |
+| 6 | **Proof on chain**, with links in the README: one meme.cooking testnet launch (free), one JustHoot mainnet launch (about 0.1 NEAR), one real Intents deposit (about $1 USDC). Signed in our own wallets. | Tan | todo |
+| 7 | **List the agent on NEAR's Agent Market** (market.near.ai/docs: list your agent). | Johnson or Tan | todo |
+| 8 | **Demo video, 60–90 s, one complete moment:** a phone call, the coin is live, the link arrives. Start with the user's problem; say concretely what NEAR does (private AI in TEEs, pay in any token through Intents, launch signed in your own wallet). | Tan | todo |
+| 9 | **X post** tagging @NEARProtocol and #NEARHackathon (optional @NearLegion @NearBuilders), with the video, repo and demo links. | Tan | todo |
+| 10 | **Make the repo public** and **submit once.** Needs: project name, lead name, email, team size, mainnet payout account, consent. The submission can't be resent; fixes go through nearhackathon.com/request-changes. | Tan | todo, by 14 Nov |
+
+How you can help:
+
+- **Johnson:** items 1, 2 and 7. Also try the call yourself and send the worst moment you hit; that's what we fix first.
+- **Anyone:** call it, try to break it (a famous ticker, "will it 100x?", "30% off"), and send the transcript from `/dashboard`.
+
 ## Rules for this project
 
 - Ask Tan before making the repo public, posting anything, submitting to the hackathon, or switching to mainnet.
