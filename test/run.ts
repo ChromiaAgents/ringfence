@@ -127,6 +127,8 @@ t('router', () => {
   assert.equal(route('I want to launch a memecoin'), 'launch');
   assert.equal(route('my bathroom tap is leaking'), 'not_offered', 'building work is declined, never routed');
   assert.equal(route('hello?'), null);
+  for (const x of ['I\'m sending money.', 'Sending money.', 'send some money to my son', 'pay liho', 'transfer please', 'what is my balance', 'Send 0.5 NEAR to liho.near.']) assert.equal(route(x), 'wallet', x);
+  assert.equal(route('launch a coin about my cat'), 'launch');
 });
 t('create_meme args', () => {
   const a = createMemeArgs({ name: 'Sleepy Otter', symbol: 'ZZZ', description: 'naps', icon: 'data:image/webp;base64,AA', durationMinutes: 60, softCapNear: 100, team: { pct: 5, cliffDays: 7, vestingDays: 30 }, totalSupply: '1000000000', decimals: 18 }, { reference: '', reference_hash: '' }, 'testnet');

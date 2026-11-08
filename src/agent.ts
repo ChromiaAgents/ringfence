@@ -22,9 +22,12 @@ export const NOT_OFFERED = "Sorry, we don't do building quotes or bookings. I ca
  *  Building work is recognised only to say it is not offered: callers are never routed to the business desk. */
 export function route(text: string): Desk | 'not_offered' | null {
   const t = text.toLowerCase();
-  if (/\b(send|transfer|pay)\s+[\d.]+|\b(balance|wallet)\b/.test(t)) return 'wallet';
-  if (/\b(meme ?coins?|coins?|tokens?|tickers?|launch\w*|meme\.?cooking|memes?|pump|degen|crypto)\b/.test(t)) return 'launch';
+  // An amount to send is always the wallet desk.
+  if (/\b(send|transfer|pay)\w*\s+[\d.]+/.test(t)) return 'wallet';
   if (/\b(kitchen|bathroom|extension|repair\w*|build\w*|builders?|roof\w*|plumb\w*|leak\w*|tiles?|quotes?|renovat\w*|loft|wall|floor\w*|window|door|paint\w*|job|house|flat|booking|book)\b/.test(t)) return 'not_offered';
+  if (/\b(meme ?coins?|coins?|tokens?|tickers?|launch\w*|meme\.?cooking|memes?|pump|degen|crypto)\b/.test(t)) return 'launch';
+  // Plain words people use for paying ("I'm sending money", "pay my son", "balance").
+  if (/\b(send\w*|sent|transfer\w*|pay|paying|payment|money|funds?|cash|balance|wallet|near)\b/.test(t)) return 'wallet';
   return null;
 }
 
