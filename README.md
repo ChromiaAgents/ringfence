@@ -121,7 +121,7 @@ With keys: `cp .env.example .env` (at least `NEARAI_API_KEY`; `NETWORK=testnet` 
 
 > **Unaudited prototype: keep small amounts.** The phone-wallet contract has not been audited. On mainnet it moves real money; the defaults are deliberately small.
 
-Bind your NEAR account (`.near` on mainnet, `.testnet` on testnet, per `NETWORK`) to your WhatsApp number once on `/wallet/bind`. Then on a call: "send 0.5 NEAR to liho.near", hear it read back ("1 NEAR to bob dot near"), say your 4-digit PIN, and it executes on chain within limits a smart contract enforces, not the AI. The nearblocks link arrives on WhatsApp. (With `EVM_ENABLED=1` the same flow also takes "send 0.0001 ETH on Base to 0x…"; off by default.)
+Bind your NEAR account (`.near` on mainnet, `.testnet` on testnet, per `NETWORK`) to your WhatsApp number once on `/wallet/bind`. Then on a call: "send 0.1 NEAR to liho.near", hear it read back ("0.1 NEAR to liho dot near"), say your 4-digit PIN, and it executes on chain within limits a smart contract enforces, not the AI. The nearblocks link arrives on WhatsApp. (With `EVM_ENABLED=1` the same flow also takes "send 0.0001 ETH on Base to 0x…"; off by default.)
 
 **How it works**
 
