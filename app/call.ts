@@ -20,7 +20,7 @@ export function useCall(deskPick: Desk | 'auto' = 'auto') {
   const [state, setState] = useState('Not connected');
   const [live, setLive] = useState(false);
   const [link, setLink] = useState<{ url: string; label: string } | null>(null);
-  const [desk, setDesk] = useState<Desk | 'owner' | null>(null);
+  const [desk, setDesk] = useState<Desk | 'wallet' | 'owner' | 'agent' | null>(null);
   const r = useRef<{ ws?: WebSocket; ctx?: AudioContext; stream?: MediaStream; playing: boolean; srcs?: AudioBufferSourceNode[]; next?: number }>({ playing: false });
   const add = (who: Line['who'], text: string) => setLines((l) => [...l, { who, text }]);
 
@@ -109,6 +109,8 @@ export function useCall(deskPick: Desk | 'auto' = 'auto') {
       if (d.type === 'error') { add('tool', d.text); setState('Your turn'); }
       if (d.type === 'link') setLink({ url: d.url, label: d.label });
       if (d.type === 'desk' && d.desk) setDesk(d.desk);
+      // The AI ended the call: let the goodbye finish playing, then hang up.
+      if (d.type === 'hangup') { const bye = () => (s.playing ? setTimeout(bye, 200) : stop()); setTimeout(bye, 600); }
     };
     ws.onclose = () => stop();
   }

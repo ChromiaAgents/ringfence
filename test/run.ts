@@ -7,7 +7,6 @@ import { checkTicker, checkName, checkAuction, checkTeam, filterClaims } from '.
 import { isFiller } from '../src/agent.ts';
 import { planChange, applyDiff } from '../src/desks/owner.ts';
 import { priceFor } from '../src/desks/business.ts';
-import { route } from '../src/agent.ts';
 import { sentenceSplitter } from '../src/speech.ts';
 import { createMemeArgs } from '../src/memecook.ts';
 import { launchpad, owner } from '../src/config.ts';
@@ -123,20 +122,40 @@ t('no promised returns', () => {
   assert.ok(filterClaims("It's guaranteed to pump", lp).hit);
   assert.equal(filterClaims('Your soft cap is 100 NEAR.', lp).hit, undefined);
 });
-await t('no routing loop: every turn reaches the AI on a desk', async () => {
-  const { pickDesk } = await import('../src/agent.ts');
-  for (const x of ['Yeah, I think...', 'No.', 'And bye-bye.', 'hmm', 'hello?']) assert.equal(pickDesk(undefined, x), 'wallet', x);
-  assert.equal(pickDesk(undefined, 'launch a coin about my cat'), 'launch');
-  assert.equal(pickDesk('wallet', 'actually I want to launch a memecoin'), 'launch', 'switch mid-call');
-  assert.equal(pickDesk('launch', 'send 1 NEAR to liho.near'), 'wallet');
-  assert.equal(pickDesk('launch', 'call it Whisker'), 'launch');
+await t('one agent: every tool on one list, dispatched to the desk code that owns it; owner tools only for the owner', async () => {
+  const { startCall, toolsFor, deskOfTool, system, GREETING } = await import('../src/agent.ts');
+  const names = (c: any) => (toolsFor(c) as any[]).map((t) => t.function.name);
+  const c = startCall('web').call;
+  assert.equal(GREETING, 'Hi, this is Ringfence. How can I help?');
+  for (const n of ['prepare_transfer', 'confirm_transfer', 'get_spending', 'set_coin', 'prepare_launch', 'end_call']) assert.ok(names(c).includes(n), n);
+  for (const n of ['propose_rules', 'confirm_rules', 'quote_job', 'book_visit']) assert.ok(!names(c).includes(n), n);
+  assert.equal(deskOfTool(c, 'prepare_transfer')?.id, 'wallet');
+  assert.equal(deskOfTool(c, 'set_coin')?.id, 'launch');
+  assert.equal(deskOfTool(c, 'propose_rules'), null, 'a caller can never run owner tools');
+  assert.equal(deskOfTool(c, 'end_call'), null, 'end_call is the agent\'s own');
+  assert.doesNotMatch(system(c), /settings line/);
+  const o = startCall('dashboard', undefined, 'owner').call;
+  assert.ok(names(o).includes('propose_rules'));
+  assert.equal(deskOfTool(o, 'confirm_rules')?.id, 'owner');
+  assert.match(system(o), /Owner settings/);
 });
-t('router', () => {
-  assert.equal(route('I want to launch a memecoin'), 'launch');
-  assert.equal(route('my bathroom tap is leaking'), 'not_offered', 'building work is declined, never routed');
-  assert.equal(route('hello?'), null);
-  for (const x of ['I\'m sending money.', 'Sending money.', 'send some money to my son', 'pay liho', 'transfer please', 'what is my balance', 'Send 0.5 NEAR to liho.near.']) assert.equal(route(x), 'wallet', x);
-  assert.equal(route('launch a coin about my cat'), 'launch');
+await t('one agent: the AI ends the call (end_call), declines out-of-scope asks, and switches tasks mid-call', async () => {
+  const { startCall, reply } = await import('../src/agent.ts');
+  const { env } = await import('../src/config.ts');
+  env.mockLlm = true;
+  try {
+    const c = startCall('web').call;
+    let ended = 0;
+    const out = await reply(c.id, 'no thanks, bye', { onEndCall: () => ended++ });
+    assert.equal(ended, 1); assert.match(out, /bye/i);
+    assert.ok(c.turns.some((x) => x.who === 'tool' && /^end_call/.test(x.text)));
+    const d = startCall('web').call;
+    assert.match(await reply(d.id, 'can you quote my kitchen?'), /building quotes/, 'out of scope: the AI declines');
+    await reply(d.id, 'Call it Sleepy Otter, ticker ZZOTR');
+    assert.equal(d.desk, 'launch', 'label follows the last tool used');
+    await reply(d.id, 'send 1 NEAR to bob.testnet');
+    assert.equal(d.desk, 'wallet', 'switched mid-call');
+  } finally { env.mockLlm = false; }
 });
 t('create_meme args', () => {
   const a = createMemeArgs({ name: 'Sleepy Otter', symbol: 'ZZZ', description: 'naps', icon: 'data:image/webp;base64,AA', durationMinutes: 60, softCapNear: 100, team: { pct: 5, cliffDays: 7, vestingDays: 30 }, totalSupply: '1000000000', decimals: 18 }, { reference: '', reference_hash: '' }, 'testnet');
@@ -196,12 +215,9 @@ await t('wallet: PIN lockout after 3 wrong tries, 15 minutes', async () => {
   assert.equal(checkPin(b, '4321', 15 * 60_000 + 1).ok, true);
   assert.notEqual(b.pinHash, '4321');
 });
-await t('wallet: routing and intent → tool args', async () => {
+await t('wallet: intent → tool args', async () => {
   const { mockStep } = await import('../src/ai.ts');
   const { walletDesk } = await import('../src/desks/wallet.ts');
-  assert.equal(route('send 1 NEAR to bob.testnet'), 'wallet');
-  assert.equal(route("what's my wallet balance"), 'wallet');
-  assert.equal(route('can you send me a quote for a kitchen'), 'not_offered');
   const step = (u: string) => mockStep([{ role: 'user', content: u }], walletDesk.tools);
   assert.deepEqual(step('send 1 NEAR to bob.testnet'), { name: 'prepare_transfer', args: { to: 'bob.testnet', amount: '1', asset: 'near' } });
   assert.deepEqual(step('send 5 near to bob dot testnet'), { name: 'prepare_transfer', args: { to: 'bob dot testnet', amount: '5', asset: 'near' } });
@@ -344,7 +360,6 @@ await t('wallet: "how much did I spend?" lists the last 5 transfers (dry run: no
   const { startCall } = await import('../src/agent.ts');
   const { walletDesk } = await import('../src/desks/wallet.ts');
   const { mockStep } = await import('../src/ai.ts');
-  assert.equal(route('how much did I spend today?'), 'wallet');
   assert.deepEqual(mockStep([{ role: 'user', content: 'How much did I spend?' }], walletDesk.tools), { name: 'get_spending', args: {} });
   const r: any = await walletDesk.run(startCall('whatsapp', '15550000010', 'wallet').call, 'get_spending', {});
   assert.equal(r.ok, true); assert.equal(r.dryRun, true);
@@ -365,8 +380,6 @@ await t('NEAR only: EVM sends refused while EVM_ENABLED is off; building quotes 
   // the default wallet wasm has no request_signature: the server must never call it with EVM off
   const { sendEvm } = await import('../src/wallet.ts');
   await assert.rejects(sendEvm({ contract: 'x.testnet' } as any, 8453, '0x1111111111111111111111111111111111111111', 1n), /EVM_ENABLED is off/);
-  const { pickDesk } = await import('../src/agent.ts');
-  assert.equal(pickDesk(undefined, 'I need a quote for a new kitchen'), 'wallet', 'the AI on the wallet desk declines; never the business desk');
 });
 await t('wallet: Chain Signatures derivation matches the MPC contract (known vector)', async () => {
   const { deriveEthAddress, nearKeyToHex } = await import('../src/eth.ts');

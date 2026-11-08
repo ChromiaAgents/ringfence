@@ -6,11 +6,11 @@ Repo: https://github.com/ChromiaAgents/ringfence (private, branch `main`).
 
 ## What it is
 
-A phone agent for the NEAR hackathon (deadline 14 Nov 2026, 23:59 UTC). People call or message one WhatsApp number, or call from the browser. The first thing they say picks a desk:
-
-- **Launch desk.** It talks them through a memecoin. At the end it sends a link where they sign the launch on meme.cooking with their own NEAR wallet. The server never holds keys or funds.
-- **Business desk.** A sample builder. It quotes jobs from a description or a photo, books a visit, and takes a deposit in any token through NEAR Intents.
-- **Owner desk.** The owner's number can say "owner ..." to change the business rules by voice, inside hard limits.
+A phone agent for the NEAR hackathon (deadline 14 Nov 2026, 23:59 UTC). People call or message one WhatsApp number, or call from the browser, and talk to one agent, Ringfence. The AI decides every reply and action; the "desks" below are now just the code behind its tools:
+- **Wallet tools.** Pay by voice from a phone wallet (PIN, limits, WhatsApp Approve), balance, "how much did I spend".
+- **Launch tools.** It talks them through a memecoin. At the end it sends a link where they sign the launch with their own NEAR wallet. The server never holds keys or funds.
+- **Business desk.** A sample builder (quotes, bookings, deposits). Its tools are no longer given to the agent; the AI declines building quotes.
+- **Owner tools.** On the owner's number (and the dashboard settings box) the agent also gets the tools to change the business rules, inside hard limits.
 
 ## How it runs
 
@@ -119,7 +119,7 @@ Tan's `.env` already has these filled in:
 | `NETWORK` | `testnet` or `mainnet`. Mainnet means real launches and a real-money phone wallet (Base). Don't switch without Tan. |
 | `PUBLIC_URL` | **Change this** to your host's URL. |
 | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | The token needs replacing (see above). The app secret checks webhook signatures; requests that don't match get 401. |
-| `OWNER_WHATSAPP` | Tan's number. It reaches the owner desk with "owner ...". |
+| `OWNER_WHATSAPP` | Tan's number. On that number the agent also has the owner settings tools. |
 | `OWNER_NEAR_ACCOUNT` | The mainnet account that receives deposits. |
 | `DASHBOARD_PASSWORD` | Basic auth for `/dashboard`, `/api/state` and `/api/owner`. |
 
@@ -153,10 +153,10 @@ These are optional and empty on purpose:
 | Path | What |
 | --- | --- |
 | `server.ts` | HTTP server and warm-up. It loads Kokoro and the fillers and fetches the attestations at boot. |
-| `src/agent.ts` | Desk router, voice persona, streamed tool loop, filler and goodbye handling. |
+| `src/agent.ts` | One agent: one prompt, all tools (desks are tool providers), streamed tool loop, filler skip, `end_call`. |
 | `src/desks/{launch,business,owner,wallet}.ts` | Each desk's prompt and tools. The rules are enforced here in code. |
 | `src/memory.ts` | Caller memory by phone number: a recap of earlier calls, and an unfinished coin draft resumes. |
-| `src/whatsapp.ts` | Webhook, message handling, WebRTC calls, turn detection, interrupting, hang-up. |
+| `src/whatsapp.ts` | Webhook, message handling, WebRTC calls, turn detection, interrupting, hang-up when the AI calls `end_call`. |
 | `src/voice.ts`, `app/call.ts` | The browser call. |
 | `src/ai.ts` | NEAR AI streaming chat, attestation and signature checks, speech-to-text. |
 | `src/tts.ts`, `src/tts-worker.ts` | Kokoro in a worker thread; strips emoji and markdown before speaking. |

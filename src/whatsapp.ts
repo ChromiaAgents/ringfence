@@ -1,4 +1,4 @@
-// WhatsApp: callers ring (or text, or send a photo to) one number; the router hands them to a desk.
+// WhatsApp: callers ring (or text, or send a photo to) one number and talk to the one Ringfence agent.
 // Calls are WebRTC (ICE + DTLS-SRTP, Opus) signalled through Graph API webhooks.
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -84,7 +84,7 @@ async function onMessage(m: any) {
   if (m.type === 'text') { const r = await onboard(m.from, m.text.body); if (r) return sendText(m.from, r); }
   let callId = chats.get(m.from);
   if (!callId) {
-    // Everyone gets the router; the owner's number can also say "owner ..." to reach the settings desk.
+    // Everyone gets the same agent; on the owner's number it also has the settings tools.
     const { call, greeting } = startCall('whatsapp', m.from);
     call.isOwner = isOwner(m.from);
     callId = call.id;
@@ -96,7 +96,10 @@ async function onMessage(m: any) {
     return sendText(m.from, 'Fresh start. Say hi, or tell me what you need.');
   }
   if (m.type === 'image') return sendText(m.from, await photo(callId, await media(m.image.id)));
-  sendText(m.from, await reply(callId, m.text.body));
+  let ended = false;
+  const say = await reply(callId, m.text.body, { onEndCall: () => (ended = true) });
+  if (ended) { chats.delete(m.from); endCall(callId); } // the AI closed the conversation: the next text starts fresh
+  sendText(m.from, say);
 }
 
 // Graph API media: look up the short-lived URL, then download with the same token. Kept on this machine only.
@@ -113,8 +116,6 @@ async function media(mediaId: string): Promise<Buffer> {
 
 type Live = { pc: RTCPeerConnection; callId: string; stop: () => void; say?: (s: string) => void };
 const live = new Map<string, Live>();
-
-const BYE = /\b(bye|goodbye|see you|that's all|that is all|hang up|gotta go|talk later|cheers mate)\b/i;
 
 async function onCallEvent(c: any) {
   // Meta may omit `from` for some callers; fall back to other id fields and log which keys arrived.
@@ -191,10 +192,10 @@ async function onCallEvent(c: any) {
     if (!text || text.length < 2 || isFiller(text)) return;
     line.ackSoon();
     try {
-      await reply(call.id, text, { signal, timing, onSentence: (s) => line.say(s), onSlowTool: () => line.filler('draw') });
+      let hangUp = false;
+      await reply(call.id, text, { signal, timing, onSentence: (s) => line.say(s), onSlowTool: () => line.filler('draw'), onEndCall: () => (hangUp = true) });
       await line.end(`wa ${call.id}`);
-      const last = call.turns.filter((t) => t.who === 'agent').at(-1)?.text ?? '';
-      if (BYE.test(text) || /\b(bye|goodbye|take care)\b/i.test(last)) { // let the goodbye finish playing, then hang up
+      if (hangUp) { // the AI called end_call: let the goodbye finish playing, then hang up
         while (audio.busy()) await new Promise((r) => setTimeout(r, 100));
         await new Promise((r) => setTimeout(r, 400));
         await graph(`${env.waPhoneId}/calls`, { messaging_product: 'whatsapp', call_id: c.id, action: 'terminate' }).catch(console.error);

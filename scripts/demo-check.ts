@@ -1,5 +1,5 @@
 // Headless smoke test of the no-key path: starts the built server with MOCK_LLM=1 and no .env, walks one launch,
-// a declined building quote and a wallet dry run over the browser-call WebSocket (typed fallback), and checks the pages render.
+// a declined building quote, a wallet dry run, a spend summary and an AI-ended call over the browser-call WebSocket (typed fallback), and checks the pages render.
 //   npm run demo:check   (builds first; prints PASS/FAIL per step; exit 1 on any failure; stops the server)
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
@@ -37,12 +37,14 @@ async function call(desk: string, lines: string[]) {
   const ws = new WebSocket(`ws://localhost:${PORT}/ws/call?desk=${desk}`);
   const said: string[] = [];
   let link: { url: string; label: string } | null = null;
+  let hangup = false;
   let done: (() => void) | null = null;
   ws.on('message', (d, bin) => {
     if (bin) return;
     const m = JSON.parse(String(d));
     if (m.type === 'agent') said.push(m.text);
     if (m.type === 'link') link = m;
+    if (m.type === 'hangup') hangup = true;
     if (m.type === 'error') said.push('[error] ' + m.text);
     if (m.type === 'desk') done?.();
   });
@@ -55,7 +57,7 @@ async function call(desk: string, lines: string[]) {
     });
   }
   ws.close();
-  return { said, link: link as { url: string; label: string } | null };
+  return { said, hangup, link: link as { url: string; label: string } | null };
 }
 
 try {
@@ -96,8 +98,8 @@ try {
     return `$${api.params.symbol} on ${api.launchpad} (${api.network}), ${api.status}, logo: ${api.logoModel}; nothing signed`;
   });
 
-  await step('building quotes are not offered: the router declines instead of opening the business desk', async () => {
-    const r = await call('business', ['I need a new kitchen, can you quote it?']);
+  await step('out of scope: the AI declines a building quote (no canned line, no business tools)', async () => {
+    const r = await call('auto', ['I need a new kitchen, can you quote it?']);
     must(r.said.some((s) => /don't do building quotes/i.test(s)), 'no polite decline: ' + r.said.join(' | '));
     must(!r.link, 'a link was sent');
     return r.said.at(-1);
@@ -147,6 +149,12 @@ try {
   await step('wallet desk: "how much did I spend?" lists recent transfers', async () => {
     const r = await call('wallet&from=15550001234', ['how much did I spend?']);
     must(r.said.some((s) => /liho dot testnet/.test(s) && /dry run/i.test(s)), 'no spend summary: ' + r.said.join(' | '));
+  });
+  await step('the AI ends the call: "thanks, bye" -> goodbye, end_call, hangup event to the page', async () => {
+    const r = await call('auto', ['that is all, thanks, bye']);
+    must(r.hangup, 'no hangup event: ' + r.said.join(' | '));
+    must(r.said.some((s) => /bye/i.test(s)), 'no goodbye: ' + r.said.join(' | '));
+    return r.said.at(-1);
   });
   await step('/wallet/claim page renders', async () => { const r = await get('/wallet/claim'); must(r.status === 200 && /Claim your phone wallet/i.test(r.text), `status ${r.status}`); });
   await step('/wallet/bind page renders', async () => { const r = await get('/wallet/bind'); must(r.status === 200 && /phone number is a wallet/i.test(r.text), `status ${r.status}`); });

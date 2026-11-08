@@ -2,8 +2,7 @@
 // and the WhatsApp webhook (which starts WebRTC calls). Mounted on the same HTTP server as the UI.
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { WebSocketServer } from 'ws';
-import { isFiller, startCall, reply, endCall, photo, DESKS } from './agent.ts';
-import type { Desk } from './store.ts';
+import { isFiller, startCall, reply, endCall, photo, linkOf } from './agent.ts';
 import { transcribe } from './ai.ts';
 import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
@@ -39,16 +38,16 @@ export function attachVoice(server: Server) {
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
   });
   wss.on('connection', (ws, req: IncomingMessage) => {
-    // ?desk=launch picks the desk up front (the business desk is no longer offered to callers); without it the router asks. The owner desk is not reachable from here.
+    // One agent for every call; ?desk=launch only labels the call. The owner's tools are never reachable from here.
     const sp = new URL(req.url ?? '/', 'http://x').searchParams, q = sp.get('desk');
     // ?from= stands in for a WhatsApp number in the keyless demo only (MOCK_LLM=1, no keys); a real browser call has no number.
     const from = env.mockLlm && devServer() ? sp.get('from') ?? undefined : undefined; // never with real keys
-    const { call, greeting } = startCall('web', from, q === 'launch' || (q === 'wallet' && from) ? (q as Desk) : undefined);
+    const { call, greeting } = startCall('web', from, q === 'launch' ? 'launch' : undefined);
     const line = voiceLine((pcm, rate) => { if (ws.readyState === 1) ws.send(wav(pcm, rate)); });
     const sendLink = () => {
-      const l = call.desk ? DESKS[call.desk].link?.(call) : null;
+      const l = linkOf(call);
       if (l) ws.send(JSON.stringify({ type: 'link', ...l }));
-      ws.send(JSON.stringify({ type: 'desk', desk: call.desk ?? null })); // last: marks the end of the turn
+      ws.send(JSON.stringify({ type: 'desk', desk: call.desk ?? 'agent' })); // last: marks the end of the turn
     };
     const hooks = (signal: AbortSignal, timing: any) => ({
       signal, timing,
@@ -87,7 +86,9 @@ export function attachVoice(server: Server) {
         if (!text || text.length < 2 || isFiller(text)) return;
         ws.send(JSON.stringify({ type: 'caller', text }));
         line.ackSoon();
-        await reply(call.id, text, hooks(signal, timing));
+        let hangUp = false;
+        await reply(call.id, text, { ...hooks(signal, timing), onEndCall: () => (hangUp = true) });
+        if (hangUp) ws.send(JSON.stringify({ type: 'hangup' })); // the AI called end_call: the page hangs up once the goodbye has played
         sendLink();
         await line.end(call.id);
       } catch (e: any) {

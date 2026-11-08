@@ -1,9 +1,7 @@
-// One engine, several desks. The runtime (history, tool loop, TEE-signed replies, output filter) is shared;
-// each desk brings its own config file, prompt and tools, and its rules live in those tools' code.
-import { mkdirSync, writeFileSync } from 'node:fs';
+// One agent, Ringfence. The AI decides every reply and every action; the desks are only tool providers:
+// each brings its prompt section, tools, and the code that enforces its rules (PIN, limits, launch checks, filters).
 import { chat, type Msg } from './ai.ts';
 import { sentenceSplitter } from './speech.ts';
-import { describePhoto } from './image.ts';
 import { db, save, id, log, type Call, type Desk, type Timing } from './store.ts';
 import { recap, resume, isKnown } from './memory.ts';
 import type { DeskDef } from './desks/types.ts';
@@ -14,31 +12,27 @@ import { walletDesk, takePin } from './desks/wallet.ts';
 
 export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, business: businessDesk, owner: ownerDesk, wallet: walletDesk };
 
-export const ROUTER_GREETING = 'Hi, this is Ringfence. Want to send money, or launch a coin?';
-/** Building quotes are not offered on the line any more (the business desk's code stays, unreachable from callers). */
-export const NOT_OFFERED = "Sorry, we don't do building quotes or bookings. I can send NEAR for you, check your balance, or help you launch a coin.";
+/** The only fixed line: said the moment the call picks up. Everything after it is the AI's. */
+export const GREETING = 'Hi, this is Ringfence. How can I help?';
 
-/** Picks a desk from what the caller says first. Plain keywords, so the choice is predictable and testable.
- *  Building work is recognised only to say it is not offered: callers are never routed to the business desk. */
-/** Which desk answers this turn. Never null: unclear speech goes to the wallet desk, where the AI replies. */
-export function pickDesk(current: Desk | undefined, text: string, isOwner = false): Desk {
-  const picked = isOwner && /\b(owner|my rules|settings)\b/i.test(text) ? 'owner' : route(text);
-  if (!current) return picked === 'launch' || picked === 'owner' ? picked : 'wallet';
-  if (current === 'wallet' && picked === 'launch') return 'launch';
-  if (current === 'launch' && /\b(send|transfer|pay)\w*\s+[\d.]+/i.test(text)) return 'wallet';
-  return current;
-}
+/** The AI ends the call itself, after saying goodbye. The channel hangs up once the goodbye has played. */
+const END_CALL = { type: 'function', function: { name: 'end_call', description: 'Hang up. Call it only after you have said a short goodbye and the caller is done.', parameters: { type: 'object', properties: {} } } };
 
-export function route(text: string): Desk | 'not_offered' | null {
-  const t = text.toLowerCase();
-  // An amount to send is always the wallet desk.
-  if (/\b(send|transfer|pay)\w*\s+[\d.]+/.test(t)) return 'wallet';
-  if (/\b(kitchen|bathroom|extension|repair\w*|build\w*|builders?|roof\w*|plumb\w*|leak\w*|tiles?|quotes?|renovat\w*|loft|wall|floor\w*|window|door|paint\w*|job|house|flat|booking|book)\b/.test(t)) return 'not_offered';
-  if (/\b(meme ?coins?|coins?|tokens?|tickers?|launch\w*|meme\.?cooking|memes?|pump|degen|crypto)\b/.test(t)) return 'launch';
-  // Plain words people use for paying ("I'm sending money", "pay my son", "balance").
-  if (/\b(send\w*|sent|transfer\w*|pay|paying|payment|money|funds?|cash|balance|wallet|near|spen[dt]\w*)\b/.test(t)) return 'wallet';
-  return null;
-}
+/** The desks the AI may use on this call. The owner's settings tools only exist on the owner's own line. */
+const desksFor = (call: Call): DeskDef[] => [walletDesk, launchDesk, ...(call.isOwner ? [ownerDesk] : [])];
+const nameOf = (t: any): string => t.function?.name;
+/** One agent, every tool: the wallet and launch tools (+ owner tools for the owner) and end_call. */
+export const toolsFor = (call: Call): unknown[] => [...desksFor(call).flatMap((d) => d.tools), END_CALL];
+/** Which desk's code runs a tool. Null for end_call and for anything not offered on this call (e.g. owner tools to a caller). */
+export const deskOfTool = (call: Call, name: string): DeskDef | null => desksFor(call).find((d) => d.tools.some((t) => nameOf(t) === name)) ?? null;
+/** Every desk filter runs on every sentence (the launch desk's no-promised-returns filter above all). */
+const filterAll = (text: string) => {
+  for (const d of [walletDesk, launchDesk, ownerDesk]) { const f = d.filter?.(text); if (f?.hit) return f; }
+  return { text };
+};
+const linksOf = (call: Call) => Object.values(DESKS).map((d) => d.link?.(call)).filter((l): l is { url: string; label: string } => !!l);
+/** The newest link for the caller (launch page, deposit page), if any. */
+export const linkOf = (call: Call) => (call.desk ? DESKS[call.desk].link?.(call) : null) ?? linksOf(call).at(-1) ?? null;
 
 // ---- hooks for channels (WhatsApp sends links as messages) ----
 type LinkHook = (call: Call, link: { url: string; label: string }) => void;
@@ -48,31 +42,43 @@ export const setOnLink = (f: LinkHook) => (onLink = f);
 // Qwen3: /no_think (plus enable_thinking:false in the request) skips the reasoning pass; any <think> left is stripped.
 const VOICE = `
 How you talk: you're on a live phone call, so sound like a relaxed, warm human, not an assistant. Use contractions and casual words ("yeah", "nice", "got it", "oh fun"), react to what they said before moving on, and vary how you start sentences. One or two short sentences, under 25 words. No lists, markdown, emojis, or "great question".
-Keep the conversation moving: remember everything they've said and never ask for something you already have. If they say "you decide", "anything", or "whatever", make the choice yourself, say what you picked, and move on. If they hesitate or only say "um", wait for them: reply with something tiny like "take your time" at most. If you didn't catch something, say so once and guess. Never use emoji or symbols: everything you write is spoken aloud. When they say bye or they're done, say a short warm goodbye in a few words; the call then ends by itself.`;
-const sys = (d: Desk, call: Call) => `${DESKS[d].system(call)}\n${VOICE}${recap(call)}\n/no_think`;
+Keep the conversation moving: remember everything they've said and never ask for something you already have. If they say "you decide", "anything", or "whatever", make the choice yourself, say what you picked, and move on. If they hesitate or only say "um", wait for them: reply with something tiny like "take your time" at most. If you didn't catch something, say so once and guess. Never use emoji or symbols: everything you write is spoken aloud. When they say bye or they're done, say a short warm goodbye in a few words, then call end_call.`;
+
+/** One system prompt for the whole call: what Ringfence does, each part's rules, and the caller's memory. */
+export function system(call: Call): string {
+  return `You are Ringfence, a voice agent on NEAR. You decide every reply and every action yourself. You can:
+- pay by voice from the caller's phone wallet, check their balance, and answer "how much did I spend";
+- launch a memecoin they sign with their own wallet;
+- help them get a wallet: on WhatsApp they text "create a wallet" for a custodial demo wallet with a PIN; with their own NEAR wallet they bind their number at ringfence dot evalengine dot ai slash wallet slash bind, and they can take a custodial wallet over at slash wallet slash claim.
+Politely decline anything else (no building quotes, bookings, financial advice or general chat beyond a friendly word) and say what you can do instead. Callers can switch between paying and a coin launch at any time.
+
+Paying:
+${walletDesk.system(call)}
+
+Launching a coin:
+${launchDesk.system(call)}${call.isOwner ? `\n\nOwner settings (this caller is the owner):\n${ownerDesk.system(call)}` : ''}
+${VOICE}${recap(call)}
+/no_think`;
+}
+const sys = system;
 
 const histories = new Map<string, Msg[]>();
 
+/** desk only labels the call up front (the dashboard's owner line passes 'owner', which also makes it an owner call). */
 export function startCall(channel: Call['channel'], from?: string, desk?: Desk): { call: Call; greeting: string } {
   const call: Call = { id: id(), channel, desk, from, startedAt: Date.now(), turns: [] };
+  if (desk === 'owner') call.isOwner = true;
   db.calls.push(call);
   const back = desk ? null : resume(call);
-  // A returning caller with a coin in progress goes straight back to the launch desk.
-  if (back) desk = call.desk = 'launch';
+  // A returning caller with a coin in progress: the greeting offers to pick it up.
+  if (back) call.desk = 'launch';
   const greeting = back
     ? `Hey, welcome back! Want to pick up ${back.ticker ?? back.name}, or start something new?`
-    : desk ? DESKS[desk].greeting() : isKnown(call) ? 'Hey, good to hear from you again. Sending money, or a coin today?' : ROUTER_GREETING;
+    : desk === 'owner' ? ownerDesk.greeting() : isKnown(call) ? 'Hey, good to hear from you again. How can I help?' : GREETING;
   call.turns.push({ at: Date.now(), who: 'agent', text: greeting });
-  histories.set(call.id, desk ? [{ role: 'system', content: sys(desk, call) }, { role: 'assistant', content: greeting }] : []);
+  histories.set(call.id, [{ role: 'system', content: '' }, { role: 'assistant', content: greeting }]);
   save();
   return { call, greeting };
-}
-
-function enterDesk(call: Call, desk: Desk) {
-  call.desk = desk;
-  const h = histories.get(call.id)!;
-  h.splice(0, h.length, { role: 'system', content: sys(desk, call) }, { role: 'assistant', content: ROUTER_GREETING });
-  call.turns.push({ at: Date.now(), who: 'tool', text: `routed to the ${desk} desk` });
 }
 
 /** Live-call hooks: each sentence is handed over as soon as it is complete (and filtered), so speech starts early. */
@@ -83,6 +89,8 @@ export type ReplyOpts = {
   signal?: AbortSignal;
   /** Filled in here (firstTokenMs, llmMs) and by the channel (sttMs, firstAudioMs, totalMs); stored on the agent turn. */
   timing?: Timing;
+  /** The AI called end_call: hang up once this reply has been heard. */
+  onEndCall?: () => void;
 };
 const SLOW_TOOLS = new Set(['make_logo']);
 
@@ -97,22 +105,18 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   const timing = o.timing;
   const t0 = timing?.start ?? Date.now();
   // A PIN for a waiting transfer is taken here: the model, transcript and logs only ever see "[PIN]".
-  if (call.desk === 'wallet' && takePin(call.id, text)) text = '[PIN]';
+  if (takePin(call.id, text)) text = '[PIN]';
   call.turns.push({ at: Date.now(), who: 'caller', text });
-  // The AI answers every turn: keywords only pick the desk. Anything unclear goes to the wallet desk (the main product),
-  // whose prompt can steer to a coin launch; a later 'launch a coin' switches desks mid-call.
-  const next = pickDesk(call.desk, text, !!call.isOwner);
-  if (next !== call.desk) enterDesk(call, next);
-  const desk = DESKS[call.desk!];
-  h[0] = { role: 'system', content: sys(call.desk!, call) }; // pick up config changes mid-call
+  h[0] = { role: 'system', content: sys(call) }; // pick up config changes (and isOwner) mid-call
   h.push({ role: 'user', content: text });
-  const before = desk.link?.(call)?.url;
+  const tools = toolsFor(call);
+  const before = new Set(linksOf(call).map((l) => l.url));
   const said: string[] = [];
-  const split = sentenceSplitter(desk.filter, (hit, s) =>
-    log({ kind: 'filtered', desk: desk.id, callId: call.id, detail: `reply said "${hit}" in "${s}"; replaced before it was spoken` }));
+  const split = sentenceSplitter(filterAll, (hit, s) =>
+    log({ kind: 'filtered', desk: call.desk, callId: call.id, detail: `reply said "${hit}" in "${s}"; replaced before it was spoken` }));
   const emit = (xs: string[]) => { for (const x of xs) { said.push(x); if (!o.signal?.aborted) o.onSentence?.(x); } };
   for (let step = 0; step < 6; step++) {
-    const { msg, proof } = await chat(h, desk.tools, undefined, {
+    const { msg, proof } = await chat(h, tools, undefined, {
       signal: o.signal,
       onText: (d) => { if (timing && timing.firstTokenMs == null) timing.firstTokenMs = Date.now() - t0; emit(split.push(d)); },
     });
@@ -123,7 +127,14 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
         let args: any = {};
         try { args = JSON.parse(tc.function.arguments || '{}'); } catch {}
         if (SLOW_TOOLS.has(tc.function.name)) o.onSlowTool?.(tc.function.name);
-        const out = await desk.run(call, tc.function.name, args).catch((e) => ({ ok: false, reason: String(e.message) }));
+        const name = tc.function.name, desk = deskOfTool(call, name);
+        let out: unknown;
+        if (name === 'end_call') { o.onEndCall?.(); out = { ok: true, note: 'The line hangs up after you finish speaking.' }; }
+        else if (!desk) out = { error: 'unknown tool' };
+        else {
+          call.desk = desk.id; // the dashboard label: the last tool family used
+          out = await desk.run(call, name, args).catch((e) => ({ ok: false, reason: String(e.message) }));
+        }
         call.turns.push({ at: Date.now(), who: 'tool', text: `${tc.function.name}(${tc.function.name === 'confirm_transfer' ? '{"pin":"****"}' : JSON.stringify(args)}) → ${JSON.stringify(out)}`, proof });
         h.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(out) });
       }
@@ -133,8 +144,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
     if (timing) timing.llmMs = Date.now() - t0;
     call.turns.push({ at: Date.now(), who: 'agent', text: say, proof, timing });
     save();
-    const link = desk.link?.(call);
-    if (link && link.url !== before) onLink?.(call, link);
+    for (const link of linksOf(call)) if (!before.has(link.url)) onLink?.(call, link);
     return say;
   }
   save();
@@ -143,21 +153,9 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   return sorry;
 }
 
-/** A photo: callers no longer reach the business desk (the only desk that used photos), so this declines politely. */
-export async function photo(callId: string, img: Buffer, o: ReplyOpts = {}): Promise<string> {
-  const call = db.calls.find((c) => c.id === callId);
-  if (!call) throw new Error('no such call');
-  // Photos only ever fed the building-quote desk, which callers no longer reach.
-  if (call.desk !== 'business') { const m = call.desk === 'launch' ? 'For a coin launch, just describe the logo you want.' : 'I can’t use photos on this line. I can send NEAR, check your balance, or launch a coin.'; o.onSentence?.(m); call.turns.push({ at: Date.now(), who: 'agent', text: m }); save(); return m; }
-  mkdirSync('data/photos', { recursive: true });
-  const file = `data/photos/${call.id}-${id()}.jpg`;
-  writeFileSync(file, img);
-  (call.photos ??= []).push(file);
-  o.onSlowTool?.('photo');
-  const { text, proof } = await describePhoto(img);
-  call.turns.push({ at: Date.now(), who: 'tool', text: `photo → ${text}`, proof });
-  log({ kind: 'photo', desk: 'business', callId: call.id, detail: text.slice(0, 200) });
-  return reply(callId, `[Photo] ${text}`, o);
+/** A photo: nothing on this line uses photos any more, so the AI is told one arrived and answers as it sees fit. */
+export async function photo(callId: string, _img: Buffer, o: ReplyOpts = {}): Promise<string> {
+  return reply(callId, '[The caller sent a photo. This line cannot look at photos.]', o);
 }
 
 export function endCall(callId: string) {

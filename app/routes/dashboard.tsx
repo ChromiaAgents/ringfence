@@ -137,7 +137,7 @@ function Dashboard() {
               <div className="card">
                 {calls.length ? <ul className="calls">{calls.slice(0, 8).map((c) => (
                   <li key={c.id}><button className={c.id === call?.id ? 'on' : ''} onClick={() => setOpen(c.id)}>
-                    <span>{time(c.startedAt)} · {c.desk ?? 'routing'} · {c.caller?.name ?? (c.channel === 'whatsapp' ? c.from : c.channel === 'dashboard' ? 'Owner' : 'Browser')}</span>
+                    <span>{time(c.startedAt)} · {c.desk ?? 'agent'} · {c.caller?.name ?? (c.channel === 'whatsapp' ? c.from : c.channel === 'dashboard' ? 'Owner' : 'Browser')}</span>
                     <span className="muted">{c.endedAt ? `${c.turns.length} turns` : 'live'}</span>
                   </button></li>
                 ))}</ul> : <p className="none">None yet.</p>}

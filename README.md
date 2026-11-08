@@ -33,7 +33,7 @@ Over a limit, or to a recipient not on your saved list: the agent says so and gi
 
 **Also works for** (same line, same limits on the AI): a voice front end to the JustHoot coin launchpad ("Launch a coin called Sleepy Otter, ticker ZZZ": rules in code, then a page you sign in your own wallet).
 
-**Not offered: building quotes.** An earlier sample builder's desk (quotes from a photo, bookings, deposits through NEAR Intents) is still in the code (`src/desks/business.ts`, `owner.yaml`, `/pay/:jobId`), but the router no longer sends callers there: asking for a quote gets a polite "we don't do building quotes", and photos are declined.
+**Not offered: building quotes.** An earlier sample builder's desk (quotes from a photo, bookings, deposits through NEAR Intents) is still in the code (`src/desks/business.ts`, `owner.yaml`, `/pay/:jobId`), but its tools are not given to the agent: asked for a quote, the AI itself politely declines, and it tells callers it can't use photos.
 
 ## Trust model
 
@@ -65,7 +65,8 @@ npm run demo:check    # offline: starts the built server with MOCK_LLM=1 and no 
 PASS  server starts with MOCK_LLM=1, no .env, no key  (port …)
 PASS  launch desk: refuses ticker NEAR, then prepares a launch over the call socket  (http://localhost:…/launch/…)
 PASS  launch page renders (/launch/:id) with the agreed terms  ($ZZOTR on justhoot (mainnet), prepared, logo: drawn locally; nothing signed)
-PASS  building quotes are not offered: the router declines instead of opening the business desk  (Sorry, we don't do building quotes or bookings. …)
+PASS  out of scope: the AI declines a building quote (no canned line, no business tools)  (I can send NEAR for you, or help you launch a coin.)
+PASS  the AI ends the call: "thanks, bye" -> goodbye, end_call, hangup event to the page  (Bye!)
 PASS  ledger records the refusal and the launch  (4 entries)
 PASS  wallet desk: send 0.1 NEAR to liho.testnet, read back, PIN, dry run (no agent key)  (stopped before signing: DRY RUN)
 PASS  wallet desk: 0.3 NEAR asks for the WhatsApp Approve tap; a simulated button reply executes it (dry run)
@@ -77,7 +78,7 @@ PASS  /wallet/bind page renders
 PASS  dashboard and /proof pages render
 ```
 
-To click through it yourself: `MOCK_LLM=1 npm start` (add `TTS=off` to skip downloading the local Kokoro voice, about 90 MB), open `http://localhost:8787`, pick a desk, press **Call**, and type into the call box. In mock mode the model is replaced by a small keyword script (`mockStep` in `src/ai.ts`) that makes the same tool calls a model would; the tools, rules, pages and ledger are the real ones. Type these lines:
+To click through it yourself: `MOCK_LLM=1 npm start` (add `TTS=off` to skip downloading the local Kokoro voice, about 90 MB), open `http://localhost:8787`, press **Call**, and type into the call box. In mock mode the model is replaced by a small keyword script (`mockStep` in `src/ai.ts`) that makes the same tool calls a model would; the tools, rules, pages and ledger are the real ones. Type these lines:
 
 | Desk | Type | You should see |
 | --- | --- | --- |
@@ -111,7 +112,7 @@ With network but still no key: `npm run attest` verifies the TEE attestation of 
 | Business pricing, discount cap, deposits from `owner.yaml` | `src/desks/business.ts` `priceFor` | `npm test` (business pricing rules); `npm run demo:check` step 4 |
 | Deposit in any token, settled to USDC through NEAR Intents 1Click (`EXACT_OUTPUT`) | `src/pay.ts`; `app/routes/pay.$jobId.tsx` | `npm run test:quote` (dry quotes from Base USDC, Solana SOL, wNEAR) |
 | Owner changes rules by talking, inside hard bounds; YAML rewritten with comments kept | `src/desks/owner.ts` `planChange`, `applyDiff` | `npm test` (owner desk bounds + write) |
-| Desk router and returning-caller memory | `src/agent.ts` `route`; `src/memory.ts` | `npm test` (router, returning caller) |
+| One agent (all tools, dispatch to desk code, end_call) and returning-caller memory | `src/agent.ts` `toolsFor` / `deskOfTool`; `src/memory.ts` | `npm test` (one agent, returning caller) |
 | TEE attestation: Intel TDX quote signature + TCB status, key+nonce in report_data, NVIDIA GPUs via NRAS | `src/ai.ts` `attest`, `verifyIntelQuote`, `verifyGpu` | `npm run attest` (no key); `/proof`; `/api/proof?fresh=1` |
 | Every chat/vision reply's signature recovered and matched to the attested key (built; live check pending) | `src/ai.ts` `chat`, `verifyLater` | Needs `NEARAI_API_KEY`: call, then see **TEE-signed** badges on `/dashboard` |
 | Photo → job scope by a vision model in a TEE; photo stays on this server | `src/image.ts` `describePhoto`; `src/agent.ts` `photo` | Needs key: **Photo** button on the business desk |
@@ -138,7 +139,7 @@ Bind your NEAR account (`.near` on mainnet, `.testnet` on testnet, per `NETWORK`
 1. `/wallet/bind`: connect your NEAR wallet (or follow "No wallet? Create one in Meteor"), get a 6-digit code on WhatsApp, set a PIN (stored only as a salted scrypt hash), edit the limits, then sign one plain function call: `create_wallet(phone_hash, owner = you, agent, near_limit, new_recipient_delay_sec)` on the factory (`FACTORY_ACCOUNT_ID`, ringfence-wallet.near), attaching 0.013 NEAR. It creates `<12 hex>.ringfence-wallet.near` on the phone-wallet global contract. Works in any wallet, including implicit accounts. **Guardian option**: "Set up for someone else" makes your wallet the owner and your family member's WhatsApp the phone; the code goes to their phone and they read it out. Nothing runs until you sign.
    - **No wallet at all (built, dry run until keys are set):** text "create a wallet" to the WhatsApp number. The agent explains it's a demo custodial wallet (capped, unaudited), you reply with a 4-digit PIN (answered outside the agent, never logged), and the server calls `create_wallet` with owner = `CUSTODY_ACCOUNT_ID`. Without `CUSTODY_PRIVATE_KEY` this is a labelled DRY RUN. Caps: spends stop above `CUSTODIAL_MAX_NEAR` (5) NEAR, at most `CUSTODIAL_DAILY_CAP` (20) wallets a day.
    - **Claim (built, not run on chain):** `/wallet/claim`: connect your wallet, verify a WhatsApp code to the bound number; custody calls `propose_owner(you)`, you sign `accept_owner`. After that the server marks the wallet non-custodial and never uses the custody key on it.
-2. On a call the router sends "send / transfer / balance / wallet" to the **wallet desk** (`src/desks/wallet.ts`): `get_balance`, `prepare_transfer({to, amount, asset})` (reads back), `confirm_transfer({pin})`. `asset` is `near` or a chain name (`base`, `ethereum`, `arbitrum`, `optimism`, `polygon`, `bnb`, `avalanche`); plain "ETH" gets "which chain?". The PIN is checked against the hash; 3 wrong tries lock it for 15 minutes; the PIN is blanked from the stored transcript and the tool log.
+2. On a call the agent uses the **wallet tools** (`src/desks/wallet.ts`) when the caller wants to pay: `get_balance`, `prepare_transfer({to, amount, asset})` (reads back), `confirm_transfer({pin})`. `asset` is `near` or a chain name (`base`, `ethereum`, `arbitrum`, `optimism`, `polygon`, `bnb`, `avalanche`); plain "ETH" gets "which chain?". The PIN is checked against the hash; 3 wrong tries lock it for 15 minutes; the PIN is blanked from the stored transcript and the tool log.
 3. With the PIN right, the server calls your contract with the agent key (`near-api-js`): `transfer_near` for NEAR, `request_signature` for EVM chains.
 4. **Confirmation tiers (built, tested offline):** up to `SMALL_LIMIT` (0.2 NEAR) to a saved recipient: spoken PIN. Larger, still within limits: a WhatsApp interactive message with [Approve] [Reject] goes to the wallet's bound phone (amount, recipient, daily limit left; single use, expires in 120 s), also for browser calls; on Approve the server executes and the agent on the call says so. Reject pauses all spends from that wallet on the server for 15 minutes (owner-only `freeze` is not available to the agent key) and, for a custodial wallet, also calls `freeze` on chain with the custody key. Over a limit or to a new recipient: the agent texts a link (`/wallet/send`) to sign it in your own wallet. With the default 0.2 NEAR per-transfer limit, the Approve tier only appears once the owner raises it.
 5. "How much did I spend?": today's spend vs the daily limit from the contract, and the last 5 transfers from the ledger.
@@ -206,7 +207,7 @@ Bind first on `/wallet/bind` (see [Phone wallet](#phone-wallet-your-phone-number
 
 ### Building quotes: not offered
 
-Say "I need a new kitchen" on the line: the router answers that building quotes are not offered and opens no desk. The old business desk and its owner settings line on `/dashboard` remain in the code for reference only.
+Say "I need a new kitchen" on the line: the AI answers that building quotes are not offered; it has no building tools. The old business desk and its owner settings line on `/dashboard` remain in the code for reference only.
 
 `/dashboard` shows both desks: calls with a **TEE-signed** badge on each verified reply, launches (prepared, live, failed), jobs and deposits, the ledger of every refusal and change, the rules, and the verified attestation of all four models. `/proof` shows the same attestation publicly, with every check.
 
@@ -258,7 +259,7 @@ Production: `npm run build && npm start`, or on a VPS with Docker/systemd + Cadd
 | `PUBLIC_URL` | Public URL of this server, used in launch and deposit links |
 | `PINATA_JWT` | Optional. Pins the coin's description and links to IPFS (the reference meme.cooking's app uses) |
 | `OWNER_NEAR_ACCOUNT` | Business desk (not offered to callers): mainnet account that receives USDC deposits |
-| `OWNER_WHATSAPP` | Business desk: the owner's number; it reaches the settings desk instead of the router |
+| `OWNER_WHATSAPP` | Business desk: the owner's number; on that number the agent also gets the owner settings tools |
 | `ONECLICK_JWT` | Optional 1Click partner JWT (without it 1Click adds a 0.2% fee) |
 | `DASHBOARD_PASSWORD` | Optional basic auth on `/dashboard`, `/api/state`, `/api/owner` |
 | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | WhatsApp Cloud API |
@@ -276,7 +277,7 @@ Production: `npm run build && npm start`, or on a VPS with Docker/systemd + Cadd
 
 - `contracts/phone-wallet`: the NEAR contract that holds the wallet and enforces limits.
 - `src/desks/wallet.ts`, `src/wallet.ts`, `src/eth.ts`, `src/chains.ts`: the wallet desk, PIN handling, agent calls, EVM transaction building, address derivation, chain registry.
-- `src/agent.ts`: the shared runtime: desk router (plain keywords on the first message, `?desk=` on the browser call, or the owner's number), tool loop, output filter, link hook, photo intake.
+- `src/agent.ts`: one agent, Ringfence. One system prompt; the AI decides every reply and action. Its tools are the wallet and launch tools (plus the owner's settings tools only on the owner's line) and `end_call`, each dispatched to the desk module that owns it (the desks are tool providers: PIN, limits, approvals, launch checks and the no-promised-returns filter stay in their code). Only the opening greeting is fixed text. The AI hangs up itself with `end_call` (WhatsApp terminates after the goodbye plays; the browser page gets a `hangup` event). Also: tool loop, output filter on every sentence, link hook.
 - `src/desks/launch.ts` + `launchpad.yaml`: launch rules (`checkTicker`, `checkName`, `checkAuction`, `checkTeam`, `filterClaims`), all re-checked at `prepare_launch`, kill switch.
 - `src/desks/business.ts` + `owner.yaml`: pricing (`priceFor`), refused work, kill switch.
 - `src/desks/owner.ts`: the settings line: `planChange` (hard bounds) → owner confirms → `applyDiff` rewrites `owner.yaml`, keeping comments and the `${OWNER_NEAR_ACCOUNT}` placeholder.

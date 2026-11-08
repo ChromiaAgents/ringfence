@@ -208,6 +208,7 @@ export function mockStep(messages: Msg[], tools: unknown[]): { name: string; arg
   const names = new Set((tools as any[]).map((t) => t.function?.name));
   const last = [...messages].reverse().find((m) => m.role === 'user');
   const u = last ? textOf(last) : '';
+  if (names.has('end_call') && /\b(bye|goodbye|that's all|hang up)\b/i.test(u)) return { name: 'end_call', args: {} };
   if (names.has('set_coin')) {
     if (/justhoot/i.test(u)) return { name: 'set_launchpad', args: { launchpad: 'justhoot' } };
     const c = u.match(/call it ([^,.]+?),?\s+ticker\s+\$?([A-Za-z0-9]+)/i);
@@ -243,17 +244,21 @@ function mockText(messages: Msg[], tools: unknown[] = []): string {
   const lastMsg = messages.at(-1);
   const names = new Set((tools as any[]).map((t) => t.function?.name));
   if (lastMsg?.role !== 'tool' && names.has('quote_job')) return 'Happy to help. What size is the job, and can I take your name and postcode?';
-  if (lastMsg?.role !== 'tool' && names.has('confirm_transfer')) return 'Who do you want to pay, and how much?';
-  // Launch desk: follow what the caller just said, not a global turn counter, so the coin's name and ticker are never skipped.
-  if (lastMsg?.role !== 'tool' && names.has('set_coin')) {
-    const said = messages.filter((m) => m.role === 'user').map(textOf).join(' ');
+  const said = messages.filter((m) => m.role === 'user').map(textOf).join(' ');
+  const u = lastMsg?.role === 'user' ? textOf(lastMsg) : '';
+  // One agent: a plain reply follows the conversation, as a model would.
+  if (lastMsg?.role !== 'tool' && /\b(quote|kitchen|bathroom|roof|builder|booking)\b/i.test(u))
+    return "Sorry, we don't do building quotes. I can send NEAR for you, or help you launch a coin.";
+  // Coin talk: follow what the caller just said, not a global turn counter, so the coin's name and ticker are never skipped.
+  if (lastMsg?.role !== 'tool' && names.has('set_coin') && /\b(coin|launch|meme\w*|ticker)\b/i.test(said))
     return /\babout\b/i.test(said) ? MOCK_REPLIES[1] : MOCK_REPLIES[0];
-  }
+  if (lastMsg?.role !== 'tool' && names.has('confirm_transfer')) return 'Who do you want to pay, and how much?';
   if (lastMsg?.role !== 'tool') return MOCK_REPLIES[mockTurn++ % MOCK_REPLIES.length];
   let out: any = {};
   try { out = JSON.parse(lastMsg.content); } catch {}
   const prev = messages.at(-2) as any;
   const tool = prev?.tool_calls?.[0]?.function?.name;
+  if (tool === 'end_call') return 'Thanks for calling, take care. Bye!';
   if (tool === 'set_coin' && out.ok !== false && !out.error) return 'Got it. Shall I set it up? Say yes and I’ll put the launch on your screen to check and sign.';
   if (out.ok === false && /^I still need/.test(out.reason ?? '')) return out.reason;
   if (out.ok === false || out.error) return `Sorry, I can't do that: ${out.reason ?? out.error}`;

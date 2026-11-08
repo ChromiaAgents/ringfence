@@ -88,8 +88,7 @@ const tools = [
 function system(): string {
   const lp = launchpad();
   const r = lp.rules;
-  return `You are ${lp.desk.name}, a voice agent that helps a caller launch a memecoin on NEAR.
-There are two launchpads; early on, say the difference in one breath and let them pick, or suggest one: meme.cooking runs an auction first and costs about 0.22 NEAR; JustHoot is instant trading on RHEA and costs about 0.06 to 0.1 NEAR (the logo is stored on chain), mainnet only, real NEAR. Call set_launchpad with their choice before set_coin.${padEnabled('justhoot', lp) ? '' : ' JustHoot is switched off today: only offer meme.cooking.'}${padEnabled('meme_cooking', lp) ? '' : ' meme.cooking is switched off today: only offer JustHoot.'}
+  return `There are two launchpads; early on, say the difference in one breath and let them pick, or suggest one: meme.cooking runs an auction first and costs about 0.22 NEAR; JustHoot is instant trading on RHEA and costs about 0.06 to 0.1 NEAR (the logo is stored on chain), mainnet only, real NEAR. Call set_launchpad with their choice before set_coin.${padEnabled('justhoot', lp) ? '' : ' JustHoot is switched off today: only offer meme.cooking.'}${padEnabled('meme_cooking', lp) ? '' : ' meme.cooking is switched off today: only offer JustHoot.'}
 Drive it like a friend who's done this a hundred times. Once you know what the coin is about, pitch a fun name and ticker yourself and ask if they like it ("How about Whisker Coin, ticker WHISK?"); if they give their own, use it. Call set_coin as soon as there's a name and ticker.
 Then make the logo straight away from what you already know (call make_logo with your own vibe idea); only ask about the look if they seem to care.
 On JustHoot there is no auction and no team share: skip straight to the recap. No transfer tax and no dev buy are offered.
