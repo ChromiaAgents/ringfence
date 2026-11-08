@@ -399,3 +399,20 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 /* the evalengine wordmark carries more padding in its viewBox than Chromia's: scale it up to match optically */
 .makers img[alt="evalengine"] { height: 30px; } .makers.lg img[alt="evalengine"] { height: 40px; }
 @media (max-width: 700px) { .dr .bar .makers img[alt="evalengine"] { height: 22px; } }
+
+/* ---------- QA fixes: header at tablet width, app brand rows and the footer on phones ---------- */
+.dr .bar .btn { white-space: nowrap; flex-shrink: 0; }
+@media (max-width: 1000px) { .dr .bar { gap: 20px; } .dr .bar .live { display: none; } }
+.app .brandrow { flex-wrap: wrap; gap: 12px 16px; }
+@media (max-width: 560px) {
+  .app .brandrow { margin-bottom: 24px; }
+  .app .brandrow .makers { margin-left: 0; order: 3; flex-basis: 100%; }
+  .app .brandrow .makers img { height: 18px; } .app .brandrow .makers img[alt="evalengine"] { height: 22px; }
+}
+.site-foot > * { min-width: 0; }
+@media (max-width: 700px) {
+  .site-foot { grid-template-columns: minmax(0, 1fr); padding: 0 16px 80px; }
+  .site-foot .r { text-align: left; }
+  .makers.lg img { height: 22px; } .makers.lg img[alt="evalengine"] { height: 28px; }
+}
+@media (max-width: 560px) { .dr .bar { flex-wrap: wrap; row-gap: 12px; } .dr .bar .makers { order: 3; flex-basis: 100%; } }

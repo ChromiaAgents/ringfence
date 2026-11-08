@@ -45,9 +45,9 @@ function Dashboard() {
   // Old test launches whose name or ticker the desk would now refuse stay in the DB but are not shown.
   const blocked = (l: Launch) => s.launchpad.blocked_tickers.includes(l.params.symbol.toUpperCase()) || s.launchpad.blocked_names.some((n) => `${l.params.name} ${l.params.symbol}`.toLowerCase().includes(n));
   const launches = s.launches.filter((l) => !blocked(l));
-  const calls = s.calls.filter((c) => desk === 'all' || c.desk === desk);
-  const ledger = s.ledger.filter((l) => desk === 'all' || l.desk === desk);
-  const paid = s.jobs.filter((j) => j.payment?.status === 'SUCCESS');
+  // The business (building-quote) desk is not offered any more: its old calls and ledger lines stay in the store but are not shown.
+  const calls = s.calls.filter((c) => c.desk !== 'business' && (desk === 'all' || c.desk === desk));
+  const ledger = s.ledger.filter((l) => l.desk !== 'business' && !['quote', 'booking', 'deposit_link', 'photo'].includes(l.kind) && (desk === 'all' || l.desk === desk));
   const refused = s.ledger.filter((l) => l.kind === 'refused' || l.kind === 'filtered');
   const call = calls.find((c) => c.id === open) ?? calls[0];
   const signed = call ? call.turns.filter((t) => t.who === 'agent' && t.proof?.status === 'verified').length : 0;
@@ -60,7 +60,6 @@ function Dashboard() {
         <nav aria-label="Sections">
           <a className="on" href="#overview">Overview</a>
           <a href="#launches">Launches</a>
-          <a href="#jobs">Jobs</a>
           <a href="#ledger">Ledger</a>
           <a href="#rules">Rules</a>
           <a href="#settings">Settings line</a>
@@ -75,7 +74,7 @@ function Dashboard() {
             <p className="muted">The last {s.calls.length} calls across the desks{err ? ` · ${err}` : ''}</p>
           </div>
           <div className="seg" role="radiogroup" aria-label="Filter by desk">
-            {(['all', 'launch', 'business', 'owner'] as const).map((k) => <button key={k} role="radio" aria-checked={desk === k} className={desk === k ? 'on' : ''} onClick={() => setDesk(k)}>{k === 'all' ? 'All desks' : k[0].toUpperCase() + k.slice(1)}</button>)}
+            {(['all', 'launch', 'owner'] as const).map((k) => <button key={k} role="radio" aria-checked={desk === k} className={desk === k ? 'on' : ''} onClick={() => setDesk(k)}>{k === 'all' ? 'All desks' : k[0].toUpperCase() + k.slice(1)}</button>)}
           </div>
         </div>
 
@@ -84,7 +83,6 @@ function Dashboard() {
             <section className="card kpis" aria-label="Totals">
               <div><div className="l">Calls</div><div className="v">{s.calls.length}</div><div className="c">{s.calls.filter((c) => !c.endedAt).length} live now</div></div>
               <div><div className="l">Launches</div><div className="v">{launches.length}</div><div className="c">{launches.filter((l) => l.status === 'live').length} live on meme.cooking</div></div>
-              <div><div className="l">Deposits paid</div><div className="v">{s.jobs.length ? usd(paid.reduce((n, j) => n + j.depositUsd, 0)) : '–'}</div><div className="c">{s.jobs.length ? `${paid.length} of ${s.jobs.length} jobs, in ${o.payout.asset_symbol}` : 'No jobs booked yet'}</div></div>
               <div><div className="l">Refused or filtered</div><div className="v">{refused.length}</div><div className="c">in the last {s.ledger.length} ledger lines</div></div>
             </section>
 
@@ -119,28 +117,8 @@ function Dashboard() {
               ) : <p className="none">No launches yet. Call the launch desk to prepare one.</p>}
             </section>
 
-            <section className="card" id="jobs" aria-labelledby="jh">
-              <div className="panelhead"><h2 id="jh">Jobs and deposits</h2><span className="muted" style={{ fontSize: 13 }}>{o.business.name} · {s.jobs.length} booked</span></div>
-              {s.jobs.length ? (
-                <div className="scroll"><table>
-                  <thead><tr><th>Customer</th><th>Job</th><th className="n">Quote</th><th className="n">Deposit</th><th>Payment</th></tr></thead>
-                  <tbody>{s.jobs.map((j) => (
-                    <tr key={j.id}>
-                      <td>{j.caller.name}<span className="sub">{j.caller.postcode} · {time(j.createdAt)}</span></td>
-                      <td>{j.serviceName}<span className="sub">{[j.preferredDate, j.notes].filter(Boolean).join(' · ') || '—'}</span></td>
-                      <td className="n">{usd(j.quotedUsd)}{j.discountPct ? <span className="sub">−{j.discountPct}%</span> : null}</td>
-                      <td className="n">{usd(j.depositUsd)}</td>
-                      <td>{j.payment
-                        ? <><span className={`pill ${j.payment.status === 'SUCCESS' ? 'ok' : /FAIL|REFUND|INCOMPLETE/.test(j.payment.status) ? 'warn' : 'wait'}`}>{PAYLABEL[j.payment.status] ?? j.payment.status}</span><span className="sub">{j.payment.originSymbol} on {j.payment.chain}</span></>
-                        : <><a href={`/pay/${j.id}`}>Link sent</a><span className="sub">not opened yet</span></>}</td>
-                    </tr>
-                  ))}</tbody>
-                </table></div>
-              ) : <p className="none">No visits booked yet.</p>}
-            </section>
-
             <section className="card" id="ledger" aria-labelledby="lh">
-              <div className="panelhead"><h2 id="lh">Ledger</h2><span className="muted" style={{ fontSize: 13 }}>Every refusal, launch, quote, rule change and payment</span></div>
+              <div className="panelhead"><h2 id="lh">Ledger</h2><span className="muted" style={{ fontSize: 13 }}>Every refusal, launch and rule change</span></div>
               {ledger.length ? (
                 <div className="scroll"><table className="ledger"><tbody>{ledger.slice(0, 40).map((l, i) => (
                   <tr key={i}><td>{time(l.at)}</td><td><span className={`pill ${l.kind === 'refused' || l.kind === 'filtered' ? 'warn' : l.kind === 'payment' || l.kind === 'launch_signed' || l.kind === 'rules_changed' ? 'ok' : ''}`}>{KIND[l.kind] ?? l.kind}</span><span className="sub">{l.desk ?? ''}</span></td><td>{l.detail}</td></tr>
@@ -176,11 +154,6 @@ function Dashboard() {
                 <div className="row"><span>Auction</span><b>{lr.duration_min_minutes} min to {lr.duration_max_minutes / 60} h</b></div>
                 <div className="row"><span>Soft cap</span><b>{lr.soft_cap_min_near}–{lr.soft_cap_max_near} NEAR</b></div>
                 <div className="row"><span>Team share</span><b>≤ {lr.max_team_allocation_pct}%, cliff ≥ {lr.min_cliff_days} d, vest ≥ {lr.min_vesting_days} d</b></div>
-                <div className="row"><span>Max discount</span><b>{o.rules.max_discount_pct}%</b></div>
-                <div className="row"><span>Deposit</span><b>{o.rules.deposit_pct}% ({usd(o.rules.min_deposit_usd)}–{usd(o.rules.max_deposit_usd)})</b></div>
-                <div className="row"><span>Work refused</span><b>{(o.rules.refuse_work ?? []).join(', ') || 'None'}</b></div>
-                <div className="row"><span>Business kill switch</span>{o.rules.kill_switch ? <span className="pill warn">On: messages only</span> : <b>Off</b>}</div>
-                <div className="row"><span>Payout</span><b style={{ wordBreak: 'break-all', textAlign: 'right' }}>{o.payout.asset_symbol} to {o.payout.recipient || 'not set'}</b></div>
               </div>
             </section>
 
@@ -216,7 +189,7 @@ function OwnerDesk() {
   return (
     <div className="card ownerdesk">
       <div className="transcript">
-        {lines.length ? lines.map((l, i) => <div key={i} className={`bubble ${l.who}`}>{l.text}</div>) : <p className="muted" style={{ margin: 0 }}>Change the business rules by saying it, for example “max 15% off and no roofs”. You confirm the diff before owner.yaml changes.</p>}
+        {lines.length ? lines.map((l, i) => <div key={i} className={`bubble ${l.who}`}>{l.text}</div>) : <p className="muted" style={{ margin: 0 }}>Change the rules by saying it. You hear the diff and confirm it before anything changes.</p>}
       </div>
       <form className="typed" onSubmit={(e) => { e.preventDefault(); if (text.trim()) { send(text.trim()); setText(''); } }}>
         <label className="vh" htmlFor="ownerline">Tell the settings line what to change</label>

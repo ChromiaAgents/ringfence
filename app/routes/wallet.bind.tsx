@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
 import walletCss from '../styles/wallet-modal.css?url';
-import { Wordmark } from '../ui';
+import { Makers, Wordmark } from '../ui';
 import { useNearWallet } from '../near-wallet';
 
 const getCfg = createServerFn({ method: 'GET' }).handler(async () => {
@@ -60,7 +60,7 @@ function Bind() {
 
   return (
     <main className="app pay">
-      <div className="brandrow"><Wordmark /><span className="pill wait">NEAR {cfg.network}</span></div>
+      <div className="brandrow"><Wordmark /><Makers /><span className="pill wait">NEAR {cfg.network}</span></div>
       <h1>Your phone number is a wallet</h1>
       <p className="err" role="note"><b>Unaudited prototype: keep small amounts.</b> The phone-wallet contract has not been audited.{cfg.network === 'mainnet' ? ' This is NEAR mainnet: real money.' : ''}</p>
 

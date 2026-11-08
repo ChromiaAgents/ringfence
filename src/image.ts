@@ -24,7 +24,7 @@ export async function generateLogo(vibe: string, name: string): Promise<{ icon: 
 
 /** Fallback when the image model is unavailable (no key, outage): a plain sticker coin drawn here, labelled as such. */
 export async function drawLogo(ticker: string) {
-  const fills = ['#FFB500', '#93F091', '#CC91F0', '#FFB0C2'];
+  const fills = ['#00EC97', '#93F091', '#CC91F0', '#FFB0C2'];
   const fill = fills[[...ticker].reduce((n, c) => n + c.charCodeAt(0), 0) % fills.length];
   const t = ticker.replace(/[^A-Z0-9]/g, '').slice(0, 8);
   const size = t.length <= 3 ? 64 : t.length <= 5 ? 46 : 32;
