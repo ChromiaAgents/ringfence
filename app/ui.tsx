@@ -9,9 +9,23 @@ export const Phone = () => (
 
 export function Wordmark({ href = '/' }: { href?: string }) {
   return (
-    <a className="wordmark" href={href} aria-label="Ringfence home">
-      <span className="dot"><Phone /></span>Ringfence
-    </a>
+    <a className="wordmark" href={href}>Ringfence</a>
+  );
+}
+
+export const CODE_URL = 'https://github.com/ChromiaAgents/ringfence';
+
+// The site footer: picture credits (the landing page passes them), links, year and licence.
+export function SiteFooter({ credits }: { credits?: ReactNode }) {
+  return (
+    <>
+      {credits && <p className="site-credits">{credits}</p>}
+      <footer className="site-foot">
+        <span>Ringfence, a NEAR hackathon entry</span>
+        <nav aria-label="Site"><a href="/#call">Try a call</a><a href="/proof">Proof</a><a href="/wallet/bind">Bind your number</a><a href="/dashboard">Dashboard</a><a href={CODE_URL}>Code</a></nav>
+        <span className="r">2026 · MIT licence</span>
+      </footer>
+    </>
   );
 }
 

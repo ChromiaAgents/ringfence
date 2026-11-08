@@ -1,356 +1,461 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { useCall, type Desk } from '../call';
-import { Coin, Phone, Wordmark, usd } from '../ui';
+import { CODE_URL, Phone, SiteFooter, Wordmark } from '../ui';
 
-// What the page needs from both desks' config files, read on the server.
-const getDesks = createServerFn({ method: 'GET' }).handler(async () => {
-  const { owner, launchpad, env } = await import('../../src/config.ts');
-  const o = owner(), lp = launchpad();
-  return { business: o.business, rules: o.rules, kitchen: o.services.find((s) => s.id === 'kitchen') ?? o.services[0], launch: lp.rules, network: env.network, blockedCount: lp.blocked_tickers.length + lp.blocked_names.length };
+// What the page needs from the config, read on the server.
+const getInfo = createServerFn({ method: 'GET' }).handler(async () => {
+  const { owner, env } = await import('../../src/config.ts');
+  return { business: owner().business.name, network: env.network };
 });
-type D = Awaited<ReturnType<typeof getDesks>>;
 
 export const Route = createFileRoute('/')({
-  loader: () => getDesks(),
-  head: () => ({ meta: [{ title: 'Ringfence: your phone number is a crypto wallet' }, { name: 'description', content: 'Call one number and say what you want: send NEAR or ETH on Base. Confirm with a spoken PIN. A NEAR contract you own sets the spending limits, and the AI cannot change them.' }] }),
+  loader: () => getInfo(),
+  head: () => ({ meta: [{ title: 'Ringfence: call to pay, inside your limits' }, { name: 'description', content: 'Call one number and say "send 0.5 NEAR to alice.near". Confirm with a spoken PIN. A NEAR contract you own decides what the AI may spend, on NEAR and Base.' }] }),
   component: Landing,
 });
 
+const WA_URL = 'https://wa.me/15551444220?text=hi';
+const WA_NOTE = 'WhatsApp runs on Meta’s test number for now: ask us to add your number. The browser call works for everyone.';
+const i = (n: number) => ({ '--i': n }) as CSSProperties;
+
 const TRY: Record<Desk | 'auto', string[]> = {
-  auto: ['Send 0.5 NEAR to alice.near.', 'What is my balance?', 'I want to launch a memecoin.', 'My bathroom tap is leaking.'],
-  launch: ['It’s a coin about a sleepy otter.', 'Call it Sleepy Otter, ticker ZZZ.', 'Make the ticker NEAR.', 'Will it 100x?', 'Logo vibe: an otter asleep on a pillow.', 'Yes, set it up.'],
-  business: ['Hi, I need a new kitchen.', 'Medium size, white units.', "I'm Sam, postcode E8 3QP.", 'Can you do 30% off?', 'OK, book it for Tuesday.'],
+  auto: ['Send 0.5 NEAR to alice.near.', 'What is my balance?', 'I want to launch a memecoin.', 'I need a new kitchen.'],
+  launch: ['It’s a coin about a sleepy otter.', 'Call it Sleepy Otter, ticker ZZZ.', 'Make the ticker NEAR.', 'Yes, set it up.'],
+  business: ['Hi, I need a new kitchen.', 'Medium size, white units.', 'Can you do 30% off?', 'OK, book it for Tuesday.'],
 };
-const DESK_LABEL: Record<Desk | 'auto', string> = { auto: 'Let it ask', launch: 'Launch', business: 'Business' };
+const DESK_LABEL: Record<Desk | 'auto', string> = { auto: 'Let it ask', launch: 'Launch a coin', business: 'Builder' };
 
 function Landing() {
   const d = Route.useLoaderData();
-  const [pick, setPick] = useState<Desk | 'auto'>('auto');
-  const call = useCall(pick);
-  const [typed, setTyped] = useState('');
-  const logRef = useRef<HTMLDivElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { logRef.current?.scrollTo(0, 1e9); }, [call.lines]);
   useReveal();
-  const active = call.desk === 'launch' || call.desk === 'business' ? call.desk : pick;
-  const kitchen = Math.round(d.kitchen.from_usd + (d.kitchen.to_usd - d.kitchen.from_usd) * 0.5);
-
   return (
-    <>
+    <div className="dr">
       <header className="hero">
-        <div className="topbar">
-          <span className="left">Spending limits on NEAR. AI in sealed hardware.</span>
+        <nav className="bar rise" aria-label="Ringfence">
           <Wordmark />
-          <a className="right" href="/dashboard">Dashboard</a>
-        </div>
-        <h1>Your phone number is a crypto wallet</h1>
-        <p className="sub">Call from WhatsApp or the browser and say “send 0.5 NEAR to alice.near” or “send 0.0001 ETH on Base to 0x…”. Confirm with a spoken PIN and it’s sent, but only within limits set in a NEAR contract you own. Worst case, even if we the operator misbehave: your daily cap, and you can revoke us in one transaction. Nothing has been signed on chain yet; this page runs a labelled dry run.</p>
+          <span className="live">Live: browser call</span>
+          <span className="sp" />
+          <a className="code" href={CODE_URL}>Code</a>
+          <a className="btn" href="#call" onClick={tryCall}>Try a call</a>
+        </nav>
 
-        <div className="folders">
-          <a className="folder f1" href="#wallet"><span className="tab">Phone wallet</span></a>
-          <a className="folder f2" href="#launch"><span className="tab">Launch a coin</span></a>
-          <a className="folder f3" href="#business"><span className="tab">Builder quotes</span></a>
-          <section className="folder front" id="call" aria-labelledby="call-h">
-            <span className="tab">Call now</span>
-            <div className="call">
-              <div>
-                <div className="desks" role="radiogroup" aria-label="Which desk">
-                  {(['auto', 'launch', 'business'] as const).map((k) => (
-                    <button key={k} role="radio" aria-checked={pick === k} className={pick === k ? 'on' : ''} disabled={call.live} onClick={() => setPick(k)}>{DESK_LABEL[k]}</button>
-                  ))}
-                </div>
-                <div className="dial">
-                  <button className={`mic stk${call.live ? ' end' : ''}`} onClick={call.live ? call.stop : call.start}>
-                    <Phone />{call.live ? 'Hang up' : 'Call'}
-                  </button>
-                  <p className={`state${call.live ? ' on' : ''}`} aria-live="polite"><i />{call.state}</p>
-                </div>
-                <h2 id="call-h">{active === 'launch' ? 'Launch a coin by talking' : active === 'business' ? `Ring ${d.business.name}` : 'Say what you need'}</h2>
-                <p className="who">{active === 'launch'
-                  ? 'It runs you through name, ticker and logo on JustHoot, then sends a page you sign with your own wallet. JustHoot is mainnet only and costs real NEAR.'
-                  : active === 'business'
-                    ? `A sample building firm in ${d.business.area}. Describe the job or send a photo of it.`
-                    : 'The first thing you say picks the desk: send money, launch a coin, or building work. Here, without an agent key, sends are a labelled dry run. Speak, or type if you have no mic.'}</p>
-                <div className="calltry">
-                  <b>Things to say</b>
-                  <div className="chips">
-                    {TRY[active].map((t) => (
-                      <button key={t} className="chip" onClick={() => (call.live ? call.say(t) : setTyped(t))}>{t}</button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div>
-                <div className="phone" data-ui>
-                  <div className="head"><b>Live transcript</b><span>{call.desk ? `${call.desk} desk` : 'Speech and replies run in sealed hardware'}</span></div>
-                  <div className="log" ref={logRef} aria-live="polite">
-                    {call.lines.length === 0 && <p className="empty">Press Call. The greeting arrives in a second or two, spoken and written here.</p>}
-                    {call.lines.map((l, i) => <div key={i} className={`bubble ${l.who}`}>{l.text}</div>)}
-                  </div>
-                  <form className="typed" onSubmit={(e) => { e.preventDefault(); if (call.say(typed)) setTyped(''); }}>
-                    <label className="vh" htmlFor="typed">Type instead of speaking</label>
-                    <input id="typed" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={call.live ? 'Type instead of speaking' : 'Start the call first'} autoComplete="off" />
-                    {active !== 'launch' && (
-                      <>
-                        <input ref={fileRef} className="vh" type="file" accept="image/*" tabIndex={-1} aria-hidden="true" onChange={(e) => { const f = e.target.files?.[0]; if (f) call.sendPhoto(f); e.target.value = ''; }} />
-                        <button type="button" className="btn small white" disabled={!call.live} onClick={() => fileRef.current?.click()}>Photo</button>
-                      </>
-                    )}
-                    <button className="btn small ink" disabled={!call.live}>Send</button>
-                  </form>
-                </div>
-                {call.link && (
-                  <div className="deposit stk">
-                    <p>{call.desk === 'launch' ? 'Your launch is ready to check and sign.' : call.desk === 'business' ? 'Visit booked. The deposit link is ready.' : 'Sign this one in your own wallet.'}</p>
-                    <a className="btn ink small" href={call.link.url} target="_blank" rel="noreferrer">{call.link.label}</a>
-                  </div>
-                )}
+        <div className="title">
+          <h1 className="rise">Call to pay. Your contract caps the AI.</h1>
+          <div className="lede">
+            <p className="rise" style={i(1)}>Say “send 0.5 NEAR to alice.near” on a call. An AI reads it back and takes your spoken PIN, and a NEAR contract you own decides what it may spend, on NEAR and Base.</p>
+            <p className="worst rise" style={i(2)}><b>Worst case, even if we misbehave:</b> your daily limit, to saved recipients; a new one waits 600 s and you can cancel it. One <code>revoke_agent</code> ends it.</p>
+            <div className="acts rise" style={i(3)}>
+              <a className="btn" href="#call" onClick={tryCall}>Try a call in your browser</a>
+              <a className="btn ghost" href={WA_URL} target="_blank" rel="noopener">Message on WhatsApp</a>
+            </div>
+            <p className="wa-note rise" style={i(4)}>{WA_NOTE}</p>
+          </div>
+        </div>
+
+        <div className="sheet">
+          <div className="run c2 rise">
+            <span className="cap">The call</span>
+            <LiveCall network={d.network} business={d.business} />
+          </div>
+          <div className="run c1 rise" style={i(2)}>
+            <span className="cap">Your PIN</span>
+            <Keypad />
+          </div>
+          <div className="run c2 rise" style={i(3)}>
+            <span className="cap">Your contract, example day</span>
+            <div data-ui>
+              <div className="ui-head"><b>phone.you.near</b><span className="muted">mainnet defaults</span></div>
+              <div className="ui-body">
+                <Meter label="This transfer" value="0.5 of 1 NEAR" w={50} />
+                <Meter label="Today" value="1.5 of 3 NEAR" w={50} gold />
+                <div className="kv"><span>Base, per transfer / day</span><span>0.0005 / 0.002 ETH</span></div>
+                <div className="kv"><span>New recipients</span><span>you sign; contract holds 600 s</span></div>
+                <div className="kv"><span>Owner can</span><span>withdraw, revoke_agent</span></div>
               </div>
             </div>
-          </section>
+          </div>
+          <div className="run c2 rise" style={i(4)}>
+            <span className="cap">Base, read from the bytes</span>
+            <div data-ui>
+              <div className="ui-head"><b>Unsigned EIP-1559 transfer</b><span className="muted">checked</span></div>
+              <div className="ui-body">
+                <div className="kv"><span>Chain id</span><span>8453, Base, allowed</span></div>
+                <div className="kv"><span>To</span><span>0x1111…2222</span></div>
+                <div className="kv"><span>Value</span><span>0.0001 of 0.0005 ETH</span></div>
+                <div className="kv"><span>Calldata, access list</span><span>none</span></div>
+                <div className="kv"><span>Then</span><span className="ok">Chain Signatures signs</span></div>
+              </div>
+            </div>
+          </div>
         </div>
       </header>
 
       <main>
-        <section className="field how" id="wallet">
-          <div className="grow">
-            <div className="heading reveal">
-              <h2>Your phone wallet</h2>
-              <p className="lead">Bind your NEAR account to your number once. Then send NEAR, or ETH on Base, by voice. The AI asks for the transfer; a NEAR contract you own decides if it is allowed.</p>
-            </div>
-            <div className="stage s1 reveal">
-              <div className="tile">
-                <div className="frag" data-ui>
-                  <div className="bubble caller" style={{ maxWidth: '100%', animation: 'none' }}>Send 0.0001 ETH on Base to 0x1111…2222.</div>
-                  <div className="bubble agent" style={{ maxWidth: '100%', marginTop: 8, animation: 'none' }}>0.0001 ETH on Base to address 0x1111 ending 2222. Say your PIN to confirm.</div>
-                </div>
-              </div>
-              <h3>It reads it back</h3>
-              <p>Amount, asset, chain and recipient, out loud. You confirm with a 4-digit PIN. The PIN is stored only as a salted hash, and 3 wrong tries lock it for 15 minutes.</p>
-            </div>
-            <div className="stage s2 reveal">
-              <div className="tile">
-                <div className="frag" data-ui>
-                  <div className="row"><b>transfer_near</b><span className="pill warn">Refused</span></div>
-                  <div className="row"><span>Asked</span><b>5 NEAR</b></div>
-                  <div className="row"><span>Your limit</span><b>1 per transfer, 3 per day</b></div>
-                  <div className="row"><span>New recipient</span><b>Waits 600 s</b></div>
-                </div>
-              </div>
-              <h3>The contract says no</h3>
-              <p>Limits per transfer and per day for each asset, a list of allowed chains and saved recipients, and a wait for new ones, all in a NEAR contract. Over a limit, you get a link to sign it yourself.</p>
-            </div>
-            <div className="stage s3 reveal">
-              <div className="tile">
-                <div className="frag" data-ui>
-                  <div className="row"><span>Your EVM address</span><b>Same on every EVM chain</b></div>
-                  <div className="row"><span>Signed by</span><b>NEAR Chain Signatures</b></div>
-                  <div className="row"><span>Checked first</span><b>Chain, recipient, amount</b></div>
-                  <div className="row"><span>On by default</span><b>Base</b></div>
-                </div>
-              </div>
-              <h3>One address on Base and other Ethereum-style chains</h3>
-              <p>Before NEAR signs, the contract checks the transaction itself: chain, recipient and amount. So only what you heard read back can be signed, and the operator can’t exceed your caps either. Base is on at bind; you allow other chains yourself. Bitcoin and Solana are not supported.</p>
-            </div>
+        <section className="say-sec" id="say" aria-labelledby="say-h">
+          <figure className="rise">
+            <video autoPlay muted loop playsInline poster="/media/rotary-dial-dialing-back-with-leds-poster.jpg" width={1280} height={720} aria-label="A rotary dial turning back after a digit">
+              <source src="/media/rotary-dial-dialing-back-with-leds.webm" type="video/webm" />
+            </video>
+            <figcaption>A rotary dial returning after each digit.</figcaption>
+          </figure>
+          <div className="txt">
+            <h2 id="say-h" className="rise">Things to say on the line</h2>
+            <ul>
+              {SAY.map(([t, s], n) => <li key={t} className="rise" style={i(n + 1)}>{t}<span>{s}</span></li>)}
+            </ul>
           </div>
         </section>
 
-        <section className="field how" id="launch">
-          <div className="grow">
-            <div className="heading reveal">
-              <h2>Also works for: launching a coin</h2>
-              <p className="lead">Talk a coin onto JustHoot: one call creates the coin and makes it tradable on RHEA, a NEAR exchange. The model asks the questions, code decides what is allowed, and you sign. It adds voice to JustHoot, an existing launchpad.</p>
-            </div>
-            <div className="stage s1 reveal">
-              <div className="tile">
-                <div className="frag" data-ui>
-                  <div className="bubble caller" style={{ maxWidth: '100%', animation: 'none' }}>Call it Sleepy Otter, ticker ZZZ.</div>
-                  <div className="bubble agent" style={{ maxWidth: '100%', marginTop: 8, animation: 'none' }}>Nice. What vibe for the logo? <span className="pill ok">Verified private AI</span></div>
-                </div>
-              </div>
-              <h3>It asks</h3>
-              <p>Coin, name, ticker, logo vibe, socials. One question at a time, then it reads the lot back.</p>
-            </div>
-            <div className="stage s2 reveal">
-              <div className="tile">
-                <div className="frag" data-ui>
-                  <div className="row"><b>set_coin</b><span className="pill warn">Refused</span></div>
-                  <div className="row"><span>Ticker</span><b>$NEAR</b></div>
-                  <div className="row"><span>Rule</span><b>Existing asset</b></div>
-                                  </div>
-              </div>
-              <h3>It refuses</h3>
-              <p>No tickers of real assets, no brands or celebrities ({d.blockedCount} on the list), and no promises that the coin will go up. Every refusal is logged.</p>
-            </div>
-            <div className="stage s3 reveal">
-              <div className="tile">
-                <Coin className="hero-coin" label="ZZZ" />
-                <div className="frag" data-ui>
-                  <div className="row"><span>Sleepy Otter · $ZZZ</span><span className="pill wait">Waiting for you</span></div>
-                  <div className="row"><span>Pool</span><b>RHEA, from the first block</b></div>
-                  <div className="row"><span>Cost</span><b>Asked from the contract</b></div>
-                  <div className="row"><span>Signed by</span><b>Your wallet, not ours</b></div>
-                </div>
-              </div>
-              <h3>You sign</h3>
-              <p>A link arrives in the call. It shows the logo, the terms and the exact NEAR cost (about 0.1 NEAR, read from the contract). You sign one transaction with Meteor, HOT, Intear or MyNearWallet.</p>
-            </div>
+        <Stages />
+        <Fence />
+
+        <section className="proof" id="proof" aria-label="Proof">
+          <div className="names rise">
+            <h2>It runs on</h2>
+            <ul>{['NEAR', 'Chain Signatures', 'NEAR AI Cloud', 'Intel TDX', 'NVIDIA NRAS', 'Base'].map((n) => <li key={n}>{n}</li>)}</ul>
           </div>
+          <Evidence />
         </section>
 
-        <Ticker />
-
-        <section className="field how biz" id="business">
-          <div className="grow">
-            <div className="heading reveal">
-              <h2>Also works for: builder quotes</h2>
-              <p className="lead">Same line, a builder’s rules. The customer sends a photo of the job, and the owner sets the rules by talking.</p>
-            </div>
-            <div className="stage s1 reveal">
-              <div className="tile photo">
-                <img src="/img/elwood-street-highbury.jpg" alt="A Victorian end-of-terrace house on Elwood Street, Highbury" width="1050" height="1400" loading="lazy" />
-                <div className="frag" data-ui>
-                  <div className="row"><b>Photo</b><span className="pill ok">Read in a TEE</span></div>
-                  <p style={{ margin: '6px 0 0' }}>Bathroom, cracked tiles behind a dripping tap. Looks small.</p>
-                </div>
-              </div>
-              <h3>Photo to quote</h3>
-              <p>An AI running in sealed hardware describes the job. The photo stays on this server.</p>
-            </div>
-            <div className="stage s2 reveal">
-              <div className="tile photo">
-                <img src="/img/claw-hammer.jpg" alt="A claw hammer on a wooden plank" width="1400" height="1050" loading="lazy" />
-                <div className="frag" data-ui>
-                  <div className="row"><b>quote_job</b><span className="pill warn">Refused</span></div>
-                  <div className="row"><span>Kitchen, medium, 30% off</span><span>{usd(kitchen)}</span></div>
-                  <div className="row"><span>Owner’s limit</span><b>Max {d.rules.max_discount_pct}% off</b></div>
-                </div>
-              </div>
-              <h3>Prices come from code</h3>
-              <p>Discounts, deposits and refused work live in owner.yaml. Customers can pay the deposit in almost any token. NEAR Intents converts it and the owner receives USDC on NEAR.</p>
-            </div>
-            <div className="stage s3 reveal">
-              <div className="tile photo">
-                <img src="/img/kenwood-house-scaffolded.jpg" alt="Kenwood House in Hampstead wrapped in scaffolding" width="1400" height="787" loading="lazy" />
-                <div className="frag" data-ui>
-                  <div className="bubble caller" style={{ maxWidth: '100%', animation: 'none' }}>Max 15% off from now, and no roofs.</div>
-                  <div className="row" style={{ marginTop: 8 }}><span>max discount</span><b>{d.rules.max_discount_pct} → 15</b></div>
-                  <div className="row"><span>work refused</span><b>+ roofs</b></div>
-                  <div className="row"><span>Hard bounds</span><b>0–30% off, 10–50% deposit</b></div>
-                </div>
-              </div>
-              <h3>The owner talks, the file changes</h3>
-              <p>From the owner’s WhatsApp or the dashboard. The agent proposes the change, code checks it stays within fixed limits, the owner says yes, and owner.yaml is rewritten.</p>
-            </div>
-          </div>
+        <section className="faq" id="faq" aria-labelledby="faq-h">
+          <h2 id="faq-h" className="rise">Fair questions</h2>
+          <dl>
+            {FAQ.map(([q, a]) => <Qa key={q} q={q} a={a} />)}
+          </dl>
         </section>
 
-        <div className="band" aria-hidden="true">
-          <div className="track">
-            {[0, 1].map((n) => (
-              <span key={n}>
-                {['NEAR smart contracts', 'Chain Signatures', 'Base', 'NEAR AI Cloud', 'Intel TDX', 'NVIDIA confidential GPUs', 'Qwen', 'Whisper', 'JustHoot', 'Wallet Selector', 'NEAR Intents', 'WhatsApp calls'].map((t) => <span key={t}>{t}</span>)}
-              </span>
-            ))}
+        <section className="cta" aria-labelledby="cta-h">
+          <div className="say">
+            <h2 id="cta-h" className="rise">Open the line in your browser and ask it to send 0.5 NEAR.</h2>
+            <div className="acts rise" style={i(1)}>
+              <a className="btn" href="#call" onClick={tryCall}>Try a call</a>
+              <a className="btn ghost" href={WA_URL} target="_blank" rel="noopener">Message on WhatsApp</a>
+              <a href="/proof">Read the proof</a>
+            </div>
+            <p className="wa-note rise" style={i(2)}>{WA_NOTE}</p>
           </div>
-        </div>
-        <section className="runs reveal">
-          <h2>What a call runs on</h2>
-          <p>Your voice and photos are processed in sealed hardware on NEAR AI Cloud (trusted execution environments, or TEEs). We check its proof live; see /proof. Checking the signature on each chat and photo reply is built, but the live check is still pending.</p><p>Your spending limits live in a NEAR contract you own, so neither the AI nor we can go past them.</p><p>Sends on Base are signed by NEAR Chain Signatures, after the contract has checked the transaction.</p><p>Known limits: this app server is not itself in sealed hardware, Cartesia (if used as the voice) hears reply text, and on WhatsApp Meta sees call metadata.</p>
-        </section>
-
-        <section className="field faq" id="questions">
-          <div className="qhead">
-            <h2>Fair questions</h2>
-            <figure>
-              <img src="/img/mozart-terrace.jpg" alt="Mozart Terrace on Ebury Road, Belgravia: brick terraced houses with green shutters" width="1400" height="1050" loading="lazy" />
-              <figcaption>Mozart Terrace, Ebury Road: the kind of street the sample building firm works on.</figcaption>
-            </figure>
-          </div>
-          <div className="list reveal">
-            {faq(d).map(([q, a], i) => (
-              <details key={q} name="faq" open={i === 0}>
-                <summary>{q}</summary>
-                <p>{a}</p>
-              </details>
-            ))}
-          </div>
+          <figure className="rise" style={i(2)}><img src="/media/concourse.jpg" width={1600} height={1000} alt="A dark concourse with escalators rising toward lit glass" loading="lazy" /></figure>
         </section>
       </main>
 
-      <footer className="foot reveal">
-        <div className="t1"><p>Ringfence is a NEAR hackathon entry. The phone-wallet contract is unaudited: keep small amounts in it. The building firm is a sample set in owner.yaml.</p><small>MIT licence · 2026. Pictures: <a href="https://commons.wikimedia.org/w/index.php?curid=105321989">Elwood Street, Highbury</a> by Jim Osley (CC BY-SA 2.0); <a href="https://www.flickr.com/photos/159630537@N08/28918563378">claw hammer</a> by Homedust (CC BY 2.0); <a href="https://commons.wikimedia.org/w/index.php?curid=106415915">Kenwood House scaffolded</a> by Peter O'Connor (CC BY-SA 2.0); <a href="https://commons.wikimedia.org/w/index.php?curid=3581977">Mozart Terrace</a> by Oosoom (CC BY-SA 3.0).</small></div>
-        <div className="t2"><ul><li><a href="#call">Call now</a></li><li><a href="/wallet/bind">Bind your number</a></li><li><a href="#wallet">Phone wallet</a></li><li><a href="#launch">Launch a coin</a></li><li><a href="#ticker">Try a ticker</a></li><li><a href="#business">Builder quotes</a></li><li><a href="#questions">Questions</a></li></ul></div>
-        <div className="t3"><span>Network</span><b>{d.network}</b></div>
-        <div className="t4"><span>Memecoins are risky and most lose value. The launch desk never promises returns.</span><span>Rules in launchpad.yaml</span></div>
-        <div className="t5"><Wordmark /></div>
-        <a className="t6" href="/dashboard"><span>See every call and refusal</span>
-          <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="4" aria-hidden="true"><path d="M14 50 50 14M22 14h28v28" /></svg>
-        </a>
-      </footer>
-    </>
+      <SiteFooter credits={<>Pictures: “1940s N935 telephone exchange” by Rodhullandemu, <a href="https://commons.wikimedia.org/w/index.php?curid=66686359">CC BY-SA 4.0</a>; “WAC telephone switchboard operators” by PhotosNormandie, <a href="https://commons.wikimedia.org/w/index.php?curid=131249837">CC BY-SA 2.0</a>; “Rotary Dial, Dialing Back with LEDs” by Mark Fickett, <a href="https://commons.wikimedia.org/wiki/File:Rotary_Dial,_Dialing_Back_with_LEDs.ogv">CC BY 3.0</a>; concourse by Erez Attias, Unsplash licence. Type: Switzer by Indian Type Foundry.</>} />
+    </div>
   );
 }
 
-const faq = (d: D): [string, string][] => [
-  ['Can the AI empty my wallet?', 'No. Transfers go through a NEAR contract you own, which checks a limit per transfer and per day for each asset, the chains you allowed and your saved recipients. New recipients wait 600 seconds, and you can cancel. The AI can only ask; the contract decides.'],
-  ['Who holds the keys?', 'You own the contract and can always withdraw or revoke the agent. This server holds one agent key that can only call your contract. Being honest: we, the operator, could use it without your PIN, inside your limits. The PIN protects against someone else calling from your line, not against us. The contract is unaudited, so keep small amounts in it.'],
-  ['Who hears my PIN?', 'Speech-to-text and the language model, both inside NEAR AI TEEs. It is stored only as a salted hash and blanked from the saved transcript and tool log. Three wrong tries lock it for 15 minutes.'],
-  ['What if someone steals my number?', 'Your number alone cannot move money. Binding is signed by your NEAR account, and a SIM swap or a spoofed caller ID still needs your PIN. Three wrong tries lock it for 15 minutes, so trying every 4-digit PIN takes about 35 days, and even then only your daily cap, to your saved recipients, could move. Revoke the agent from your own wallet if you lose your phone.'],
-  ['Which chains?', 'NEAR, and Ethereum-style (EVM) chains through NEAR Chain Signatures. One address works on all of them. Base is on when you bind; you turn on others yourself. Bitcoin, Solana and ERC-20 tokens are not supported yet.'],
-  ['Can someone launch $NEAR or an Elon coin?', 'No. Tickers of real assets, brand and celebrity names, and tickers already on meme.cooking are refused in code before a launch can be prepared. Each refusal goes to the ledger on the dashboard. Replies that promise returns are replaced before they are spoken.'],
-  ['What does a launch cost?', 'JustHoot asks about 0.1 NEAR, read from its contract’s views, plus gas. JustHoot is mainnet only, so it is real NEAR whatever network this server is on. You see the cost before you sign.'],
-  ['Who sees my photo?', 'Qwen3-VL reads it in a TEE on NEAR AI Cloud. The photo is kept on this server only. This server verifies each enclave’s Intel TDX quote and NVIDIA GPU attestation (see /proof).'],
-  ['What doesn’t it do yet?', `Nothing has been signed on chain by this code yet: no real transfer, launch or deposit. On WhatsApp you can’t interrupt it while it speaks. With Cartesia as the voice, reply text goes to Cartesia, which is not a TEE. The attestation check does not yet compare enclave measurements to a published NEAR AI build. This server is on NEAR ${d.network}.`],
-];
+// "Try a call": bring the call card into view and start it (the click is the user gesture the mic prompt needs).
+function tryCall(e: MouseEvent) {
+  e.preventDefault();
+  const el = document.getElementById('call');
+  el?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+  el?.dispatchEvent(new CustomEvent('ringfence:start'));
+}
 
-// The launch desk's ticker rule as a headline you can type into. Same code as the set_coin tool.
-function Ticker() {
-  const [text, setText] = useState('$NEAR');
-  const [res, setRes] = useState<any>(null);
+const Meter = ({ label, value, w, gold }: { label: string; value: string; w: number; gold?: boolean }) => (
+  <div className="meter-row"><div className="lab"><span>{label}</span><span>{value}</span></div><div className="meter"><i className={gold ? 'gold' : ''} style={{ width: `${w}%` }} /></div></div>
+);
+
+// ---------- the real browser call (app/call.ts), in the dark-room card ----------
+function LiveCall({ network, business }: { network: string; business: string }) {
+  const [pick, setPick] = useState<Desk | 'auto'>('auto');
+  const call = useCall(pick);
+  const [typed, setTyped] = useState('');
+  const [secs, setSecs] = useState(0);
+  const logRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const startRef = useRef(call.start);
+  startRef.current = call.live ? async () => {} : call.start;
+  useEffect(() => { logRef.current?.scrollTo(0, 1e9); }, [call.lines, call.link]);
   useEffect(() => {
-    const c = new AbortController();
-    const t = setTimeout(() => {
-      fetch(`/api/ticker?ticker=${encodeURIComponent(text)}`, { signal: c.signal }).then((r) => r.json()).then(setRes).catch(() => {});
-    }, 200);
-    return () => { clearTimeout(t); c.abort(); };
-  }, [text]);
-  const r = res?.result;
+    const el = cardRef.current;
+    if (!el) return;
+    const go = () => startRef.current();
+    el.addEventListener('ringfence:start', go);
+    return () => el.removeEventListener('ringfence:start', go);
+  }, []);
+  useEffect(() => {
+    if (!call.live) return;
+    const t0 = Date.now();
+    setSecs(0);
+    const t = setInterval(() => setSecs(Math.floor((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [call.live]);
+  const active = call.desk === 'launch' || call.desk === 'business' ? call.desk : pick;
+  const clock = `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
+  const linkNote = call.desk === 'launch' ? 'Your launch is ready to check and sign.' : call.desk === 'business' ? 'Visit booked. The deposit link is ready.' : 'Sign this one in your own wallet.';
+
   return (
-    <section className="field haggle" id="ticker" aria-labelledby="ticker-h">
-      <h2 id="ticker-h" className="ask">Try to launch a ticker</h2>
-      <input id="ticker-in" aria-labelledby="ticker-h" data-ui value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} autoComplete="off" maxLength={16} />
-      <div className="answer stk" data-ui aria-live="polite">
-        {!r ? <p>Checking the launch desk’s rules…</p> : r.ok ? (
+    <div data-ui className="callui" id="call" ref={cardRef} aria-label="Browser call to Ringfence">
+      <div className="ui-head">
+        <b><span className={`live-dot${call.live ? ' on' : ''}`} />Browser call</b>
+        <span className="st" aria-live="polite">{call.live ? `${call.state} · ${clock}` : call.state}</span>
+      </div>
+      <div className="desks" role="radiogroup" aria-label="Which desk">
+        {(['auto', 'launch', 'business'] as const).map((k) => (
+          <button key={k} type="button" role="radio" aria-checked={pick === k} disabled={call.live} onClick={() => setPick(k)}>{k === 'business' ? business : DESK_LABEL[k]}</button>
+        ))}
+      </div>
+      <div className="ui-body tx" ref={logRef} aria-live="polite">
+        {call.lines.length === 0 && (
+          <p className="empty">Press Call and say “send 0.5 NEAR to alice.near”, or type it below. The greeting arrives in a second or two. This server is on NEAR {network}; without an agent key, sends stop at a labelled dry run.</p>
+        )}
+        {call.lines.map((l, n) => (
+          <div key={n} className={`msg ${l.who === 'caller' ? 'you' : l.who === 'agent' ? 'agent' : 'sys'}`}>
+            <span className="who">{l.who === 'caller' ? 'You' : l.who === 'agent' ? 'Ringfence' : 'Line'}</span>{l.text}
+          </div>
+        ))}
+      </div>
+      {call.link && (
+        <div className="signlink"><span>{linkNote}</span><a href={call.link.url} target="_blank" rel="noreferrer">{call.link.label}</a></div>
+      )}
+      <div className="dial">
+        <button type="button" className={`btn${call.live ? ' end' : ''}`} onClick={call.live ? call.stop : call.start}><Phone />{call.live ? 'Hang up' : 'Call'}</button>
+      </div>
+      <div className="tries" role="group" aria-label="Things to say">
+        {TRY[active].map((t) => <button key={t} type="button" onClick={() => (call.live ? call.say(t) : setTyped(t))}>{t}</button>)}
+      </div>
+      <form onSubmit={(e) => { e.preventDefault(); if (call.say(typed)) setTyped(''); }}>
+        <label className="vh" htmlFor="typed">Type instead of speaking</label>
+        <input id="typed" type="text" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={call.live ? 'Type instead of speaking' : 'No mic? Start the call, then type'} autoComplete="off" />
+        {active !== 'launch' && (
           <>
-            <p className="verdict">Allowed</p>
-            <div className="row"><span>Ticker</span><b>${r.ticker}</b></div>
-            <div className="row"><span>Checked against</span><span>{res.indexed ? `${res.indexed.toLocaleString('en-US')} meme.cooking memes` : 'the blocklist (indexer unreachable)'}</span></div>
-          </>
-        ) : (
-          <>
-            <p className="verdict">Refused</p>
-            <p>{r.reason}</p>
+            <input ref={fileRef} className="vh" type="file" accept="image/*" tabIndex={-1} aria-hidden="true" onChange={(e) => { const f = e.target.files?.[0]; if (f) call.sendPhoto(f); e.target.value = ''; }} />
+            <button type="button" className="mini" disabled={!call.live} onClick={() => fileRef.current?.click()}>Photo</button>
           </>
         )}
+        <button className="mini go" disabled={!call.live}>Send</button>
+      </form>
+    </div>
+  );
+}
+
+// The PIN pad: an illustration of the spoken PIN (keys light in a loop; nothing here is typed or sent).
+function Keypad() {
+  const [lit, setLit] = useState<{ n: number; key: string | null }>({ n: 4, key: null });
+  useEffect(() => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const pin = ['7', '3', '9', '1'];
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const later = (f: () => void, ms: number) => timers.push(setTimeout(f, ms));
+    let k = 0;
+    const tick = () => {
+      if (k < 4) { setLit({ n: k + 1, key: pin[k] }); k++; later(() => setLit((l) => ({ ...l, key: null })), 380); later(tick, 500); }
+      else later(() => { k = 0; setLit({ n: 0, key: null }); later(tick, 900); }, 5000);
+    };
+    later(() => { setLit({ n: 0, key: null }); tick(); }, 2400);
+    return () => timers.forEach(clearTimeout);
+  }, []);
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', ''];
+  return (
+    <div data-ui className="keypad" aria-label="Illustration of a spoken 4-digit PIN">
+      <div className="ui-head"><b>Spoken PIN</b></div>
+      <div className="ui-body">
+        <div className="dots">{[0, 1, 2, 3].map((n) => <i key={n} className={n < lit.n ? 'f' : ''} />)}</div>
+        <div className="keys" aria-hidden="true">{keys.map((k, n) => <span key={n} className={k && k === lit.key ? 'hit' : ''}>{k}</span>)}</div>
+        <p className="note">3 wrong tries lock it for 15 minutes.</p>
       </div>
-      <div className="chips">
-        {['$ZZZ', 'USDC', 'ELONCAT', 'otter-2', 'A'].map((t) => (
-          <button key={t} className="chip" onClick={() => setText(t)}>{t}</button>
-        ))}
+    </div>
+  );
+}
+
+const SAY: [string, string][] = [
+  ['Send 0.5 NEAR to alice.near', 'Read back, PIN, then your contract checks it.'],
+  ['Send 0.0001 ETH on Base to 0x…', 'The contract reads the transaction bytes first.'],
+  ['What’s my balance?', 'Read only; nothing is signed.'],
+  ['Launch a coin about my cat', 'On JustHoot, signed in your own wallet.'],
+  ['I need a new kitchen', 'A sample builder’s desk quotes from a photo.'],
+];
+
+// ---------- how it works: drag through the stages ----------
+const Msg = ({ who, children }: { who: 'you' | 'agent'; children: ReactNode }) => (
+  <div className={`msg ${who}`} style={{ animation: 'none' }}><span className="who">{who === 'you' ? 'You' : 'Ringfence'}</span>{children}</div>
+);
+const STAGES: { name: string; c: string; t: string; ui: ReactNode }[] = [
+  { name: 'Call', c: 'First, you call the line', t: 'From WhatsApp, or from the browser on this page. You bind your NEAR account to your number once, signing with your own wallet.',
+    ui: <><div className="ui-head"><b><span className="live-dot on" />Browser call</b><span className="muted">connected</span></div><div className="ui-body tx"><Msg who="agent">Hi, it’s Ringfence. What would you like to do?</Msg><Msg who="you">Send 0.5 NEAR to alice.near.</Msg></div></> },
+  { name: 'Read back', c: 'Then it reads it back', t: 'Amount, asset, chain and recipient, out loud. If anything is wrong you say so before a single digit of your PIN.',
+    ui: <><div className="ui-head"><b>Read back</b><span className="muted">wallet desk</span></div><div className="ui-body tx"><Msg who="agent">0.5 NEAR to alice.near, a saved recipient. Say your PIN to confirm.</Msg><div className="kv"><span>Amount</span><span>0.5 NEAR</span></div><div className="kv"><span>Recipient</span><span>alice.near, saved</span></div></div></> },
+  { name: 'PIN', c: 'Next, you say your PIN', t: 'Four digits, heard only inside NEAR AI TEEs, stored as a salted hash and blanked from the transcript. Three wrong tries lock it for 15 minutes.',
+    ui: <><div className="ui-head"><b>Spoken PIN</b><span className="muted">try 1 of 3</span></div><div className="ui-body keypad"><div className="dots"><i className="f" /><i className="f" /><i className="f" /><i className="f" /></div><div className="kv"><span>Stored as</span><span>salted scrypt hash</span></div><div className="kv"><span>In the transcript</span><span>blanked</span></div><div className="kv"><span>After 3 wrong tries</span><span>locked 15 min</span></div></div></> },
+  { name: 'Contract', c: 'Last, your contract decides', t: 'The AI only asks. Your phone-wallet contract checks the limits and the recipient, then sends; the explorer link arrives in the call.',
+    ui: <><div className="ui-head"><b>phone.you.near</b><span className="muted">transfer_near</span></div><div className="ui-body"><Meter label="This transfer" value="0.5 of 1 NEAR" w={50} /><Meter label="Today" value="0.5 of 3 NEAR" w={17} gold /><div className="kv"><span>Recipient</span><span>alice.near, saved</span></div><div className="kv"><span>Result</span><span>sent, link in the call</span></div></div></> },
+];
+
+function Stages() {
+  const [cur, setCur] = useState(0);
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (cur === shown) return;
+    const t = setTimeout(() => setShown(cur), 200);
+    return () => clearTimeout(t);
+  }, [cur, shown]);
+  const s = STAGES[shown];
+  const f = cur !== shown ? ' fade' : '';
+  return (
+    <section className="stages" id="how" aria-label="How a call becomes a transfer">
+      <div className="left">
+        <h2 className={`clause rise${f}`}>{s.c}</h2>
+        <p className={`rise${f}`} style={i(1)}>{s.t}</p>
+      </div>
+      <div className="right">
+        <div data-ui className={`stage-ui${f}`}>{s.ui}</div>
+      </div>
+      <div className="slider">
+        <div className="rng" style={{ '--p': `${(cur / 3) * 100}%` } as CSSProperties}>
+          <input type="range" min={0} max={3} step={1} value={cur} onChange={(e) => setCur(+e.target.value)} aria-label="Stage of the call" aria-valuetext={STAGES[cur].name} />
+        </div>
+        <div className="stage-names">
+          {STAGES.map((x, n) => <button key={x.name} type="button" className={n === cur ? 'on' : ''} onClick={() => setCur(n)}>{x.name}</button>)}
+        </div>
       </div>
     </section>
   );
 }
 
-// Staggered entrance for each section's parts, once, as it scrolls in. Content stays visible without script.
+// ---------- features: a demo of the contract's rules (not anyone's real wallet) ----------
+// Mirrors contracts/phone-wallet/src/lib.rs and src/desks/wallet.ts with the mainnet default limits. For a recipient
+// you haven't saved, the voice agent doesn't send at all: on NEAR it texts you a link to sign it in your own wallet,
+// on Base it asks you to save the address first. The contract's 600 s queue is the backstop if the agent key ever
+// asks for a new recipient directly.
+const LIM = { near: { tx: 1, day: 3, unit: 'NEAR', dp: 1 }, base: { tx: 0.0005, day: 0.002, unit: 'ETH', dp: 4 } };
+type Chain = keyof typeof LIM;
+
+function Seg<T extends string | number>({ label, value, set, opts }: { label: string; value: T; set: (v: T) => void; opts: [T, string][] }) {
+  return (
+    <div className="ctl"><span className="lbl">{label}</span><div className="seg" role="group" aria-label={label}>
+      {opts.map(([v, t]) => <button key={String(v)} type="button" aria-pressed={value === v} onClick={() => set(v)}>{t}</button>)}
+    </div></div>
+  );
+}
+
+function Fence() {
+  const [amt, setAmt] = useState(5);
+  const [spent, setSpent] = useState(0);
+  const [rec, setRec] = useState<'saved' | 'new'>('saved');
+  const [chain, setChain] = useState<Chain>('near');
+  const [revoked, setRevoked] = useState(false);
+  const l = LIM[chain];
+  const a = chain === 'near' ? amt / 10 : amt * 0.0001;
+  const after = spent * l.day + a;
+  const fmt = (v: number) => String(+v.toFixed(l.dp));
+  const to = rec === 'saved' ? (chain === 'near' ? 'alice.near' : '0x1111…2222') : (chain === 'near' ? 'bob.near' : '0x9999…0001');
+  const overNext = chain === 'near' ? ' The agent texts you a link to sign it yourself.' : ' Raise the limit on your wallet page if you mean it.';
+  let big: string, cls: string, why: string, sign: string;
+  sign = chain === 'near' ? 'agent key, inside your limits' : 'Chain Signatures, after the bytes check';
+  if (revoked) { big = 'Refused'; cls = 'no'; why = 'The agent is revoked. Nothing it asks can move funds; withdraw still works for you.'; sign = 'nobody: the agent is revoked'; }
+  else if (a > l.tx + 1e-12) { big = 'Refused'; cls = 'no'; why = `Over ${l.tx} ${l.unit} per transfer.${overNext}`; }
+  else if (after > l.day + 1e-12) { big = 'Refused'; cls = 'no'; why = `Over ${l.day} ${l.unit} today.${overNext}`; }
+  else if (rec === 'new' && chain === 'near') { big = 'You sign it'; cls = 'wait'; why = 'The AI won’t send to a new recipient. It texts you a link to sign it in your own wallet; the contract would hold an agent transfer here 600 s anyway.'; sign = 'you, in your own wallet'; }
+  else if (rec === 'new') { big = 'Refused'; cls = 'no'; why = 'Not on your saved list. Save the address on your wallet page first; the contract would hold it 600 s anyway.'; }
+  else { big = 'Allowed'; cls = 'yes'; why = chain === 'near' ? 'Inside both limits, to a saved recipient. Sent now.' : 'Chain, recipient and value read from the transaction bytes match what you heard. Signed and sent.'; }
+
+  return (
+    <section className="fence" id="limits" aria-labelledby="fence-h">
+      <div className="out">
+        <div data-ui className="verdict" aria-live="polite">
+          <div className="ui-head"><b>phone.you.near</b><span className="muted">{chain === 'near' ? 'NEAR' : 'Base, chain 8453'}</span></div>
+          <div className="ui-body">
+            <span className="muted" style={{ fontSize: 14 }}>Agent asks: {fmt(a)} {l.unit} to {to}</span>
+            <div key={big} className={`big ${cls} pulse`}>{big}</div>
+            <p className="why">{why}</p>
+            <div style={{ marginTop: 12 }}><Meter label="This transfer" value={`${fmt(a)} of ${l.tx} ${l.unit}`} w={Math.min(100, (a / l.tx) * 100)} /></div>
+            <Meter label="Today, after this" value={`${fmt(Math.min(after, 99))} of ${l.day} ${l.unit}`} w={Math.min(100, (after / l.day) * 100)} gold />
+            <div className="kv"><span>Recipient</span><span>{to}{rec === 'saved' ? ', saved' : ', new'}</span></div>
+            <div className="kv"><span>Signed by</span><span>{sign}</span></div>
+          </div>
+        </div>
+        <p className="demo-note">A demo of the contract’s rules with mainnet defaults, not your wallet. Nothing here touches a chain.</p>
+      </div>
+      <div className="col">
+        <h2 id="fence-h" className="rise">Set your own fence.</h2>
+        <div className="blk rise">
+          <h3>Every transfer has a ceiling.</h3>
+          <p>The mainnet default is 1 NEAR per transfer. Over it, the agent says so and texts you a link to sign it yourself.</p>
+          <div className="ctl"><label htmlFor="amt">Amount: <output htmlFor="amt">{fmt(a)} {l.unit}</output></label>
+            <div className="rng" style={{ '--p': `${((amt - 1) / 19) * 100}%` } as CSSProperties}><input type="range" id="amt" min={1} max={20} step={1} value={amt} onChange={(e) => setAmt(+e.target.value)} /></div>
+          </div>
+        </div>
+        <div className="blk rise">
+          <h3>Every day has one too.</h3>
+          <p>3 NEAR a day per asset. If we, the operator, ever misbehaved, this is the most that could move.</p>
+          <Seg label="Already sent today" value={spent} set={setSpent} opts={[[0, 'Nothing'], [0.4, 'Some'], [0.9, 'Nearly all']]} />
+        </div>
+        <div className="blk rise">
+          <h3>Strangers need your signature.</h3>
+          <p>Saved recipients go instantly. For a new one the AI doesn’t send: it texts you a link to sign in your own wallet. Behind that, the contract holds any agent transfer to a new recipient for 600 seconds, and you can cancel it.</p>
+          <Seg label="Recipient" value={rec} set={setRec} opts={[['saved', `${chain === 'near' ? 'alice.near' : '0x1111…2222'} (saved)`], ['new', `${chain === 'near' ? 'bob.near' : '0x9999…0001'} (new)`]]} />
+        </div>
+        <div className="blk rise">
+          <h3>Base, checked byte by byte.</h3>
+          <p>Before NEAR Chain Signatures signs, the contract reads chain, recipient and value from the unsigned EIP-1559 transaction itself. Only what you heard read back can be signed.</p>
+          <Seg label="Chain" value={chain} set={setChain} opts={[['near', 'NEAR'], ['base', 'Base']]} />
+        </div>
+        <div className="blk rise">
+          <h3>One transaction switches the AI off.</h3>
+          <p><code>revoke_agent</code> ends it. <code>withdraw</code> always works, and the AI can never be the owner.</p>
+          <div className="ctl"><label className="switch"><input type="checkbox" checked={revoked} onChange={(e) => setRevoked(e.target.checked)} /> Call revoke_agent</label></div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------- proof: index with preview ----------
+function Evidence() {
+  const [p, setP] = useState('tee');
+  const on = (k: string) => ({ onMouseEnter: () => setP(k), onFocus: () => setP(k) });
+  return (
+    <div className="evidence">
+      <h2 className="rise">What is verified, and what is not yet.</h2>
+      <p className="sub rise">The pending rows fill in as mainnet transactions land.</p>
+      <div className="ev-list" onMouseLeave={() => setP('tee')}>
+        <a className="ev-row rise" href="/proof" {...on('tee')}><span className="what">Private AI attestation</span><span className="st ok">4/4 models fully verified</span><span className="detail">Intel TDX quote, key and nonce binding, NVIDIA GPUs through NRAS, checked live on /proof.</span></a>
+        <a className="ev-row rise" href={CODE_URL} {...on('room')}><span className="what">Contract and app tests</span><span className="st ok">Passing</span><span className="detail">23 contract unit tests and a sandbox test; 27 app tests; a 9-step dry run with no keys.</span></a>
+        <div className="ev-row pending rise" tabIndex={0} {...on('meter')}><span className="what">Phone wallet created on mainnet</span><span className="st">Pending</span><span className="detail">The nearblocks link goes here once the team runs it.</span></div>
+        <div className="ev-row pending rise" tabIndex={0} {...on('call')}><span className="what">A NEAR transfer by voice and PIN</span><span className="st">Pending</span><span className="detail">Nothing has been signed on chain yet. The page will show the transaction, not a promise.</span></div>
+        <div className="ev-row pending rise" tabIndex={0} {...on('exchange')}><span className="what">A Base transfer through Chain Signatures</span><span className="st">Pending</span><span className="detail">The nearblocks and basescan links go here together.</span></div>
+        <div className="ev-row pending rise" tabIndex={0} {...on('tee')}><span className="what">A coin launched on JustHoot</span><span className="st">Pending</span><span className="detail">Token and RHEA pool in one call, about 0.1 NEAR, signed in your own wallet.</span></div>
+      </div>
+      <div className="ev-frame" aria-hidden="true">
+        <img className={p === 'room' ? 'on' : ''} src="/media/wac-telephone-switchboard-operators.jpg" width={1920} height={1476} alt="" loading="lazy" />
+        <img className={p === 'exchange' ? 'on' : ''} src="/media/1940s-n935-telephone-exchange.jpg" width={1920} height={1801} alt="" loading="lazy" />
+        <div className={`pane${p === 'tee' ? ' on' : ''}`}><div data-ui><div className="ui-head"><b>/proof</b><span className="muted">checked live</span></div><div className="ui-body">
+          {['Chat model', 'Speech to text', 'Vision', 'Image', 'Intel TDX quote', 'NVIDIA GPUs via NRAS'].map((k) => <div key={k} className="kv"><span>{k}</span><span>verified</span></div>)}
+        </div></div></div>
+        <div className={`pane${p === 'meter' ? ' on' : ''}`}><div data-ui><div className="ui-head"><b>phone.you.near</b><span className="muted">pending</span></div><div className="ui-body">
+          <div className="kv"><span>Owner</span><span>you.near</span></div>
+          <div className="kv"><span>Per transfer / day</span><span>1 / 3 NEAR</span></div>
+          <div className="kv"><span>Explorer</span><span>link pending</span></div>
+        </div></div></div>
+        <div className={`pane${p === 'call' ? ' on' : ''}`}><div data-ui><div className="ui-head"><b>Browser call</b><span className="muted">dry run</span></div><div className="ui-body tx">
+          <div className="msg you" style={{ animation: 'none' }}><span className="who">You</span>Send 1 NEAR to bob.near.</div>
+          <div className="msg sys" style={{ animation: 'none' }}><span className="who">Result</span>Stopped before signing: DRY RUN.</div>
+        </div></div></div>
+      </div>
+    </div>
+  );
+}
+
+const Qa = ({ q, a }: { q: string; a: ReactNode }) => (<><dt className="rise">{q}</dt><dd className="rise" style={i(1)}>{a}</dd></>);
+const FAQ: [string, ReactNode][] = [
+  ['What’s the worst case if you misbehave?', <>We hold the agent key, so we could spend without your PIN, but only up to your daily limit, to recipients you saved; anything to a new recipient waits 600 s in the contract, where you can cancel it. One <code>revoke_agent</code> ends it, and <code>withdraw</code> always works.</>],
+  ['Can the AI be talked into more?', 'It can only ask. The contract checks the limits, the chain and the recipient, and for Base it reads the transaction bytes itself before anything is signed.'],
+  ['Who hears my PIN?', 'Speech-to-text and the model, inside NEAR AI TEEs. It is stored only as a salted hash and blanked from the transcript. Three wrong tries lock it for 15 minutes. Our app server itself is not attested.'],
+  ['Is my voice private?', 'Chat, speech-to-text, vision and image models run on NEAR AI Cloud in Intel TDX and NVIDIA confidential GPUs; /proof checks all four live. The reply text leaves the TEE when Cartesia is the voice, and on WhatsApp Meta sees call metadata.'],
+  ['Has it moved real money yet?', 'Not yet. The contract is an unaudited prototype, so keep small amounts in it. The evidence above fills in as the first mainnet transfers are signed.'],
+  ['What else can I do on the line?', 'Launch a coin on JustHoot, tradable at once in a RHEA pool for about 0.1 NEAR, signed in your own wallet. Or ask a builder’s desk for a quote from a photo and pay the deposit in almost any token; NEAR Intents settles it as USDC on NEAR.'],
+  ['Which chains?', 'NEAR, and Base by default. One derived address works on every Ethereum-style chain you allow, each with its own limits. Bitcoin and Solana are not supported.'],
+];
+
+// Entrances, once, as each part scrolls in. Content stays visible without script.
 function useReveal() {
   useEffect(() => {
     document.documentElement.classList.add('js');
-    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.15 });
-    document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
+    document.querySelectorAll('.dr .rise').forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, []);
 }

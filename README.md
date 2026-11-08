@@ -24,7 +24,7 @@
 
 | Say | What happens | Who signs |
 | --- | --- | --- |
-| "Send 0.5 NEAR to alice.near" | Read back, you say your 4-digit PIN, `transfer_near` on your phone-wallet contract. A recipient you haven't saved waits 600 s first | The agent key, inside your contract's limits |
+| "Send 0.5 NEAR to alice.near" | Read back, you say your 4-digit PIN, `transfer_near` on your phone-wallet contract. To a recipient you haven't saved, the agent doesn't send: you get a link to sign it in your own wallet (on Base: save the address first). The contract's 600 s queue is the backstop if the agent key ever asks for a new recipient directly | The agent key, inside your contract's limits |
 | "Send 0.0001 ETH on Base to 0x…" | Read back, PIN, the contract checks the transaction and asks NEAR Chain Signatures to sign it; the server sends it to Base | The agent key and NEAR Chain Signatures, inside your limits |
 | "What's my balance?" | `get_balance` on your phone wallet | Nobody (read only) |
 
@@ -152,7 +152,7 @@ Next: non-EVM chains (Bitcoin, Solana through the same MPC signer's other domain
 | --- | --- |
 | Per transfer and per day, per asset (`near`, `evm:<chainId>`) | Mainnet defaults 1 / 3 NEAR and 0.0005 / 0.002 per EVM chain (native units); editable on the bind page before signing; owner changes later with `set_limits`. Over → panic with the reason |
 | EVM chains on an owner allowlist | `allow_chain(chain_id, per_tx, per_day)` / `disallow_chain`; a chain not allowed, or without a limit, is refused; the tx's chain id must match |
-| Saved recipients go instantly; new ones queue | `new_recipient_delay_sec` = 600; `execute(id)` after the delay, owner `cancel(id)` before |
+| Saved recipients go instantly; new ones queue (the voice agent hands them to you to self-sign instead) | `new_recipient_delay_sec` = 600; `execute(id)` after the delay, owner `cancel(id)` before |
 | Owner keeps full control | `withdraw(amount)` always works (the agent can't block it), `set_agent`, `revoke_agent`, `allow`/`disallow`, `allow_chain`/`disallow_chain`, `set_delay`; all need 1 yoctoNEAR so a dapp's function-call key can't call them |
 | The agent is never the owner | checked at init and in `set_agent` |
 | EVM chain, value and recipient are the ones signed | parsed from the transaction bytes the contract hashes and sends to the signer |

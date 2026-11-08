@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { AttRow, Wordmark, type Att } from '../ui';
+import { AttRow, SiteFooter, Wordmark, type Att } from '../ui';
 
 // Public: anyone can see which TEE each model runs in and what this server checked. No call data here.
 export const Route = createFileRoute('/proof')({
@@ -17,6 +17,7 @@ function Proof() {
   };
   useEffect(() => load(), []);
   return (
+    <>
     <main className="app canvas" style={{ maxWidth: 760, margin: '0 auto', padding: '24px 16px' }}>
       <Wordmark />
       <h1>Proof of private inference</h1>
@@ -39,5 +40,7 @@ function Proof() {
       </ul>
       <p className="muted">Not checked here: that the TDX measurements (MRTD, RTMRs) equal a published, reproducible NEAR AI build. That needs the image hashes NEAR AI publishes; the NEAR AI docs describe it.</p>
     </main>
+    <SiteFooter />
+    </>
   );
 }
