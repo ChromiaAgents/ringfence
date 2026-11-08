@@ -123,6 +123,14 @@ t('no promised returns', () => {
   assert.ok(filterClaims("It's guaranteed to pump", lp).hit);
   assert.equal(filterClaims('Your soft cap is 100 NEAR.', lp).hit, undefined);
 });
+await t('no routing loop: bye ends, a vague answer gets examples once', async () => {
+  const { startCall, reply } = await import('../src/agent.ts');
+  const c = startCall('whatsapp', '15550000099').call;
+  assert.match(await reply(c.id, 'Yeah, I think...'), /send 1 NEAR to liho/);
+  assert.equal(c.routeMisses, 1);
+  const c2 = startCall('whatsapp', '15550000098').call;
+  assert.match(await reply(c2.id, 'And bye-bye.'), /Bye/);
+});
 t('router', () => {
   assert.equal(route('I want to launch a memecoin'), 'launch');
   assert.equal(route('my bathroom tap is leaking'), 'not_offered', 'building work is declined, never routed');

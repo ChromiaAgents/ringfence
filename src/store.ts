@@ -12,7 +12,7 @@ export type Timing = { start?: number; sttMs?: number; firstTokenMs?: number; fi
 export type Turn = { at: number; who: 'caller' | 'agent' | 'tool'; text: string; proof?: Proof; timing?: Timing };
 export type Call = {
   id: string; channel: 'web' | 'whatsapp' | 'dashboard'; desk?: Desk; from?: string; startedAt: number; endedAt?: number; turns: Turn[];
-  caller?: Record<string, string>; jobId?: string; launchId?: string; photos?: string[]; isOwner?: boolean;
+  caller?: Record<string, string>; jobId?: string; launchId?: string; photos?: string[]; isOwner?: boolean; routeMisses?: number;
 };
 export type Job = {
   id: string; callId: string; serviceId: string; serviceName: string; quotedUsd: number; discountPct: number;

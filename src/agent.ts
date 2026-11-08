@@ -92,14 +92,19 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   call.turns.push({ at: Date.now(), who: 'caller', text });
   if (!call.desk) {
     const d = call.isOwner && /\b(owner|my rules|settings)\b/i.test(text) ? 'owner' : route(text);
-    if (!d || d === 'not_offered') {
-      const ask = d ? NOT_OFFERED : 'Sorry, is that sending money, or a coin launch?';
+    // Never loop on the same question: say bye on bye, rephrase once with examples, then let the wallet desk's AI take over.
+    const say = (line: string) => { o.onSentence?.(line); call.turns.push({ at: Date.now(), who: 'agent', text: line, timing }); save(); return line; };
+    if (!d && /\b(bye|goodbye|that'?s all|nothing|never ?mind)\b/i.test(text)) return say('No problem. Bye, call anytime!');
+    const misses = (call.routeMisses = (call.routeMisses ?? 0) + (d ? 0 : 1));
+    if (!d && misses >= 2) enterDesk(call, 'wallet');
+    else if (!d || d === 'not_offered') {
+      const ask = d ? NOT_OFFERED : "No problem. I can send money for you, like 'send 1 NEAR to liho', or launch a memecoin. Which would you like?";
       o.onSentence?.(ask);
       call.turns.push({ at: Date.now(), who: 'agent', text: ask, timing });
       save();
       return ask;
     }
-    enterDesk(call, d);
+    if (d) enterDesk(call, d);
   }
   const desk = DESKS[call.desk!];
   h[0] = { role: 'system', content: sys(call.desk!, call) }; // pick up config changes mid-call
