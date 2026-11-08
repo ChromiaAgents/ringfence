@@ -43,7 +43,7 @@ export const sendButtons = (to: string, body: string, token: string) =>
     action: { buttons: [{ type: 'reply', reply: { id: `approve:${token}`, title: 'Approve' } }, { type: 'reply', reply: { id: `reject:${token}`, title: 'Reject' } }] } } });
 if (env.waToken) setApprovalSender(sendButtons);
 
-const isOwner = (from: string) => !!env.ownerWhatsapp && from.replace(/\D/g, '') === env.ownerWhatsapp;
+const isOwner = (from?: string) => !!env.ownerWhatsapp && !!from && from.replace(/\D/g, '') === env.ownerWhatsapp;
 
 function validSignature(req: IncomingMessage, body: Buffer) {
   // Unsigned webhooks only on a dry-run server: anywhere real, a missing secret would let anyone post as any number.
@@ -113,6 +113,9 @@ const live = new Map<string, Live>();
 const BYE = /\b(bye|goodbye|see you|that's all|that is all|hang up|gotta go|talk later|cheers mate)\b/i;
 
 async function onCallEvent(c: any) {
+  // Meta may omit `from` for some callers; fall back to other id fields and log which keys arrived.
+  c.from ??= c.from_user_id ?? c.wa_id ?? c.caller?.wa_id;
+  if (c.event === 'connect') console.log('wa call event keys', Object.keys(c).join(','), c.from ? 'from present' : 'no from');
   if (c.event === 'terminate') {
     live.get(c.id)?.stop();
     return;
