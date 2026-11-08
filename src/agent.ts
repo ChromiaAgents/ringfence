@@ -8,7 +8,7 @@ import type { DeskDef } from './desks/types.ts';
 import { launchDesk } from './desks/launch.ts';
 import { businessDesk } from './desks/business.ts';
 import { ownerDesk } from './desks/owner.ts';
-import { walletDesk, takePin } from './desks/wallet.ts';
+import { walletDesk, takePin, clearPending } from './desks/wallet.ts';
 
 export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, business: businessDesk, owner: ownerDesk, wallet: walletDesk };
 
@@ -19,7 +19,7 @@ export const GREETING = 'Hi, this is Ringfence. How can I help?';
 const END_CALL = { type: 'function', function: { name: 'end_call', description: 'Hang up. Call it only after you have said a short goodbye and the caller is done.', parameters: { type: 'object', properties: {} } } };
 
 /** The desks the AI may use on this call. The owner's settings tools only exist on the owner's own line. */
-const desksFor = (call: Call): DeskDef[] => [walletDesk, launchDesk, ...(call.isOwner ? [ownerDesk] : [])];
+const desksFor = (call: Call): DeskDef[] => call.channel === 'dashboard' ? (call.isOwner ? [ownerDesk] : []) : [walletDesk, launchDesk, ...(call.isOwner ? [ownerDesk] : [])];
 const nameOf = (t: any): string => t.function?.name;
 /** One agent, every tool: the wallet and launch tools (+ owner tools for the owner) and end_call. */
 export const toolsFor = (call: Call): unknown[] => [...desksFor(call).flatMap((d) => d.tools), END_CALL];
@@ -42,25 +42,30 @@ export const setOnLink = (f: LinkHook) => (onLink = f);
 // Qwen3: /no_think (plus enable_thinking:false in the request) skips the reasoning pass; any <think> left is stripped.
 const VOICE = `
 How you talk: you're on a live phone call, so sound like a relaxed, warm human, not an assistant. Use contractions and casual words ("yeah", "nice", "got it", "oh fun"), react to what they said before moving on, and vary how you start sentences. One or two short sentences, under 25 words. No lists, markdown, emojis, or "great question".
-Keep the conversation moving: remember everything they've said and never ask for something you already have. If they say "you decide", "anything", or "whatever", make the choice yourself, say what you picked, and move on. If they hesitate or only say "um", wait for them: reply with something tiny like "take your time" at most. If you didn't catch something, say so once and guess. Never use emoji or symbols: everything you write is spoken aloud. When they say bye or they're done, say a short warm goodbye in a few words, then call end_call.`;
+Keep the conversation moving: remember everything they've said and never ask for something you already have. If they say "you decide", "anything", or "whatever", make the choice yourself, say what you picked, and move on. If you didn't catch something, say so once and guess. Never use emoji or symbols: everything you write is spoken aloud. When they say bye or they're done, say a short warm goodbye in a few words, then call end_call.`;
 
 /** One system prompt for the whole call: what Ringfence does, each part's rules, and the caller's memory. */
 export function system(call: Call): string {
-  return `You are Ringfence, a voice agent on NEAR. You decide every reply and every action yourself. You can:
+  if (call.channel === 'dashboard') return `You are Ringfence's settings assistant for the owner, on the dashboard.\n${ownerDesk.system(call)}\nReply in one or two short plain sentences.${recap(call)}\n/no_think`;
+  return `You are Ringfence, a voice agent on NEAR. You can:
 - pay by voice from the caller's phone wallet, check their balance, and answer "how much did I spend";
 - launch a memecoin they sign with their own wallet;
-- help them get a wallet: on WhatsApp they text "create a wallet" for a custodial demo wallet with a PIN; with their own NEAR wallet they bind their number at ringfence dot evalengine dot ai slash wallet slash bind, and they can take a custodial wallet over at slash wallet slash claim.
-Politely decline anything else (no building quotes, bookings, financial advice or general chat beyond a friendly word) and say what you can do instead. Callers can switch between paying and a coin launch at any time.
+- help them get a wallet: on WhatsApp they text "create a wallet" for a custodial demo wallet with a PIN; with their own NEAR wallet they bind their number on our wallet page: say you'll send them the link.
+Politely decline anything else (no building quotes, bookings, financial advice or general chat beyond a friendly word) and say what you can do instead. Callers can switch between paying and a coin launch at any time. If it's unclear what they want, briefly offer: pay someone or launch a coin.
+${VOICE}
 
 Paying:
 ${walletDesk.system(call)}
 
 Launching a coin:
-${launchDesk.system(call)}${call.isOwner ? `\n\nOwner settings (this caller is the owner):\n${ownerDesk.system(call)}` : ''}
-${VOICE}${recap(call)}
+${launchDesk.system(call)}${call.isOwner ? `\n\nOwner settings (this caller is the owner):\n${ownerDesk.system(call)}` : ''}${recap(call)}
 /no_think`;
 }
 const sys = system;
+
+/** Tests swap the model for a scripted one (e.g. a prompt-injected tool call). */
+let chatFn: typeof chat = chat;
+export const setChatForTest = (f: typeof chat | null) => (chatFn = f ?? chat);
 
 const histories = new Map<string, Msg[]>();
 
@@ -100,6 +105,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   const call = db.calls.find((c) => c.id === callId);
   const h = histories.get(callId);
   if (!call || !h) throw new Error('no such call');
+  if (call.endedAt) return ''; // hung up: nothing more is said on this call
   // A thinking noise is not a turn: say nothing and keep listening.
   if (isFiller(text)) return '';
   const timing = o.timing;
@@ -116,7 +122,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
     log({ kind: 'filtered', desk: call.desk, callId: call.id, detail: `reply said "${hit}" in "${s}"; replaced before it was spoken` }));
   const emit = (xs: string[]) => { for (const x of xs) { said.push(x); if (!o.signal?.aborted) o.onSentence?.(x); } };
   for (let step = 0; step < 6; step++) {
-    const { msg, proof } = await chat(h, tools, undefined, {
+    const { msg, proof } = await chatFn(h, tools, undefined, {
       signal: o.signal,
       onText: (d) => { if (timing && timing.firstTokenMs == null) timing.firstTokenMs = Date.now() - t0; emit(split.push(d)); },
     });
@@ -129,7 +135,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
         if (SLOW_TOOLS.has(tc.function.name)) o.onSlowTool?.(tc.function.name);
         const name = tc.function.name, desk = deskOfTool(call, name);
         let out: unknown;
-        if (name === 'end_call') { o.onEndCall?.(); out = { ok: true, note: 'The line hangs up after you finish speaking.' }; }
+        if (name === 'end_call') { o.onEndCall?.(); clearPending(call.id); call.endedAt = Date.now(); out = { ok: true, note: 'The line hangs up after you finish speaking.' }; }
         else if (!desk) out = { error: 'unknown tool' };
         else {
           call.desk = desk.id; // the dashboard label: the last tool family used
@@ -147,9 +153,12 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
     for (const link of linksOf(call)) if (!before.has(link.url)) onLink?.(call, link);
     return say;
   }
+  // Six tool steps without an answer: say what was said, or ask once to repeat (kept in the transcript and history).
+  const sorry = said.length ? said.join(' ') : filterAll('Sorry, could you say that again?').text;
+  if (!said.length) o.onSentence?.(sorry);
+  call.turns.push({ at: Date.now(), who: 'agent', text: sorry, timing });
+  h.push({ role: 'assistant', content: sorry });
   save();
-  const sorry = 'Sorry, give me one moment, could you say that again?';
-  o.onSentence?.(sorry);
   return sorry;
 }
 
@@ -161,6 +170,7 @@ export async function photo(callId: string, _img: Buffer, o: ReplyOpts = {}): Pr
 export function endCall(callId: string) {
   const call = db.calls.find((c) => c.id === callId);
   if (call && !call.endedAt) { call.endedAt = Date.now(); save(); }
+  clearPending(callId);
   histories.delete(callId);
 }
 

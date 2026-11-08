@@ -8,7 +8,7 @@ export const Route = createFileRoute('/api/owner')({
     handlers: {
       POST: async ({ request }) => {
         const { callId, text } = await request.json().catch(() => ({}));
-        let call = db.calls.find((c) => c.id === callId && c.desk === 'owner' && c.channel === 'dashboard');
+        let call = db.calls.find((c) => c.id === callId && c.isOwner && c.channel === 'dashboard' && !c.endedAt);
         if (!call) {
           const s = startCall('dashboard', undefined, 'owner');
           call = s.call;

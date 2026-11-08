@@ -83,6 +83,7 @@ export function useCall(deskPick: Desk | 'auto' = 'auto') {
     s.ws = ws;
     ws.binaryType = 'arraybuffer';
     ws.onopen = () => setState('Ringing…');
+    let hangAfterTurn = false;
     ws.onmessage = async (m) => {
       if (typeof m.data !== 'string') {
         if (!s.ctx) return;
@@ -109,8 +110,9 @@ export function useCall(deskPick: Desk | 'auto' = 'auto') {
       if (d.type === 'error') { add('tool', d.text); setState('Your turn'); }
       if (d.type === 'link') setLink({ url: d.url, label: d.label });
       if (d.type === 'desk' && d.desk) setDesk(d.desk);
-      // The AI ended the call: let the goodbye finish playing, then hang up.
-      if (d.type === 'hangup') { const bye = () => (s.playing ? setTimeout(bye, 200) : stop()); setTimeout(bye, 600); }
+      // The AI ended the call: wait for the end of the turn (all goodbye audio sent), let it finish playing, then hang up.
+      if (d.type === 'hangup') hangAfterTurn = true;
+      if (d.type === 'desk' && hangAfterTurn) { const bye = () => (s.playing ? setTimeout(bye, 200) : stop()); setTimeout(bye, 600); }
     };
     ws.onclose = () => stop();
   }

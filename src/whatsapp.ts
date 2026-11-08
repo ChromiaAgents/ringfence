@@ -99,7 +99,7 @@ async function onMessage(m: any) {
   let ended = false;
   const say = await reply(callId, m.text.body, { onEndCall: () => (ended = true) });
   if (ended) { chats.delete(m.from); endCall(callId); } // the AI closed the conversation: the next text starts fresh
-  sendText(m.from, say);
+  if (say.trim()) sendText(m.from, say); // a filler word gets no reply; WhatsApp rejects an empty body
 }
 
 // Graph API media: look up the short-lived URL, then download with the same token. Kept on this machine only.

@@ -218,7 +218,7 @@ export function mockStep(messages: Msg[], tools: unknown[]): { name: string; arg
     if (h && cap) { const n = /one/i.test(h[1]) ? 1 : /two/i.test(h[1]) ? 2 : Number(h[1]); return { name: 'set_auction', args: { duration_minutes: /hour/i.test(h[2]) ? n * 60 : n, soft_cap_near: Number(cap[1]) } }; }
     const team = u.match(/(\d+)\s*%.*team|team.*?(\d+)\s*%/i);
     if (team) return { name: 'set_team_allocation', args: { pct: Number(team[1] ?? team[2]), cliff_days: 30, vesting_days: 90 } };
-    if (/^\s*(yes|yeah|yep|do it|go ahead|set it up)\b/i.test(u)) return { name: 'prepare_launch', args: { caller_confirmed: true } };
+    if (/^\s*(yes|yeah|yep|do it|go ahead|set it up)\b/i.test(u) && messages.some((m) => m.role === 'assistant' && /shall I set it up/i.test(textOf(m)))) return { name: 'prepare_launch', args: { caller_confirmed: true } };
   }
   if (names.has('confirm_transfer')) {
     const send = u.match(/(?:send|pay|transfer)\s+([\d.]+)\s*([a-z]+)?\b(?:\s+on\s+([a-z0-9 ]+?))?\s+to\s+(\S+(?:\s+dot\s+\S+)*)/i);
@@ -251,8 +251,8 @@ function mockText(messages: Msg[], tools: unknown[] = []): string {
     return "Sorry, we don't do building quotes. I can send NEAR for you, or help you launch a coin.";
   // Coin talk: follow what the caller just said, not a global turn counter, so the coin's name and ticker are never skipped.
   if (lastMsg?.role !== 'tool' && names.has('set_coin') && /\b(coin|launch|meme\w*|ticker)\b/i.test(said))
-    return /\babout\b/i.test(said) ? MOCK_REPLIES[1] : MOCK_REPLIES[0];
-  if (lastMsg?.role !== 'tool' && names.has('confirm_transfer')) return 'Who do you want to pay, and how much?';
+    return /\babout\b/i.test(said) || messages.some((m) => m.role === 'assistant' && textOf(m) === MOCK_REPLIES[0]) ? MOCK_REPLIES[1] : MOCK_REPLIES[0];
+  if (lastMsg?.role !== 'tool' && names.has('confirm_transfer')) return /\b(pay|send|transfer|near)\b/i.test(u) ? 'Who do you want to pay, and how much?' : 'I can pay someone for you, or help you launch a coin. Which one?';
   if (lastMsg?.role !== 'tool') return MOCK_REPLIES[mockTurn++ % MOCK_REPLIES.length];
   let out: any = {};
   try { out = JSON.parse(lastMsg.content); } catch {}
@@ -268,6 +268,7 @@ function mockText(messages: Msg[], tools: unknown[] = []): string {
   if (out.last) return `This is a dry run, so I can't read today's total from the chain. ${out.last.length ? `Your last ${out.last.length} transfers: ${out.last.join('; ')}.` : 'No transfers yet.'}`;
   if (out.read_back) return `That's ${out.read_back}. What's your four digit PIN?`;
   if (out.demo && out.txHash) return 'Four digits heard. This was a browser demo: no wallet is bound to a browser call, so nothing was sent. On WhatsApp, your bound wallet contract would check the limits and send.';
+  if (out.demo && tool === 'get_spending') return 'This is a browser demo: no wallet is bound to a browser call, so there is no spending to show.';
   if (out.demo) return 'This is a browser demo: no wallet is bound to a browser call, so there is no balance to read.';
   if (out.dryRun && out.txHash) return 'PIN accepted. This was a dry run: the server has no agent key, so nothing was sent.';
   if (out.txHash) return 'Sent. The transaction link is on WhatsApp.';
