@@ -14,14 +14,17 @@ import { walletDesk } from './desks/wallet.ts';
 
 export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, business: businessDesk, owner: ownerDesk, wallet: walletDesk };
 
-export const ROUTER_GREETING = 'Hi, this is Ringfence. Want to send money, launch a coin, or get a building quote?';
+export const ROUTER_GREETING = 'Hi, this is Ringfence. Want to send money, or launch a coin?';
+/** Building quotes are not offered on the line any more (the business desk's code stays, unreachable from callers). */
+export const NOT_OFFERED = "Sorry, we don't do building quotes or bookings. I can send NEAR for you, check your balance, or help you launch a coin.";
 
-/** Picks a desk from what the caller says first. Plain keywords, so the choice is predictable and testable. */
-export function route(text: string): Desk | null {
+/** Picks a desk from what the caller says first. Plain keywords, so the choice is predictable and testable.
+ *  Building work is recognised only to say it is not offered: callers are never routed to the business desk. */
+export function route(text: string): Desk | 'not_offered' | null {
   const t = text.toLowerCase();
   if (/\b(send|transfer|pay)\s+[\d.]+|\b(balance|wallet)\b/.test(t)) return 'wallet';
   if (/\b(meme ?coins?|coins?|tokens?|tickers?|launch\w*|meme\.?cooking|memes?|pump|degen|crypto)\b/.test(t)) return 'launch';
-  if (/\b(kitchen|bathroom|extension|repair\w*|build\w*|roof\w*|plumb\w*|leak\w*|tiles?|quote|renovat\w*|loft|wall|floor\w*|window|door|paint\w*|job|house|flat)\b/.test(t)) return 'business';
+  if (/\b(kitchen|bathroom|extension|repair\w*|build\w*|builders?|roof\w*|plumb\w*|leak\w*|tiles?|quotes?|renovat\w*|loft|wall|floor\w*|window|door|paint\w*|job|house|flat|booking|book)\b/.test(t)) return 'not_offered';
   return null;
 }
 
@@ -46,7 +49,7 @@ export function startCall(channel: Call['channel'], from?: string, desk?: Desk):
   if (back) desk = call.desk = 'launch';
   const greeting = back
     ? `Hey, welcome back! Want to pick up ${back.ticker ?? back.name}, or start something new?`
-    : desk ? DESKS[desk].greeting() : isKnown(call) ? 'Hey, good to hear from you again. Sending money, a coin, or building work today?' : ROUTER_GREETING;
+    : desk ? DESKS[desk].greeting() : isKnown(call) ? 'Hey, good to hear from you again. Sending money, or a coin today?' : ROUTER_GREETING;
   call.turns.push({ at: Date.now(), who: 'agent', text: greeting });
   histories.set(call.id, desk ? [{ role: 'system', content: sys(desk, call) }, { role: 'assistant', content: greeting }] : []);
   save();
@@ -84,8 +87,8 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   call.turns.push({ at: Date.now(), who: 'caller', text });
   if (!call.desk) {
     const d = call.isOwner && /\b(owner|my rules|settings)\b/i.test(text) ? 'owner' : route(text);
-    if (!d) {
-      const ask = 'Sorry, is that sending money, a coin launch, or building work?';
+    if (!d || d === 'not_offered') {
+      const ask = d ? NOT_OFFERED : 'Sorry, is that sending money, or a coin launch?';
       o.onSentence?.(ask);
       call.turns.push({ at: Date.now(), who: 'agent', text: ask, timing });
       save();
@@ -133,12 +136,12 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   return sorry;
 }
 
-/** A customer photo: kept on this machine only, described by a vision model in a TEE, then handed to the business desk. */
+/** A photo: callers no longer reach the business desk (the only desk that used photos), so this declines politely. */
 export async function photo(callId: string, img: Buffer, o: ReplyOpts = {}): Promise<string> {
   const call = db.calls.find((c) => c.id === callId);
   if (!call) throw new Error('no such call');
-  if (!call.desk) enterDesk(call, 'business');
-  if (call.desk !== 'business') { const m = 'Photos are for building quotes. For a coin launch, just describe the logo you want.'; o.onSentence?.(m); return m; }
+  // Photos only ever fed the building-quote desk, which callers no longer reach.
+  if (call.desk !== 'business') { const m = call.desk === 'launch' ? 'For a coin launch, just describe the logo you want.' : 'I can’t use photos on this line. I can send NEAR, check your balance, or launch a coin.'; o.onSentence?.(m); call.turns.push({ at: Date.now(), who: 'agent', text: m }); save(); return m; }
   mkdirSync('data/photos', { recursive: true });
   const file = `data/photos/${call.id}-${id()}.jpg`;
   writeFileSync(file, img);

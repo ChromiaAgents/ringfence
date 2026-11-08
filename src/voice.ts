@@ -37,11 +37,11 @@ export function attachVoice(server: Server) {
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
   });
   wss.on('connection', (ws, req: IncomingMessage) => {
-    // ?desk=launch|business picks the desk up front; without it the router asks. The owner desk is not reachable from here.
+    // ?desk=launch picks the desk up front (the business desk is no longer offered to callers); without it the router asks. The owner desk is not reachable from here.
     const sp = new URL(req.url ?? '/', 'http://x').searchParams, q = sp.get('desk');
     // ?from= stands in for a WhatsApp number in the keyless demo only (MOCK_LLM=1); a real browser call has no number.
     const from = env.mockLlm ? sp.get('from') ?? undefined : undefined;
-    const { call, greeting } = startCall('web', from, q === 'launch' || q === 'business' || (q === 'wallet' && from) ? (q as Desk) : undefined);
+    const { call, greeting } = startCall('web', from, q === 'launch' || (q === 'wallet' && from) ? (q as Desk) : undefined);
     const line = voiceLine((pcm, rate) => { if (ws.readyState === 1) ws.send(wav(pcm, rate)); });
     const sendLink = () => {
       const l = call.desk ? DESKS[call.desk].link?.(call) : null;

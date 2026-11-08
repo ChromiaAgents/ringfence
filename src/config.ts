@@ -77,6 +77,8 @@ export const env = {
   agentAccountId: process.env.AGENT_ACCOUNT_ID ?? '',
   agentKey: process.env.AGENT_PRIVATE_KEY ?? '',
   mpcSigner: process.env.MPC_SIGNER || (process.env.NETWORK === 'mainnet' ? 'v1.signer' : 'v1.signer-prod.testnet'),
+  // EVM sends (Chain Signatures) stay in the code but are off unless EVM_ENABLED=1: the pitch is NEAR only for now.
+  evmEnabled: /^(1|true|yes)$/i.test(process.env.EVM_ENABLED ?? ''),
   // Default limits proposed on /wallet/bind (the user can change them there before signing). Human units.
   walletDefaults: {
     nearPerTx: process.env.WALLET_NEAR_PER_TX ?? '1', nearPerDay: process.env.WALLET_NEAR_PER_DAY ?? '3',

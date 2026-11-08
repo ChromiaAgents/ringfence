@@ -125,7 +125,7 @@ t('no promised returns', () => {
 });
 t('router', () => {
   assert.equal(route('I want to launch a memecoin'), 'launch');
-  assert.equal(route('my bathroom tap is leaking'), 'business');
+  assert.equal(route('my bathroom tap is leaking'), 'not_offered', 'building work is declined, never routed');
   assert.equal(route('hello?'), null);
 });
 t('create_meme args', () => {
@@ -191,7 +191,7 @@ await t('wallet: routing and intent → tool args', async () => {
   const { walletDesk } = await import('../src/desks/wallet.ts');
   assert.equal(route('send 1 NEAR to bob.testnet'), 'wallet');
   assert.equal(route("what's my wallet balance"), 'wallet');
-  assert.equal(route('can you send me a quote for a kitchen'), 'business');
+  assert.equal(route('can you send me a quote for a kitchen'), 'not_offered');
   const step = (u: string) => mockStep([{ role: 'user', content: u }], walletDesk.tools);
   assert.deepEqual(step('send 1 NEAR to bob.testnet'), { name: 'prepare_transfer', args: { to: 'bob.testnet', amount: '1', asset: 'near' } });
   assert.deepEqual(step('send 5 near to bob dot testnet'), { name: 'prepare_transfer', args: { to: 'bob dot testnet', amount: '5', asset: 'near' } });
@@ -233,6 +233,22 @@ await t('wallet: refusals (unbound number, bad input, nothing to confirm) and th
   assert.equal(ok.ok, true); assert.equal(ok.dryRun, true); assert.match(ok.txHash, /^dry-run-/);
   assert.match(db.ledger.at(-1)!.detail, /DRY RUN/);
   assert.match((await import('../src/memory.ts')).recap(startCall('whatsapp', '15550000010').call), /phone\.alice\.testnet/);
+});
+await t('NEAR only: EVM sends refused while EVM_ENABLED is off; building quotes not offered', async () => {
+  const { startCall, reply, NOT_OFFERED } = await import('../src/agent.ts');
+  const { walletDesk, ONLY_NEAR } = await import('../src/desks/wallet.ts');
+  const { env } = await import('../src/config.ts');
+  assert.equal(env.evmEnabled, false, 'EVM is off by default');
+  const c = startCall('whatsapp', '+1 555 000 0010', 'wallet').call;
+  for (const asset of ['base', 'sepolia', 'eth', 'doge']) {
+    const r: any = await walletDesk.run(c, 'prepare_transfer', { to: '0x1111111111111111111111111111111111111111', amount: '0.0001', asset });
+    assert.equal(r.ok, false); assert.equal(r.reason, ONLY_NEAR);
+  }
+  const w: any = await walletDesk.run(startCall('web').call, 'prepare_transfer', { to: '0x1111111111111111111111111111111111111111', amount: '0.0001', asset: 'base' });
+  assert.equal(w.reason, ONLY_NEAR, 'browser demo too');
+  const r = startCall('web').call;
+  assert.equal(await reply(r.id, 'I need a quote for a new kitchen'), NOT_OFFERED);
+  assert.equal(r.desk, undefined, 'not routed to the business desk');
 });
 await t('wallet: Chain Signatures derivation matches the MPC contract (known vector)', async () => {
   const { deriveEthAddress, nearKeyToHex } = await import('../src/eth.ts');

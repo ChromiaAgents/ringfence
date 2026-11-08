@@ -1,8 +1,10 @@
-/* Ringfence, "the dark room" skin. Warm black, one lit thing per screen; gold is kept for the spending limit.
-   Switzer (Fontshare, Indian Type Foundry), self-hosted from /fonts. Loads after app.css: the first block maps the
-   app screens' tokens onto this palette, the .dr block is the landing page. */
-@font-face { font-family: 'Switzer'; src: url('/fonts/switzer-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Switzer'; src: url('/fonts/switzer-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+/* Ringfence, "the dark room" skin. Warm black, one lit thing per screen; NEAR mint (#00ec97) is the one accent,
+   kept for the spending limit and live links. Headings: Battlefin (one heavy weight, set at 400, never synthesised).
+   Body and UI: Geist (variable, 400-600); mono bits: Geist Mono. All self-hosted from /fonts, no runtime font request.
+   Loads after app.css: the first block maps the app screens' tokens onto this palette, the .dr block is the landing page. */
+@font-face { font-family: 'Battlefin'; src: url('/fonts/battlefin-black.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Geist'; src: url('/fonts/geist-latin.woff2') format('woff2'); font-weight: 400 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('/fonts/geist-mono-latin.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
 
 :root {
   color-scheme: dark;
@@ -12,37 +14,43 @@
   --ui-line: #2c2722;
   --fg: #f4f3f1;
   --muted: #b8b2a8;
-  --accent: #c9a45a;
-  --font: "Switzer", "Helvetica Neue", Arial, sans-serif;
+  --accent: #00ec97;   /* NEAR mint: 13:1 on --bg, fine at any size; text on it is --on-accent */
+  --on-accent: #0c0a08;
+  --font: "Geist", "Helvetica Neue", Arial, sans-serif;
+  --head: "Battlefin", "Geist", "Arial Black", sans-serif;
+  --mono-font: "Geist Mono", ui-monospace, Menlo, monospace;
   --ease: cubic-bezier(.2,.7,.2,1);
 
   /* app.css tokens, remapped: --white is the page, --ink the text. */
   --white: var(--bg); --paper: var(--surface); --ink: var(--fg); --slate: var(--muted); --rule: var(--ui-line);
-  --display: var(--font); --text: var(--font);
-  --pink: #241f1a; --pink-s: #3a342e; --purple: #241f1a; --purple-s: #3a342e; --yellow: var(--accent); --yellow-s: #8f7238;
+  --display: var(--head); --text: var(--font);
+  --pink: #241f1a; --pink-s: #3a342e; --purple: #241f1a; --purple-s: #3a342e; --yellow: var(--accent); --yellow-s: #06402b;
   --green: #241f1a; --green-s: var(--accent);
-  --pink-t: #2a1c1c; --green-t: #1d2219; --yellow-t: #2a2317;
+  --pink-t: #2a1c1c; --green-t: #1d2219; --yellow-t: #0f241b;
 }
 html { background: var(--bg); }
 body { background: var(--bg); color: var(--fg); font-family: var(--font); letter-spacing: -0.01em; -webkit-font-smoothing: antialiased; }
 :focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
-::selection { background: var(--accent); color: var(--bg); }
+::selection { background: var(--accent); color: var(--on-accent); }
+/* Headings in Battlefin: its only weight is the heavy cut, declared as 400, so no synthetic bold. */
+h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400; font-synthesis: none; }
+.mono, code { font-family: var(--mono-font); }
 
 /* ---------- app screens: same skin, flat ---------- */
-.wordmark { font: 500 22px/1 var(--font); letter-spacing: -0.02em; gap: 0; }
+.wordmark { font: 400 22px/1 var(--head); letter-spacing: 0; gap: 0; }
 .btn, .btn.small, .btn:hover, .btn:active { box-shadow: none; } /* taste-skill-ignore: reset of the old sticker */
-.btn { border: 0; border-radius: 0; background: var(--fg); color: var(--bg); font-weight: 500; min-height: 48px; transition: transform 160ms var(--ease), background-color 200ms ease; }
+.btn { border: 0; border-radius: 0; background: var(--fg); color: var(--bg); font-weight: 600; min-height: 48px; transition: transform 160ms var(--ease), background-color 200ms ease; }
 .btn:hover { transform: none; background: #ddd8d0; }
 .btn:active { transform: translateY(1px) scale(.98); }
 .btn.white, .btn.green, .btn.yellow { background: var(--surface); color: var(--fg); border: 1px solid var(--ui-line); } /* taste-skill-ignore: app-screen control */
 .btn.white:hover, .btn.green:hover, .btn.yellow:hover { background: #241f1a; }
 .btn.ink { background: var(--fg); color: var(--bg); }
 .stk { border-color: var(--ui-line); box-shadow: none; } /* taste-skill-ignore: reset of the old sticker */
-.pill { font-weight: 500; }
+.pill { font-weight: 600; }
 .pill.ok { color: #c9d8b8; } .pill.warn { color: #e8b4b4; } .pill.wait { color: var(--accent); }
 .pill.ink { background: var(--fg); color: var(--bg); }
 .app { background: var(--bg); }
-.app h1, .app h2 { font-weight: 500; letter-spacing: -0.02em; }
+.app h1, .app h2 { font-weight: 400; letter-spacing: 0; }
 .app a { text-underline-offset: 3px; }
 .card { background: var(--surface); border-color: var(--ui-line); }
 .control { background: var(--field); border-color: var(--ui-line); color: var(--fg); }
@@ -68,8 +76,8 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); letter
 .dr a { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; transition: color 200ms ease, opacity 200ms ease; }
 .dr a:hover { opacity: .75; }
 .dr img, .dr video { display: block; max-width: 100%; height: auto; }
-.dr code { font-family: var(--font); font-weight: 500; }
-.dr h1, .dr h2, .dr h3 { font-weight: 400; margin: 0; letter-spacing: -0.03em; line-height: 1.1; text-wrap: balance; }
+.dr code { font-family: var(--mono-font); font-size: .92em; }
+.dr h1, .dr h2, .dr h3 { font-weight: 400; margin: 0; letter-spacing: -0.01em; line-height: 1.1; text-wrap: balance; }
 .dr p { margin: 0; }
 .dr ul { list-style: none; margin: 0; padding: 0; }
 .dr .muted { color: var(--muted); }
@@ -88,7 +96,7 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); letter
 .dr .title h1 { grid-column: 1 / span 4; font-size: var(--step-head); }
 .dr .title .lede { grid-column: 5 / span 3; display: flex; flex-direction: column; gap: 18px; }
 .dr .title .worst { color: var(--muted); }
-.dr .title .worst b { color: var(--fg); font-weight: 500; }
+.dr .title .worst b { color: var(--fg); font-weight: 600; }
 .dr .acts { display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; }
 .dr .acts span { color: var(--muted); }
 .dr .wa-note { font-size: var(--step-small); color: var(--muted); max-width: 48ch; }
@@ -100,7 +108,7 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); letter
 /* ---------- interface fragments ---------- */
 .dr [data-ui] { background: var(--surface); border: 1px solid var(--ui-line); border-radius: 8px; color: var(--fg); font-size: 15px; line-height: 1.4; letter-spacing: 0; }
 .dr .ui-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--ui-line); font-size: 15px; } /* taste-skill-ignore: inside data-ui fragments */
-.dr .ui-head b { font-weight: 500; }
+.dr .ui-head b { font-weight: 600; }
 .dr .ui-body { padding: 14px; }
 .dr .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-right: 6px; vertical-align: 1px; }
 .dr .live-dot.on { background: var(--fg); animation: dr-blink 1.6s ease-in-out infinite; }
@@ -126,11 +134,11 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); letter
 .dr .meter-row .lab span:last-child { color: var(--muted); }
 .dr .meter { height: 10px; background: #2a2520; border-radius: 6px; overflow: hidden; }
 .dr .meter i { display: block; height: 100%; width: 0; background: var(--fg); border-radius: 6px; transition: width 520ms var(--ease), background-color 200ms ease; }
-.dr .meter i.gold { background: var(--accent); }
+.dr .meter i.lim { background: var(--accent); }
 .dr .kv { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: 15px; border-top: 1px solid var(--ui-line); font-variant-numeric: tabular-nums; } /* taste-skill-ignore: inside data-ui fragments */
 .dr .kv span:first-child { color: var(--muted); }
 .dr .kv span:last-child { text-align: right; }
-.dr .kv .ok { font-weight: 500; }
+.dr .kv .ok { font-weight: 600; }
 
 /* ---------- the real call ---------- */
 .dr .callui { scroll-margin-top: 24px; }
@@ -268,7 +276,7 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); letter
 
 /* ---------- faq ---------- */
 .dr .faq { padding: 220px var(--m) 0; display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gap); row-gap: 80px; }
-.dr .faq > h2, .dr .faq dt { grid-column: 1 / span 6; font-size: var(--step-h2); letter-spacing: -0.03em; line-height: 1.1; font-weight: 500; max-width: 22ch; }
+.dr .faq > h2, .dr .faq dt { grid-column: 1 / span 6; font-size: var(--step-h2); letter-spacing: -0.01em; line-height: 1.1; font-weight: 400; max-width: 22ch; }
 .dr .faq > h2 { font-weight: 400; color: var(--muted); grid-column: 1 / -1; }
 .dr .faq dl { display: contents; }
 .dr .faq dd { grid-column: 8 / span 5; margin: 0; max-width: 42ch; line-height: 1.55; padding-top: .5em; }
@@ -351,7 +359,7 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); letter
   .site-credits { padding: 0 16px 40px; }
 }
 
-/* ---------- app screens: square corners, smaller type, gold kept for limits ---------- */
+/* ---------- app screens: square corners, smaller type, mint kept for limits ---------- */
 .app { font-size: 14px; line-height: 1.45; }
 .app .card { border-radius: 4px; }
 .app .control, .typed input, .app .btn { border-radius: 2px; }
@@ -363,7 +371,7 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); letter
 .calls button.on { background: #241f1a; color: var(--fg); }
 .bubble { border-radius: 4px; font-size: 14px; }
 .bubble.tool { background: transparent; border: 1px solid var(--ui-line); }
-.kpis .v { font-weight: 500; }
+.kpis .v { font-weight: 600; }
 .qr { border: 8px solid var(--surface); outline: 1px solid var(--ui-line); border-radius: 2px; } /* taste-skill-ignore: dark frame around the white QR */
 .app code { overflow-wrap: anywhere; }
 @media (max-width: 760px) {
@@ -374,3 +382,20 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); letter
 .dash .canvas, .dash .grid > *, .dash .stack, .dash .card { min-width: 0; }
 .dash table.ledger td, .dash td .sub { overflow-wrap: anywhere; }
 .bubble { overflow-wrap: anywhere; }
+
+/* ---------- makers lockup: by Chromia × evalengine ---------- */
+.makers { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; white-space: nowrap; }
+.makers img { display: block; width: auto; height: 24px; max-width: none; }
+.makers.lg img { height: 32px; }
+.makers.lg { gap: 14px; }
+.makers .x { font-size: 15px; }
+.site-foot .foot-id { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+.app .brandrow .makers { margin-left: auto; }
+@media (max-width: 700px) {
+  .dr .bar .makers .by { display: none; }
+  .dr .bar .makers img { height: 18px; }
+  .makers.lg img { height: 26px; }
+}
+/* the evalengine wordmark carries more padding in its viewBox than Chromia's: scale it up to match optically */
+.makers img[alt="evalengine"] { height: 30px; } .makers.lg img[alt="evalengine"] { height: 40px; }
+@media (max-width: 700px) { .dr .bar .makers img[alt="evalengine"] { height: 22px; } }

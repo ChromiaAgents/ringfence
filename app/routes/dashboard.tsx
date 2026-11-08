@@ -56,7 +56,7 @@ function Dashboard() {
   return (
     <div className="app dash">
       <aside className="side">
-        <div className="ws"><Wordmark /><div>Wallet, launch and builder desks<br />NEAR {s.network}</div></div>
+        <div className="ws"><Wordmark /><div>Wallet and launch desks<br />NEAR {s.network}</div></div>
         <nav aria-label="Sections">
           <a className="on" href="#overview">Overview</a>
           <a href="#launches">Launches</a>

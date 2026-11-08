@@ -8,7 +8,7 @@ import { useNearWallet } from '../near-wallet';
 const getCfg = createServerFn({ method: 'GET' }).handler(async () => {
   const { env } = await import('../../src/config.ts');
   const { chainById, defaultChainIds } = await import('../../src/chains.ts');
-  return { network: env.network, defaults: env.walletDefaults, chains: defaultChainIds(env.network).map((id) => chainById(id)!.name) };
+  return { network: env.network, evm: env.evmEnabled, defaults: env.walletDefaults, chains: defaultChainIds(env.network).map((id) => chainById(id)!.name) };
 });
 
 export const Route = createFileRoute('/wallet/bind')({
@@ -64,7 +64,7 @@ function Bind() {
       <h1>Your phone number is a wallet</h1>
       <p className="err" role="note"><b>Unaudited prototype: keep small amounts.</b> The phone-wallet contract has not been audited.{cfg.network === 'mainnet' ? ' This is NEAR mainnet: real money.' : ''}</p>
 
-      <p className="muted">Bind your NEAR account to your WhatsApp number. Then on a call say “send 1 NEAR to bob.{sfx}” or “send 0.0001 ETH on Base to 0x…”, confirm with your PIN, and it goes through within limits a contract enforces, not the AI.</p>
+      <p className="muted">Bind your NEAR account to your WhatsApp number. Then on a call say “send 1 NEAR to bob.{sfx}”, confirm with your PIN, and it goes through within limits a contract enforces, not the AI.</p>
 
       <section className="card">
         <h2>1. Connect your NEAR wallet</h2>
@@ -97,12 +97,12 @@ function Bind() {
             <div className="row"><span>Fund it with</span><b>{tx.deposit} NEAR</b></div>
             <div className="row"><span>Owner: full control, withdraw any time</span><b className="mono">{tx.init.owner}</b></div>
             <div className="row"><span>Agent: may spend within limits only</span><b className="mono">{tx.init.agent}</b></div>
-            <div className="row"><span>EVM chains enabled</span><b>{cfg.chains.join(', ')} (add more later with allow_chain)</b></div>
-            {tx.evmAddress && <div className="row"><span>Your EVM address (same on every EVM chain)</span><b className="mono">{tx.evmAddress}</b></div>}
+            {cfg.evm && <div className="row"><span>EVM chains enabled</span><b>{cfg.chains.join(', ')} (add more later with allow_chain)</b></div>}
+            {cfg.evm && tx.evmAddress && <div className="row"><span>Your EVM address (same on every EVM chain)</span><b className="mono">{tx.evmAddress}</b></div>}
           </div>
-          <p className="muted small">Your EVM address is the same on every EVM chain: fund gas on whichever chain you want to use. The agent checks gas before it asks for a signature.</p>
+          {cfg.evm && <p className="muted small">Your EVM address is the same on every EVM chain: fund gas on whichever chain you want to use. The agent checks gas before it asks for a signature.</p>}
           <h3>Limits (change them before you sign)</h3>
-          {([['nearPerTx', 'NEAR per transfer'], ['nearPerDay', 'NEAR per day'], ['evmPerTx', 'EVM native coin per transfer (per chain)'], ['evmPerDay', 'EVM native coin per day (per chain)'], ['delaySec', 'New-recipient delay, seconds']] as const).map(([k, label]) => (
+          {([['nearPerTx', 'NEAR per transfer'], ['nearPerDay', 'NEAR per day'], ['evmPerTx', 'EVM native coin per transfer (per chain)'], ['evmPerDay', 'EVM native coin per day (per chain)'], ['delaySec', 'New-recipient delay, seconds']] as const).filter(([k]) => cfg.evm || !k.startsWith('evm')).map(([k, label]) => (
             <div key={k}><label className="field-label" htmlFor={k}>{label}</label>
               <input id={k} className="control" inputMode="decimal" value={String(lim[k])} onChange={(e) => setLim({ ...lim, [k]: k === 'delaySec' ? Number(e.target.value) || 0 : e.target.value })} /></div>))}
           <p className="explain">One transaction from your account: create account, transfer, deploy contract, call new. Nothing runs until you sign it in your wallet.</p>

@@ -1,36 +1,39 @@
 # Ringfence
 
-**Call to pay. A NEAR contract you own caps what the AI can spend, on NEAR and Base.** Your phone number is a wallet on NEAR and Base (and other Ethereum-style chains you switch on). Call it from WhatsApp or the browser, say "send 0.5 NEAR to alice.near", hear it read back, confirm with a spoken PIN, and it's sent, but only within the limits in your contract.
+**Call to pay. A NEAR contract you own caps what the AI can spend.** Your phone number is a NEAR wallet. Call it from WhatsApp or the browser, say "send 0.5 NEAR to alice.near", hear it read back, confirm with a spoken PIN, and it's sent, but only within the limits in your contract.
 
 > **Status: nothing has been signed on chain yet.** The links will go in [Evidence](#evidence-on-chain) as soon as the first mainnet transfers exist. Until then this is a tested design with a dry run you can check yourself (`npm run demo:check`, no keys needed).
 
-**Worst case, even if we (the operator) are malicious:** 3 NEAR and 0.002 ETH a day (the mainnet defaults), only to recipients you saved, and you can end it with one `revoke_agent` transaction.
+**Worst case, even if we (the operator) are malicious:** 3 NEAR a day (the mainnet default), only to recipients you saved, and you can end it with one `revoke_agent` transaction.
 
-**The strongest idea here:** before NEAR signs an Ethereum-style transaction, the contract reads the raw transaction itself and checks the chain, recipient and amount. So only what you heard read back can be signed, not a different recipient, amount or chain.
+**The strongest idea here:** the AI only asks; the contract you own decides. It checks the amount against your per-transfer and daily limits and the recipient against your saved list, and a new recipient always needs your own signature.
 
 **Problem.** Most people can make a phone call but can't use a crypto wallet. They'd need to manage a recovery phrase, buy fee tokens for each chain, copy long addresses and fill in forms. A voice agent could do it for them, but then two things go wrong. The agent can be talked into sending more than it should, and the caller's voice and photos go to an AI provider.
 
-**Product.** Ringfence is one phone line (browser call, or WhatsApp call, text or photo). You bind your NEAR account to your number once, signing with your own wallet. On a call you can send NEAR, or send ETH on Base.
+**Product.** Ringfence is one phone line (browser call, or WhatsApp call or text). You bind your NEAR account to your number once, signing with your own wallet. On a call you can send NEAR and check your balance.
+
+**NEAR only, for now.** The code also has EVM sends through NEAR Chain Signatures (Base and other Ethereum-style chains), but they are off unless the server sets `EVM_ENABLED=1`; with it off the wallet desk answers "Only NEAR transfers for now" and the site and bind page don't show them. The EVM sections below describe that code, not the pitch.
 
 **What each NEAR part does:**
 
 - **A NEAR smart contract you own** holds the wallet and enforces the limits: per transfer and per day for each asset, a list of allowed chains, a list of saved recipients with a 600-second wait for new ones, and owner-only withdraw and revoke. The AI can only ask; the contract decides.
-- **NEAR Chain Signatures** lets that contract sign Ethereum-style transactions, so you get one address that works on Base and similar chains. Base is on by default. Bitcoin and Solana are not supported.
+- **NEAR Chain Signatures** (built, off by default behind `EVM_ENABLED`) lets that contract sign Ethereum-style transactions. Not advertised for now.
 - **NEAR AI Cloud** runs all four AI models (chat, speech-to-text, photo reading, logos) in sealed hardware (trusted execution environments, or TEEs), so the operator can't read what goes into them. The `/proof` page checks the hardware's signed proof live.
-- **NEAR Intents** (also works for: building deposits) lets a customer pay in almost any token and converts it, so the owner receives USDC on NEAR.
+- **NEAR Intents 1Click** (optional, mainnet): "fund this launch from another chain" on the launch page.
 - **JustHoot** (also works for: coin launches) is an existing NEAR launchpad. Ringfence adds voice to it; the caller signs in their own wallet.
 
 ## What you can do by voice
 
 | Say | What happens | Who signs |
 | --- | --- | --- |
-| "Send 0.5 NEAR to alice.near" | Read back, you say your 4-digit PIN, `transfer_near` on your phone-wallet contract. To a recipient you haven't saved, the agent doesn't send: you get a link to sign it in your own wallet (on Base: save the address first). The contract's 600 s queue is the backstop if the agent key ever asks for a new recipient directly | The agent key, inside your contract's limits |
-| "Send 0.0001 ETH on Base to 0x…" | Read back, PIN, the contract checks the transaction and asks NEAR Chain Signatures to sign it; the server sends it to Base | The agent key and NEAR Chain Signatures, inside your limits |
+| "Send 0.5 NEAR to alice.near" | Read back, you say your 4-digit PIN, `transfer_near` on your phone-wallet contract. To a recipient you haven't saved, the agent doesn't send: you get a link to sign it in your own wallet. The contract's 600 s queue is the backstop if the agent key ever asks for a new recipient directly | The agent key, inside your contract's limits |
 | "What's my balance?" | `get_balance` on your phone wallet | Nobody (read only) |
 
 Over a limit, or to a recipient not on your saved list: the agent says so and gives a link to sign it yourself instead.
 
-**Also works for** (same line, same limits on the AI, kept out of the demo until real transactions exist): a voice front end to the JustHoot coin launchpad ("Launch a coin called Sleepy Otter, ticker ZZZ": rules in code, then a page you sign in your own wallet), and a sample building firm ("Quote my kitchen" or a photo: quote from the owner's price list, booking, a deposit link payable in almost any token).
+**Also works for** (same line, same limits on the AI): a voice front end to the JustHoot coin launchpad ("Launch a coin called Sleepy Otter, ticker ZZZ": rules in code, then a page you sign in your own wallet).
+
+**Not offered: building quotes.** An earlier sample builder's desk (quotes from a photo, bookings, deposits through NEAR Intents) is still in the code (`src/desks/business.ts`, `owner.yaml`, `/pay/:jobId`), but the router no longer sends callers there: asking for a quote gets a polite "we don't do building quotes", and photos are declined.
 
 ## Trust model
 
@@ -38,11 +41,11 @@ Over a limit, or to a recipient not on your saved list: the agent says so and gi
 - **The operator can spend without the PIN.** The server holds the agent key. The PIN protects against someone else calling from a spoofed or stolen line, not against us. Your cap on that is the daily limit per asset; `revoke_agent` ends it, and `withdraw` always works.
 - **Your phone number is not the security.** Binding is signed by the NEAR account owner. Against a SIM swap or a spoofed caller ID, what protects you is only the PIN plus the caps. The PIN is 4 digits; 3 wrong tries lock it for 15 minutes, so trying every PIN takes about 35 days, during which at most the daily cap could move.
 - **The PIN passes through the AI.** Speech-to-text and the language model hear it, inside NEAR AI TEEs. It is stored only in scrambled form (a salted hash) and blanked from the stored transcript and tool log.
-- **The contract is unaudited.** Keep small amounts in it. Mainnet defaults: 1 NEAR per transfer and 3 per day; 0.0005 / 0.002 ETH per transfer and per day on Base; 600 s wait for new recipients.
-- **Known privacy limits.** Reply text goes to Cartesia when Cartesia is the voice (not a TEE); `TTS_PROVIDER=kokoro` keeps it on the box. This app server itself is not attested, so transcripts, photos and the PIN path pass through an ordinary server. On WhatsApp, Meta carries the call and sees its metadata.
+- **The contract is unaudited.** Keep small amounts in it. Mainnet defaults: 1 NEAR per transfer and 3 per day; 600 s wait for new recipients.
+- **Known privacy limits.** Reply text goes to Cartesia when Cartesia is the voice (not a TEE); `TTS_PROVIDER=kokoro` keeps it on the box. This app server itself is not attested, so transcripts and the PIN path pass through an ordinary server. On WhatsApp, Meta carries the call and sees its metadata.
 - **Nothing has been signed on chain yet.** See [Evidence](#evidence-on-chain).
 
-The building firm, **Hart & Sons Builders**, is a sample in `owner.yaml`, not a real company.
+The building firm in `owner.yaml`, **Hart & Sons Builders**, is a sample, not a real company, and is not offered to callers.
 
 ## Run it with no keys in 2 minutes
 
@@ -50,10 +53,10 @@ Node 22+. No `.env`, no API key, no wallet, no network needed for the steps mark
 
 ```bash
 npm ci
-npm test              # 27 tests, offline except the address derivation check
+npm test              # 28 tests, offline except the address derivation check
 npm run typecheck
 npm run build
-npm run demo:check    # offline: starts the built server with MOCK_LLM=1 and no .env, walks a launch, a booking and a wallet send (DRY RUN) over the call socket, checks the pages, stops the server
+npm run demo:check    # offline: starts the built server with MOCK_LLM=1 and no .env, walks a launch, a declined building quote, a wallet send (DRY RUN) and a refused EVM send over the call socket, checks the pages, stops the server
 ```
 
 `npm run demo:check` prints one line per step. Expected output:
@@ -62,10 +65,10 @@ npm run demo:check    # offline: starts the built server with MOCK_LLM=1 and no 
 PASS  server starts with MOCK_LLM=1, no .env, no key  (port …)
 PASS  launch desk: refuses ticker NEAR, then prepares a launch over the call socket  (http://localhost:…/launch/…)
 PASS  launch page renders (/launch/:id) with the agreed terms  ($ZZOTR on justhoot (mainnet), prepared, logo: drawn locally; nothing signed)
-PASS  business desk: refuses 30% off, quotes, books, sends a deposit link  (http://localhost:…/pay/…)
-PASS  pay page renders (/pay/:jobId) with the deposit  (Kitchen fitting, $8250, deposit $1650)
-PASS  ledger records the refusals, the launch and the booking  (8 entries)
+PASS  building quotes are not offered: the router declines instead of opening the business desk  (Sorry, we don't do building quotes or bookings. …)
+PASS  ledger records the refusal and the launch  (4 entries)
 PASS  wallet desk: send 1 NEAR to bob.testnet, read back, PIN, dry run (no agent key)  (stopped before signing: DRY RUN)
+PASS  wallet desk: an EVM send is refused politely (EVM_ENABLED off)
 PASS  /wallet/bind page renders
 PASS  dashboard and /proof pages render
 ```
@@ -80,9 +83,7 @@ To click through it yourself: `MOCK_LLM=1 npm start` (add `TTS=off` to skip down
 | Launch | `Logo vibe: a sleepy otter on a pillow` | Without a key the image model is skipped and a placeholder coin is drawn locally (the page says so) |
 | Launch | `One hour, soft cap 100 NEAR` | Refused on JustHoot (no auction there). Auction and team rules (`checkAuction`, `checkTeam`, max 10% team) apply on meme.cooking, which is off by default |
 | Launch | `Yes, set it up` | **Open your launch** box. The page shows the terms and, after **Connect a wallet**, the exact NEAR cost from JustHoot's mainnet views (needs network) |
-| Business | `I need a new kitchen, can you do 30% off?` | "Max discount is 10%" (`priceFor`) |
-| Business | `OK, no discount then, what is the quote?` | $8250, deposit $1650 from `owner.yaml` |
-| Business | `My name is Sam Lee, postcode N5 1AA`, then `OK, book it for Tuesday` | **Pay the deposit** box. The pay page lists tokens and quotes through 1Click (needs network; quotes are `dry` until you press pay) |
+| Let it ask | `I need a new kitchen` | "Sorry, we don't do building quotes or bookings…" (not offered; no desk opens) |
 
 With network but still no key: `npm run attest` verifies the TEE attestation of all four models (below), and `npm run test:meme` / `npm run test:justhoot` / `npm run test:quote` call the meme.cooking and JustHoot view methods and a dry 1Click quote.
 
@@ -117,17 +118,16 @@ With network but still no key: `npm run attest` verifies the TEE attestation of 
 ## Tracks and the hints each feature uses
 
 - **Security**: wallet limits enforced by a NEAR contract, not by the AI (per-asset limits, chain and recipient allowlists, new-recipient delay, owner-only withdraw and revoke, agent never the owner); the contract parses the EVM transaction bytes itself before the MPC signer signs; spoken PIN stored as a salted hash with lockout; attestation verified rather than trusted; per-reply signature checks; owner pages behind basic auth (`DASHBOARD_PASSWORD`). Honest gap: the contract is unaudited, and the operator holding the agent key can spend inside your limits without the PIN.
-- **Agents**: tool-calling desks on one runtime (wallet, launch, business, owner settings), each a config file + prompt + tools; rules enforced in tool code, not in the prompt; the agent acts on chain through NEAR Chain Signatures; the owner edits the business rules by talking, with a diff and hard bounds.
-- **Real world**: a phone call is the interface, so someone without a wallet app can send money by voice; WhatsApp calls, texts and photos.
+- **Agents**: tool-calling desks on one runtime (wallet, launch, owner settings; a sample business desk stays in the code but is not reachable by callers), each a config file + prompt + tools; rules enforced in tool code, not in the prompt; the agent acts on chain by calling the owner's own limited contract.
+- **Real world**: a phone call is the interface, so someone without a wallet app can send money by voice; WhatsApp calls and texts.
 - **Privacy**: NEAR AI Cloud private inference for every model (chat, STT, vision, image), with attestation verified in this process (Intel TDX + NVIDIA NRAS) and signed chat and vision replies; the spoken PIN is heard only inside TEEs and blanked from storage; text-to-speech is either Cartesia (cloud: the reply text goes to Cartesia, a third party, not a TEE) or local Kokoro (`TTS_PROVIDER=kokoro`: the text never leaves the box); photos are stored only on this server.
-- **Business**: an AI receptionist for a small builder: photo-to-quote, bookings, and deposits in any token settled to USDC on NEAR through NEAR Intents 1Click.
 - **Memecoins**: launching on JustHoot (token plus RHEA pool in one `launch_meme` call, mainnet) by voice, signed in the caller's own wallet, with impersonation blocks, a no-promised-returns filter and a kill switch in code. The memecoin mechanic itself is thin: it is a voice front end to an existing launchpad, not a new launch design. meme.cooking support is built but off by default.
 
-## Phone wallet: your phone number is a wallet on every EVM chain
+## Phone wallet: your phone number is a NEAR wallet
 
 > **Unaudited prototype: keep small amounts.** The phone-wallet contract has not been audited. On mainnet it moves real money; the defaults are deliberately small.
 
-Bind your NEAR account (`.near` on mainnet, `.testnet` on testnet, per `NETWORK`) to your WhatsApp number once on `/wallet/bind`. Then on a call: "send 1 NEAR to bob.near" or "send 0.0001 ETH on Base to 0x…" (addresses are easier typed in WhatsApp), hear it read back ("0.0001 ETH on Base to address 0x1111 ending 2222"), say your 4-digit PIN, and it executes on chain within limits a smart contract enforces, not the AI. The explorer link (nearblocks, basescan, arbiscan, …) arrives on WhatsApp.
+Bind your NEAR account (`.near` on mainnet, `.testnet` on testnet, per `NETWORK`) to your WhatsApp number once on `/wallet/bind`. Then on a call: "send 1 NEAR to bob.near", hear it read back ("1 NEAR to bob dot near"), say your 4-digit PIN, and it executes on chain within limits a smart contract enforces, not the AI. The nearblocks link arrives on WhatsApp. (With `EVM_ENABLED=1` the same flow also takes "send 0.0001 ETH on Base to 0x…"; off by default.)
 
 **How it works**
 
@@ -136,9 +136,9 @@ Bind your NEAR account (`.near` on mainnet, `.testnet` on testnet, per `NETWORK`
 3. With the PIN right, the server calls your contract with the agent key (`near-api-js`): `transfer_near` for NEAR, `request_signature` for EVM chains.
 4. Over a limit, or a recipient not on your saved list: the agent says so and texts a link (`/wallet/send`) to sign it in your own wallet instead. An unbound number is told to bind first, with the link.
 
-**EVM chains through Chain Signatures.** One MPC path (`ethereum-1`) gives your contract **the same EVM address on every EVM chain**; you fund gas on whichever chain you want to use. The address is derived as NEAR's MPC does (`src/eth.ts`; checked in `npm test` against the live `derived_public_key` views of both `v1.signer` (mainnet) and `v1.signer-prod.testnet`). Chains come from a small registry (`src/chains.ts`: Ethereum 1, Base 8453, Arbitrum 42161, Optimism 10, Polygon 137, BNB Chain 56, Avalanche 43114, plus Sepolia; more with `EXTRA_CHAINS`, RPCs overridable with `RPC_<chainId>`). The server builds an EIP-1559 transfer (nonce and fees from the chain's public RPC) and **checks gas first**: if the address holds less than value + maxFee × 21000, it says how much is missing and which address to fund, and no signature is requested. The contract parses the unsigned transaction itself (minimal RLP: the chain id must be on the owner's chain allowlist and match `evm:<chainId>`, `to` an address, no calldata, no access list), applies that chain's limits to the value it parsed, and calls `sign({request: {path, payload_v2: {Ecdsa: keccak256(tx)}, domain_id: 0}})` on the MPC signer with 1 yoctoNEAR. The signature comes back as the call's result; the server attaches it and broadcasts to that chain.
+**EVM chains through Chain Signatures (built, off unless `EVM_ENABLED=1`).** One MPC path (`ethereum-1`) gives your contract **the same EVM address on every EVM chain**; you fund gas on whichever chain you want to use. The address is derived as NEAR's MPC does (`src/eth.ts`; checked in `npm test` against the live `derived_public_key` views of both `v1.signer` (mainnet) and `v1.signer-prod.testnet`). Chains come from a small registry (`src/chains.ts`: Ethereum 1, Base 8453, Arbitrum 42161, Optimism 10, Polygon 137, BNB Chain 56, Avalanche 43114, plus Sepolia; more with `EXTRA_CHAINS`, RPCs overridable with `RPC_<chainId>`). The server builds an EIP-1559 transfer (nonce and fees from the chain's public RPC) and **checks gas first**: if the address holds less than value + maxFee × 21000, it says how much is missing and which address to fund, and no signature is requested. The contract parses the unsigned transaction itself (minimal RLP: the chain id must be on the owner's chain allowlist and match `evm:<chainId>`, `to` an address, no calldata, no access list), applies that chain's limits to the value it parsed, and calls `sign({request: {path, payload_v2: {Ecdsa: keccak256(tx)}, domain_id: 0}})` on the MPC signer with 1 yoctoNEAR. The signature comes back as the call's result; the server attaches it and broadcasts to that chain.
 
-**Which chains are on.** Mainnet: **Base** is enabled at bind with small limits. The other registry chains are known to the server but the contract refuses them until the owner allows them, with their own limits in that chain's native units (wei for ETH, BNB, POL, AVAX):
+**Which chains are on (only with `EVM_ENABLED=1`).** Mainnet: **Base** is enabled at bind with small limits. The other registry chains are known to the server but the contract refuses them until the owner allows them, with their own limits in that chain's native units (wei for ETH, BNB, POL, AVAX):
 
 ```bash
 near contract call-function as-transaction phone.alice.near allow_chain json-args '{"chain_id":42161,"per_tx":"500000000000000","per_day":"2000000000000000"}' prepaid-gas '30 Tgas' attached-deposit '1 yoctoNEAR' sign-as alice.near network-config mainnet sign-with-keychain send
@@ -180,7 +180,7 @@ With `NEARAI_API_KEY` set (see [Run it with keys](#run-it-with-keys)), open `htt
 
 ### Wallet desk
 
-Bind first on `/wallet/bind` (see [Phone wallet](#phone-wallet-your-phone-number-is-a-wallet-on-every-evm-chain)). Then call and say "send 1 NEAR to bob.near" or "send 0.0001 ETH on Base to 0x…", listen to the read back, and say your PIN. Without `AGENT_ACCOUNT_ID` and `AGENT_PRIVATE_KEY` the result is a labelled DRY RUN.
+Bind first on `/wallet/bind` (see [Phone wallet](#phone-wallet-your-phone-number-is-a-near-wallet)). Then call and say "send 1 NEAR to bob.near", listen to the read back, and say your PIN. Without `AGENT_ACCOUNT_ID` and `AGENT_PRIVATE_KEY` the result is a labelled DRY RUN.
 
 ### Launch desk
 
@@ -196,14 +196,9 @@ Bind first on `/wallet/bind` (see [Phone wallet](#phone-wallet-your-phone-number
 | Press **Sign and launch** and approve in your wallet | The server reads the transaction back from chain and shows **meme #id** with links to meme.cooking and the explorer; the dashboard shows the launch as Live |
 | On `/`, type into **Try to launch a ticker** | The ticker rule answers live, from the same code the tool calls |
 
-### Business desk
+### Building quotes: not offered
 
-| Do this | You should see |
-| --- | --- |
-| Pick **Business**, call, say "Hi, I need a new kitchen", or press **Photo** and send a picture of a room | With a photo: a `photo →` line (Qwen3-VL's description) and a reply that uses it |
-| Ask "Can you do 30% off?" | Refused by `quote_job`: "Max discount is 10%" |
-| Give a name and postcode, say "OK, book it for Tuesday" | **Pay the deposit** box; the pay page quotes 1Click in any token, the owner receives USDC |
-| On `/dashboard`, **Settings line**, type "max 15% off and no roofs" | The agent reads back a diff; say "yes" and `owner.yaml` is rewritten (comments kept), `Rules changed` in the ledger. Try "40% off": refused by the hard bound (0–30%) |
+Say "I need a new kitchen" on the line: the router answers that building quotes are not offered and opens no desk. The old business desk and its owner settings line on `/dashboard` remain in the code for reference only.
 
 `/dashboard` shows both desks: calls with a **TEE-signed** badge on each verified reply, launches (prepared, live, failed), jobs and deposits, the ledger of every refusal and change, the rules, and the verified attestation of all four models. `/proof` shows the same attestation publicly, with every check.
 
@@ -250,10 +245,11 @@ Production: `npm run build && npm start`, or on a VPS with Docker/systemd + Cadd
 | `CARTESIA_API_KEY`, `CARTESIA_VOICE_ID`, `TTS_SPEED` | Cartesia Sonic (`/tts/bytes`, raw f32 PCM 24 kHz); default voice "Jacqueline" |
 | `RTC_PORT_MIN`, `RTC_PORT_MAX` | Fixed UDP range for WhatsApp call audio (e.g. 40000–40100), so a firewall can open it. See `deploy/README.md` |
 | `AGENT_ACCOUNT_ID`, `AGENT_PRIVATE_KEY` | Phone wallet agent on `NETWORK`; without them the wallet desk is a dry run |
-| `NETWORK` | `testnet` (default) or `mainnet` for launches and the phone wallet (mainnet: Base, `v1.signer`) |
+| `NETWORK` | `testnet` (default) or `mainnet` for launches and the phone wallet |
+| `EVM_ENABLED` | Off by default. `1` turns on EVM sends through Chain Signatures (Base on mainnet, Sepolia on testnet); off, the wallet desk says "Only NEAR transfers for now" |
 | `PUBLIC_URL` | Public URL of this server, used in launch and deposit links |
 | `PINATA_JWT` | Optional. Pins the coin's description and links to IPFS (the reference meme.cooking's app uses) |
-| `OWNER_NEAR_ACCOUNT` | Business desk: mainnet account that receives USDC deposits |
+| `OWNER_NEAR_ACCOUNT` | Business desk (not offered to callers): mainnet account that receives USDC deposits |
 | `OWNER_WHATSAPP` | Business desk: the owner's number; it reaches the settings desk instead of the router |
 | `ONECLICK_JWT` | Optional 1Click partner JWT (without it 1Click adds a 0.2% fee) |
 | `DASHBOARD_PASSWORD` | Optional basic auth on `/dashboard`, `/api/state`, `/api/owner` |
@@ -291,22 +287,20 @@ To be filled after the team runs them; none of these has been done by this code'
 | --- | --- |
 | meme.cooking launch on testnet, signed through `/launch/:id` | TODO: testnet explorer link to the `create_meme` transaction |
 | JustHoot launch on mainnet, signed through `/launch/:id` | TODO: nearblocks link to the `launch_meme` transaction |
-| A real NEAR Intents 1Click deposit through `/pay/:jobId` | TODO: origin-chain deposit tx and the 1Click status / NEAR settlement tx |
 | Phone wallet: create + deploy + init `phone.<you>.near` through `/wallet/bind` | TODO: nearblocks.io link |
 | Phone wallet: a NEAR transfer by voice + PIN (`transfer_near`) | TODO: nearblocks.io link |
-| Phone wallet: a Base transfer through Chain Signatures (`request_signature` + broadcast) | TODO: nearblocks.io link and basescan.org link |
 | Demo video and X post | TODO |
 
 ## Verified, and not
 
-Verified here (2026-11-08): `npm test` 27 passed; `npm run typecheck` and `npm run build` pass; `npm run demo:check` all 9 steps pass with no `.env` (re-run 2026-11-08 after the wallet-first rewrite); `npm run attest` verifies all four models (Intel TDX quote, TCB `UpToDate`, key+nonce binding, 8 NVIDIA H100 GPUs through NRAS); `create_meme_storage_cost` accepts our arguments on testnet and mainnet (`npm run test:meme`); the testnet contract whitelists `wrap.testnet`; the meme.cooking indexer is reachable; dry 1Click quotes return for Base USDC, Solana SOL and wNEAR (`npm run test:quote`).
+Verified here (2026-11-08): `npm test` 28 passed; `npm run typecheck` and `npm run build` pass; `npm run demo:check` all 9 steps pass with no `.env` (re-run 2026-11-08 after the NEAR-only, no-builder change); `npm run attest` verifies all four models (Intel TDX quote, TCB `UpToDate`, key+nonce binding, 8 NVIDIA H100 GPUs through NRAS); `create_meme_storage_cost` accepts our arguments on testnet and mainnet (`npm run test:meme`); the testnet contract whitelists `wrap.testnet`; the meme.cooking indexer is reachable; dry 1Click quotes return for Base USDC, Solana SOL and wNEAR (`npm run test:quote`).
 
 Not verified here: a real signed `create_meme` or `launch_meme` and a real 1Click deposit (they need a funded wallet and a person to sign; the launch and deposit paths never sign, see Evidence; the phone wallet's agent signs only calls to a user's own limited contract, and none has been sent yet); the token-id extraction from JustHoot's launch logs; and the exact response shape of NEAR AI's image endpoint (we send the OpenAI-compatible `/v1/images/generations` request and accept `b64_json` or `url`; on failure the desk draws a placeholder coin and says so). The storage-cost view does not validate everything `create_meme` checks, so the first real launch is the true test of an empty `reference`/`reference_hash` and of `team_allocation`. `demo:check` uses the mock model, so it proves the tools, rules and pages, not the real model's choices.
 
 ## Honest limitations
 
 - The phone-wallet contract is unaudited; keep small amounts in it. The operator can spend inside your limits without the PIN. The PIN passes through speech-to-text and the LLM inside NEAR AI TEEs.
-- Bitcoin, Solana and ERC-20 tokens are not supported. Mainnet enables only Base at bind.
+- NEAR only for now: EVM sends are built but off unless `EVM_ENABLED=1`. Bitcoin, Solana and ERC-20 tokens are not supported.
 - JustHoot is mainnet only and costs real NEAR whatever `NETWORK` says. NEARON is a link only.
 - `demo:check` uses a mock model: it proves the tools, rules and pages, not the real model's choices.
 - Without `PINATA_JWT`, launches go out with an empty metadata reference: the description and links live on our launch page, not on meme.cooking.
@@ -319,7 +313,7 @@ Not verified here: a real signed `create_meme` or `launch_meme` and a real 1Clic
 ## Hackathon disclosures
 
 - **Window (Q-001, Q-003)**: the repository's first commit is 2026-11-07 (`a23758a`), inside the hackathon window (2026-10-19 to 2026-11-14). All code in this repository was written in the window; there is no pre-hackathon baseline.
-- **Other chains (Q-002)**: the phone wallet sends on EVM chains (Base on mainnet by default, Sepolia on testnet; others only after the owner calls `allow_chain`) through NEAR Chain Signatures. The contract and all signing requests live on NEAR. Bitcoin and Solana are not supported.
+- **Other chains (Q-002)**: NEAR only for now. EVM sends through NEAR Chain Signatures are built (Base on mainnet, Sepolia on testnet; others only after the owner calls `allow_chain`) but off unless `EVM_ENABLED=1`. The contract and all signing requests live on NEAR. Bitcoin and Solana are not supported.
 - **Other projects (Q-015)**: none to disclose.
 - **Libraries (Q-005)**: TanStack Start / Router, React, Vite, TypeScript, tsx; `ws` (WebSocket); `werift` and `opusscript` (WebRTC and Opus for WhatsApp calls); `kokoro-js` (local text-to-speech); `ethers` (ECDSA signature recovery for NEAR AI replies); `@phala/dcap-qvl` (Intel TDX quote verification); `@near-wallet-selector/*` (core, modal-ui, Meteor, HOT, Intear, MyNearWallet; the HERE package is installed but not offered); `sharp` (logo resizing); `qrcode`; `yaml`; `@fontsource` fonts. External services: NEAR AI Cloud, NEAR RPC, meme.cooking indexer, JustHoot contract, NEAR Intents 1Click, Intel PCS, NVIDIA NRAS, WhatsApp Cloud API. Code was written with AI assistance (Claude Code).
 

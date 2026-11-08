@@ -1,5 +1,5 @@
-// Headless smoke test of the no-key path: starts the built server with MOCK_LLM=1 and no .env, walks one launch
-// and one business booking over the browser-call WebSocket (typed fallback), and checks the pages render.
+// Headless smoke test of the no-key path: starts the built server with MOCK_LLM=1 and no .env, walks one launch,
+// a declined building quote and a wallet dry run over the browser-call WebSocket (typed fallback), and checks the pages render.
 //   npm run demo:check   (builds first; prints PASS/FAIL per step; exit 1 on any failure; stops the server)
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
@@ -96,33 +96,17 @@ try {
     return `$${api.params.symbol} on ${api.launchpad} (${api.network}), ${api.status}, logo: ${api.logoModel}; nothing signed`;
   });
 
-  let payUrl = '';
-  await step('business desk: refuses 30% off, quotes, books, sends a deposit link', async () => {
-    const r = await call('business', [
-      'I need a new kitchen, can you do 30% off?',
-      'OK, no discount then, what is the quote?',
-      'My name is Sam Lee, postcode N5 1AA',
-      'OK, book it for Tuesday',
-    ]);
-    must(r.said.some((s) => /max discount/i.test(s)), 'no discount refusal: ' + r.said.join(' | '));
-    must(r.link?.url.includes('/pay/'), 'no deposit link: ' + r.said.join(' | '));
-    payUrl = r.link!.url;
-    return payUrl;
+  await step('building quotes are not offered: the router declines instead of opening the business desk', async () => {
+    const r = await call('business', ['I need a new kitchen, can you quote it?']);
+    must(r.said.some((s) => /don't do building quotes/i.test(s)), 'no polite decline: ' + r.said.join(' | '));
+    must(!r.link, 'a link was sent');
+    return r.said.at(-1);
   });
-  await step('pay page renders (/pay/:jobId) with the deposit', async () => {
-    must(payUrl, 'no job from the previous step');
-    const id = payUrl.split('/pay/')[1];
-    const page = await get(`/pay/${id}`);
-    must(page.status === 200, `status ${page.status}`);
-    const api = JSON.parse((await get(`/api/pay/${id}`)).text);
-    must(api.depositUsd > 0, JSON.stringify(api).slice(0, 200));
-    return `${api.service}, $${api.quotedUsd}, deposit $${api.depositUsd}`;
-  });
-  await step('ledger records the refusals, the launch and the booking', async () => {
+  await step('ledger records the refusal and the launch', async () => {
     const s = JSON.parse((await get('/api/state')).text);
     const kinds = s.ledger.map((l: any) => l.kind);
-    for (const k of ['refused', 'launch_prepared', 'booking', 'deposit_link']) must(kinds.includes(k), `no ${k} in the ledger`);
-    must(kinds.filter((k: string) => k === 'refused').length >= 2, 'expected at least 2 refusals');
+    for (const k of ['refused', 'launch_prepared']) must(kinds.includes(k), `no ${k} in the ledger`);
+    must(!kinds.includes('booking'), 'a booking was made');
     return `${s.ledger.length} entries`;
   });
   await step('wallet desk: send 1 NEAR to bob.testnet, read back, PIN, dry run (no agent key)', async () => {
@@ -133,6 +117,10 @@ try {
     must(s.ledger.some((l: any) => l.kind === 'wallet' && /DRY RUN/.test(l.detail)), 'no DRY RUN ledger entry');
     must(!JSON.stringify(s).includes('one two three four'), 'PIN left in the transcript');
     return 'stopped before signing: DRY RUN';
+  });
+  await step('wallet desk: an EVM send is refused politely (EVM_ENABLED off)', async () => {
+    const r = await call('wallet&from=15550001234', ['send 0.0001 ETH on Base to 0x1111111111111111111111111111111111111111']);
+    must(r.said.some((s) => /only NEAR/i.test(s)), 'no NEAR-only reply: ' + r.said.join(' | '));
   });
   await step('/wallet/bind page renders', async () => { const r = await get('/wallet/bind'); must(r.status === 200 && /phone number is a wallet/i.test(r.text), `status ${r.status}`); });
   await step('dashboard and /proof pages render', async () => {

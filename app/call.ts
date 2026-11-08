@@ -13,7 +13,7 @@ function wav16(f32: Float32Array) {
   return b.buffer;
 }
 
-export type Desk = 'launch' | 'business';
+export type Desk = 'launch'; // the business (builder) desk is no longer offered
 
 export function useCall(deskPick: Desk | 'auto' = 'auto') {
   const [lines, setLines] = useState<Line[]>([]);

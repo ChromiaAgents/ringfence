@@ -49,14 +49,16 @@ const tools = [
   { type: 'function', function: { name: 'confirm_transfer', description: 'After the caller says their PIN. Pass exactly what they said.', parameters: { type: 'object', properties: { pin: { type: 'string' } }, required: ['pin'] } } },
 ];
 
-const system = () => `You are Ringfence's wallet desk. The caller's WhatsApp number is bound to their own NEAR ${env.network} wallet contract; you can send NEAR, or the native coin of an EVM chain the owner allowed (${chainList()}), within limits the contract enforces.
-For a transfer: call prepare_transfer, read back its read_back exactly ("5 NEAR to bob dot ${suffix()}") and ask for their 4-digit PIN. When they say it, call confirm_transfer with what they said. Never repeat the PIN aloud. If they say just "ETH", ask which chain.
-Their EVM address is the same on every EVM chain: they fund gas on whichever chain they want to use.
+export const ONLY_NEAR = 'Only NEAR transfers for now, sorry. I can send NEAR, or check your balance.';
+const system = () => `You are Ringfence's wallet desk. The caller's WhatsApp number is bound to their own NEAR ${env.network} wallet contract; ${env.evmEnabled ? `you can send NEAR, or the native coin of an EVM chain the owner allowed (${chainList()}),` : 'you can send NEAR (only NEAR for now: politely decline other chains or coins),'} within limits the contract enforces.
+For a transfer: call prepare_transfer, read back its read_back exactly ("5 NEAR to bob dot ${suffix()}") and ask for their 4-digit PIN. When they say it, call confirm_transfer with what they said. Never repeat the PIN aloud.${env.evmEnabled ? ' If they say just "ETH", ask which chain.\nTheir EVM address is the same on every EVM chain: they fund gas on whichever chain they want to use.' : ''}
 If a tool refuses, say why in plain words. If a link was sent, say it's on WhatsApp. ${env.network === 'mainnet' ? 'This is mainnet, real money, and an unaudited prototype: suggest small amounts.' : 'Testnet only: no real money.'} Never give financial advice.`;
 
 async function run(call: Call, name: string, a: any): Promise<unknown> {
   const b = bindingOf(call.from);
   const refuse = (reason: string, extra: object = {}) => { log({ kind: 'refused', desk: 'wallet', callId: call.id, detail: `${name}: ${reason}` }); return { ok: false, reason, ...extra }; };
+  // EVM sends are off unless EVM_ENABLED: anything but NEAR (a chain name, "ETH", an unknown coin) gets the same polite no.
+  if (name === 'prepare_transfer' && !env.evmEnabled && parseAsset(a.asset) !== 'near') return refuse(ONLY_NEAR);
   if (!b && call.channel === 'web') return browserDemo(call, name, a);
   if (!b) {
     links.set(call.id, { url: `${env.publicUrl}/wallet/bind`, label: 'Bind your NEAR wallet to this number' });
@@ -67,9 +69,9 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
 
   if (name === 'get_balance') {
     if (!state) return { ok: true, dryRun: true, note: 'DRY RUN: no agent key on this server, so no chain read. Say so.' };
-    const evm = await ethAddressOf(b).catch(() => null);
+    const evm = env.evmEnabled ? await ethAddressOf(b).catch(() => null) : null;
     return { ok: true, balance: fmt('near', state.balance), evmAddress: evm, evmNote: evm ? `Your EVM address is ${evm}, the same on every EVM chain. Fund gas on whichever chain you want to use.` : null,
-      enabledChains: (state.chains ?? []).map((id) => chainById(id)?.name ?? `chain ${id}`), limits: Object.fromEntries(Object.entries(state.limits).map(([k, l]) => [k, `${fmt(k as Asset, l.per_tx)} per transfer, ${fmt(k as Asset, l.per_day)} per day`])) };
+      enabledChains: !env.evmEnabled ? [] : (state.chains ?? []).map((id) => chainById(id)?.name ?? `chain ${id}`), limits: Object.fromEntries(Object.entries(state.limits).filter(([k]) => env.evmEnabled || k === 'near').map(([k, l]) => [k, `${fmt(k as Asset, l.per_tx)} per transfer, ${fmt(k as Asset, l.per_day)} per day`])) };
   }
   if (name === 'prepare_transfer') {
     const asset = parseAsset(a.asset);

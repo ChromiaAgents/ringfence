@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { AttRow, SiteFooter, Wordmark, type Att } from '../ui';
+import { AttRow, Makers, SiteFooter, Wordmark, type Att } from '../ui';
 
 // Public: anyone can see which TEE each model runs in and what this server checked. No call data here.
 export const Route = createFileRoute('/proof')({
@@ -19,7 +19,7 @@ function Proof() {
   return (
     <>
     <main className="app canvas" style={{ maxWidth: 760, margin: '0 auto', padding: '24px 16px' }}>
-      <Wordmark />
+      <div className="brandrow" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}><Wordmark /><Makers /></div>
       <h1>Proof of private inference</h1>
       <p>Every model Ringfence uses runs on NEAR AI Cloud inside an Intel TDX confidential VM with NVIDIA confidential-computing GPUs. For each model this server fetches the attestation report with a fresh random nonce and checks:</p>
       <ol>
