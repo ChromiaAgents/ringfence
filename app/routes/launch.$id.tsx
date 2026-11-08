@@ -5,12 +5,13 @@ import walletCss from '@near-wallet-selector/modal-ui/styles.css?url';
 import { Wordmark } from '../ui';
 
 type Launch = {
-  id: string; network: 'mainnet' | 'testnet'; contract: string; status: 'prepared' | 'signed' | 'live' | 'failed';
+  id: string; network: 'mainnet' | 'testnet'; launchpad: 'meme_cooking' | 'justhoot'; contract: string; tokenId: string | null; tokenUrl: string | null; status: 'prepared' | 'signed' | 'live' | 'failed';
   params: { name: string; symbol: string; description: string; icon: string; durationMinutes: number; softCapNear: number; hardCapNear?: number; team?: { pct: number; cliffDays: number; vestingDays: number }; socials?: Record<string, string | undefined>; totalSupply: string };
   logoModel: string | null; signer: string | null; txHash: string | null; memeId: number | null; reason: string | null; memeUrl: string | null; txUrl: string | null; pinning: boolean;
 };
 type TxSpec = { receiverId: string; actions: { methodName: string; args: object; gas: string; deposit: string }[] };
-type Cost = { createDeposit: string; registerDeposit: string; totalYocto: string };
+type Cost = { createDeposit: string; registerDeposit: string; totalYocto: string; tokenId?: string | null };
+// NEARON (https://stg.nearon.dev) is a testnet staging prototype today; this is a link only, nothing is called.
 
 const getLaunch = createServerFn({ method: 'GET' }).validator((id: string) => id).handler(async ({ data }) => {
   const { findLaunch, publicLaunch } = await import('../backend.ts');
@@ -104,6 +105,8 @@ function LaunchPage() {
   if (!l) return <main className="app pay"><div className="brandrow"><Wordmark /></div><h1>This launch link doesn’t exist</h1><p className="muted">Check the link in your message, or call the launch desk again.</p></main>;
   const p = l.params;
   const live = l.status === 'live';
+  const jh = l.launchpad === 'justhoot';
+  const padName = jh ? 'JustHoot' : 'meme.cooking';
 
   return (
     <main className="app pay launch">
@@ -122,11 +125,19 @@ function LaunchPage() {
       <section className="card" aria-labelledby="terms">
         <h2 id="terms">What you agreed on the call</h2>
         <div className="rows">
-          <div className="row"><span>Auction</span><b>{dur(p.durationMinutes)}, starts when the transaction lands</b></div>
-          <div className="row"><span>Soft cap</span><b>{p.softCapNear.toLocaleString('en-US')} NEAR</b></div>
-          <div className="row"><span>Hard cap</span><b>{p.hardCapNear ? `${p.hardCapNear.toLocaleString('en-US')} NEAR` : 'None'}</b></div>
+          <div className="row"><span>Launchpad</span><b>{jh ? 'JustHoot: instant launch, trades on RHEA right away' : 'meme.cooking: fair-launch auction first'}</b></div>
+          {jh ? (
+            <div className="row"><span>Trading</span><b>RHEA pool against wNEAR (1% fee tier), opens with the launch</b></div>
+          ) : (
+            <>
+              <div className="row"><span>Auction</span><b>{dur(p.durationMinutes)}, starts when the transaction lands</b></div>
+              <div className="row"><span>Soft cap</span><b>{p.softCapNear.toLocaleString('en-US')} NEAR</b></div>
+              <div className="row"><span>Hard cap</span><b>{p.hardCapNear ? `${p.hardCapNear.toLocaleString('en-US')} NEAR` : 'None'}</b></div>
+            </>
+          )}
           <div className="row"><span>Supply</span><b>{Number(p.totalSupply).toLocaleString('en-US')} {p.symbol}</b></div>
-          <div className="row"><span>Team allocation</span><b>{p.team ? `${p.team.pct}%, ${p.team.cliffDays}-day cliff, vests over ${p.team.vestingDays} days` : 'None'}</b></div>
+          {jh ? <div className="row"><span>Transfer tax, dev buy</span><b>None, all supply to the pool and you</b></div>
+            : <div className="row"><span>Team allocation</span><b>{p.team ? `${p.team.pct}%, ${p.team.cliffDays}-day cliff, vests over ${p.team.vestingDays} days` : 'None'}</b></div>}
           <div className="row"><span>Links</span><b>{[p.socials?.twitter, p.socials?.telegram, p.socials?.website].filter(Boolean).join(' · ') || 'None'}</b></div>
           <div className="row"><span>Contract</span><b className="mono">{l.contract}</b></div>
         </div>
@@ -135,17 +146,27 @@ function LaunchPage() {
 
       {live ? (
         <section className="card done" aria-labelledby="live-h">
-          <h2 id="live-h">${p.symbol} is meme #{l.memeId}</h2>
-          <p>The auction is open on meme.cooking. Signed by {l.signer}.</p>
+          <h2 id="live-h">{jh ? `$${p.symbol} is live on JustHoot` : `$${p.symbol} is meme #${l.memeId}`}</h2>
+          <p>{jh ? <>It trades on RHEA now{l.tokenId && <>, token <span className="mono">{l.tokenId}</span></>}.</> : 'The auction is open on meme.cooking.'} Signed by {l.signer}.</p>
           <div className="actions">
             {l.memeUrl && <a className="btn ink" href={l.memeUrl} target="_blank" rel="noreferrer">Open on meme.cooking</a>}
+            {jh && <a className="btn ink" href="https://justhoot.fun" target="_blank" rel="noreferrer">Open JustHoot</a>}
+            {l.tokenUrl && <a className="btn white" href={l.tokenUrl} target="_blank" rel="noreferrer">See the token</a>}
             {l.txUrl && <a className="btn white" href={l.txUrl} target="_blank" rel="noreferrer">See the transaction</a>}
           </div>
         </section>
-      ) : (
+      ) : null}
+
+      {live && jh ? (
+        <section className="card" aria-labelledby="brain-h">
+          <h2 id="brain-h">Give your coin a brain</h2>
+          <p className="explain">With NEARON you stake NEAR, earn CREDIT, and bind the coin so its AI agent is paid for. NEARON is a testnet staging prototype today.</p>
+          <a className="btn white small" href="https://stg.nearon.dev/#/docs" target="_blank" rel="noreferrer">Read the NEARON docs</a>
+        </section>
+      ) : live ? null : (
         <section className="card" aria-labelledby="sign-h">
           <h2 id="sign-h">Sign with your NEAR wallet</h2>
-          <p className="explain">One transaction to {l.contract}. It is built from the contract’s own views and you sign it in your wallet; this site never sees your keys.</p>
+          <p className="explain">One transaction to {l.contract} on {padName}. It is built from the contract’s own views and you sign it in your wallet; this site never sees your keys.</p>
           {!account ? (
             <button className="btn ink" onClick={() => ws.current.modal?.show()}>Connect a wallet</button>
           ) : (
@@ -154,17 +175,19 @@ function LaunchPage() {
               {tx ? (
                 <>
                   <div className="rows">
-                    {BigInt(tx.cost.registerDeposit) > 0n && <div className="row"><span>Register your account with meme.cooking (refundable storage)</span><b>{near(tx.cost.registerDeposit)} NEAR</b></div>}
-                    <div className="row"><span>Store the meme on chain</span><b>{near(tx.cost.createDeposit)} NEAR</b></div>
+                    {BigInt(tx.cost.registerDeposit) > 0n && <div className="row"><span>Register your account with {padName} (storage)</span><b>{near(tx.cost.registerDeposit)} NEAR</b></div>}
+                    <div className="row"><span>{jh ? 'Create the token and its RHEA pool' : 'Store the meme on chain'}</span><b>{near(tx.cost.createDeposit)} NEAR</b></div>
                     <div className="row total"><span>You pay, plus gas</span><b>{near(tx.cost.totalYocto)} NEAR</b></div>
                   </div>
+                  {jh && tx.cost.tokenId && <p className="muted small">Your token will be <span className="mono">{tx.cost.tokenId}</span>.</p>}
+                  {l.network === 'mainnet' && <p className="err" role="note">Mainnet: real NEAR, about {near(tx.cost.totalYocto)} NEAR plus gas.</p>}
                   <button className="btn green" onClick={sign} disabled={busy}>{busy ? 'Waiting for your wallet…' : `Sign and launch $${p.symbol}`}</button>
                   <details className="txdetails"><summary>The exact transaction</summary><pre>{JSON.stringify({ ...tx.tx, actions: tx.tx.actions.map((a) => ({ ...a, args: { ...a.args, icon: (a.args as any).icon ? `<${(a.args as any).icon.length} chars>` : undefined } })) }, null, 1)}</pre></details>
                 </>
               ) : !err && <p className="muted">Asking the contract for the exact cost…</p>}
             </>
           )}
-          {l.status === 'failed' && <p className="err" role="alert">The last transaction did not create the meme: {l.reason}</p>}
+          {l.status === 'failed' && <p className="err" role="alert">The last transaction did not launch the coin: {l.reason}</p>}
           {err && <p className="err" role="alert">{err}</p>}
           <p className="risk">Memecoins are risky and most lose value. Nothing here is advice or a promise of returns.</p>
         </section>

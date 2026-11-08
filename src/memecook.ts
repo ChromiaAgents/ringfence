@@ -24,7 +24,7 @@ export async function rpc(method: string, params: unknown, network = env.network
   return d.result;
 }
 
-export async function view<T = any>(method: string, args: object = {}, network = env.network, account = net(network).contract): Promise<T> {
+export async function view<T = any>(method: string, args: object = {}, network = env.network, account: string = net(network).contract): Promise<T> {
   const res = await rpc('query', { request_type: 'call_function', finality: 'final', account_id: account, method_name: method, args_base64: Buffer.from(JSON.stringify(args)).toString('base64') }, network);
   if (res.error) throw new Error(`${method}: ${res.error}`);
   return JSON.parse(Buffer.from(res.result).toString());

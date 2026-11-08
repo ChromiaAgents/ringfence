@@ -11,7 +11,17 @@ The building firm, **Hart & Sons Builders**, is a sample in `owner.yaml`, not a 
 
 ## Tracks
 
-Memecoins (meme.cooking launches by voice), agents (tool-calling desks with rules in code), privacy (all models in TEEs, photos kept locally), security (impersonation and allocation rules, return-promise filter, kill switches, owner diffs with hard bounds, every refusal logged), and business (photo-to-quote and deposits).
+Memecoins (meme.cooking auctions and JustHoot instant launches on RHEA, by voice), agents (tool-calling desks with rules in code), privacy (all models in TEEs, photos kept locally), security (impersonation and allocation rules, return-promise filter, kill switches, owner diffs with hard bounds, every refusal logged), and business (photo-to-quote and deposits).
+
+## JustHoot (instant launch)
+
+The launch desk supports two launchpads; the caller picks one or the agent suggests one (`set_launchpad`):
+
+- **meme.cooking**: a fair-launch auction first, about 0.22 NEAR. Testnet or mainnet per `NETWORK`.
+- **JustHoot** ([justhoot.fun](https://justhoot.fun)): one `launch_meme` call on `v2-launchpad.justhoot.near` creates the token and its RHEA DCL pool (1% fee tier), tradable immediately. **Mainnet only, real NEAR** (there is no testnet deployment), about 0.06 NEAR plus the on-chain logo's storage (about 0.1 NEAR with a 4 KB logo). Deposit and gas come from the contract's `get_launch_deposit` and `get_launch_gas` views; if the signer has no storage on the launchpad, `storage_deposit` goes first in the same transaction. No transfer tax and no dev buy are offered; all supply goes to the creator and the pool. `set_auction` and `set_team_allocation` refuse on JustHoot; tickers are 1 to 10 letters or digits and are not unique there, so the meme.cooking collision check is skipped. All other rules (blocked tickers and names, return-promise filter, kill switch) still apply. Turn it off with `launchpads.justhoot.enabled: false` in `launchpad.yaml`.
+- After a JustHoot launch the page links "Give your coin a brain" to [NEARON](https://stg.nearon.dev/#/docs) (stake NEAR, earn CREDIT, bind the coin so its AI agent is paid for). NEARON is a testnet staging prototype today; this is a link only.
+
+Code: `src/justhoot.ts`. Live view-only check: `npm run test:justhoot`. Not verified: no real JustHoot launch has been signed, and the token-id extraction from the launch logs is untested (the page always links the transaction and justhoot.fun).
 
 ## Try it (for judges)
 
@@ -101,6 +111,7 @@ npm run seed              # demo data in data/demo-db.json; run with DB_FILE=dat
 - `src/desks/launch.ts` + `launchpad.yaml`: launch rules (`checkTicker`, `checkName`, `checkAuction`, `checkTeam`, `filterClaims`), all re-checked at `prepare_launch`, kill switch.
 - `src/desks/business.ts` + `owner.yaml`: pricing (`priceFor`), refused work, kill switch.
 - `src/desks/owner.ts`: the settings line: `planChange` (hard bounds) → owner confirms → `applyDiff` rewrites `owner.yaml`, keeping comments and the `${OWNER_NEAR_ACCOUNT}` placeholder.
+- `src/justhoot.ts`: JustHoot's `launch_meme` args, cost from its views, the transaction, and the after-the-fact check.
 - `src/memecook.ts`: RPC views, `createMemeArgs`, `launchCost`, `buildTx`, `confirmTx`, and the meme.cooking indexer for existing tickers.
 - `app/`: TanStack Start UI: `/`, `/launch/$id`, `/pay/$jobId`, `/dashboard`, and the `/api/*` routes.
 - `server.ts`: one Node process on one port: Vite middleware in dev, the built handler in prod, the voice WebSocket and WhatsApp webhook on the same server.

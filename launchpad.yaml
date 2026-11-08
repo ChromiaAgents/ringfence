@@ -21,6 +21,15 @@ rules:
   total_supply: "1000000000"   # whole tokens (the meme.cooking app's default)
   decimals: 18
 
+# The two launchpads the desk can prepare. The caller picks one, or the agent suggests one.
+launchpads:
+  meme_cooking:
+    enabled: true              # fair-launch auction first; testnet or mainnet per NETWORK
+  justhoot:
+    enabled: true              # instant launch with a RHEA pool; mainnet only, real NEAR
+    ticker_min: 1              # JustHoot's own rule: 1-10 letters or digits; tickers are not unique there
+    ticker_max: 10
+
 # Tickers that would pass as an existing asset. Compared after removing a leading $ and case.
 blocked_tickers: [NEAR, WNEAR, BTC, WBTC, ETH, WETH, USDC, USDT, DAI, SOL, BNB, XRP, ADA, DOGE, SHIB, PEPE, TRUMP, MELANIA, WIF, BONK, TON, TRX, AVAX, DOT, LINK, MATIC, POL, ARB, OP, SUI, APT, ZEC, LTC, BCH, XLM, HOT, AURORA, REF, BLACKDRAGON, SHITZU, NEKO]
 

@@ -2,6 +2,7 @@
 import { env, owner, launchpad } from '../src/config.ts';
 import { db, type Job, type Launch } from '../src/store.ts';
 import { net } from '../src/memecook.ts';
+import { JUSTHOOT } from '../src/justhoot.ts';
 
 export { env, owner, launchpad, db };
 export const json = (body: unknown, status = 200) => Response.json(body, { status });
@@ -16,8 +17,10 @@ export const findJob = (id: string) => db.jobs.find((j) => j.id === id);
 
 // A launch's public view: the parameters the caller agreed, where it goes, and its state.
 export const publicLaunch = (l: Launch) => ({
-  id: l.id, network: l.network, contract: net(l.network).contract, status: l.status, params: l.params, logoModel: l.logoModel ?? null,
+  id: l.id, network: l.network, launchpad: l.launchpad ?? 'meme_cooking', contract: l.launchpad === 'justhoot' ? JUSTHOOT.contract : net(l.network).contract,
+  status: l.status, params: l.params, logoModel: l.logoModel ?? null,
   signer: l.signer ?? null, txHash: l.txHash ?? null, memeId: l.memeId ?? null, reason: l.reason ?? null,
+  tokenId: l.tokenId ?? null, tokenUrl: l.tokenId ? JUSTHOOT.tokenUrl(l.tokenId) : null,
   memeUrl: l.memeId != null ? net(l.network).memeUrl(l.memeId) : null, txUrl: l.txHash ? net(l.network).explorer(l.txHash) : null,
   pinning: !!env.pinataJwt,
 });

@@ -19,9 +19,9 @@ export type Job = {
   payment?: { quote: Quote; status: string; updatedAt: number; originSymbol: string; chain: string };
 };
 export type Launch = {
-  id: string; callId: string; createdAt: number; network: 'mainnet' | 'testnet'; params: LaunchParams;
+  id: string; callId: string; createdAt: number; network: 'mainnet' | 'testnet'; params: LaunchParams; launchpad?: 'meme_cooking' | 'justhoot'; // missing = meme_cooking (older records)
   logoModel?: string; status: 'prepared' | 'signed' | 'live' | 'failed';
-  signer?: string; txHash?: string; memeId?: number; reason?: string;
+  signer?: string; txHash?: string; memeId?: number; tokenId?: string; reason?: string;
 };
 export type LedgerEntry = {
   at: number;

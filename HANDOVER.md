@@ -140,8 +140,12 @@ These are optional and empty on purpose:
 | `src/voice.ts`, `app/call.ts` | The browser call. |
 | `src/ai.ts` | NEAR AI streaming chat, attestation and signature checks, speech-to-text. |
 | `src/tts.ts`, `src/tts-worker.ts` | Kokoro in a worker thread; strips emoji and markdown before speaking. |
-| `src/pay.ts`, `src/memecook.ts` | 1Click quotes and status; meme.cooking transaction building. |
+| `src/pay.ts`, `src/memecook.ts`, `src/justhoot.ts` | 1Click quotes and status; meme.cooking and JustHoot transaction building. |
 | `owner.yaml`, `launchpad.yaml` | Business rules and launch rules. They're re-read on every call, so no restart is needed. |
+
+## JustHoot
+
+The launch desk also prepares JustHoot launches (`v2-launchpad.justhoot.near`): an instant launch whose token and RHEA pool are created in one call. It is **mainnet only and costs real NEAR** (about 0.06 to 0.1 NEAR) whatever `NETWORK` says; the launch page says so before the sign button. Switch it off with `launchpads.justhoot.enabled: false` in `launchpad.yaml`. `npm run test:justhoot` reads the live deposit and gas (views only). No real JustHoot launch has been signed yet, and reading the token id from the launch logs is untested. After a launch the page links NEARON's docs; NEARON is a testnet staging prototype.
 
 ## Logs to watch
 

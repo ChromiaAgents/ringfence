@@ -33,6 +33,56 @@ await t('emoji and markdown are never spoken', async () => {
   assert.equal(speakable('Nice! 🐱🚀 Your **WHISK** coin ✨'), 'Nice! Your WHISK coin');
 });
 
+await t('justhoot args + ticker rule', async () => {
+  const { justhootArgs } = await import('../src/justhoot.ts');
+  const { justhootRules } = await import('../src/desks/launch.ts');
+  const a = justhootArgs({ name: 'Sleepy Otter', symbol: 'ZZZ', icon: 'data:image/webp;base64,AA' });
+  assert.equal(a.quote_token_id, 'wrap.near');
+  assert.equal(a.dev_buy_quote_max, null);
+  assert.equal(a.transfer_fee_pips, 0);
+  assert.equal(a.reference, null);
+  assert.deepEqual(a.shares, { token_owner_bps: 10000, burn_bps: 0, holders_bps: 0 });
+  const jr = justhootRules(lp);
+  assert.equal(checkTicker('Z', jr).ok, true);
+  assert.equal(checkTicker('TENLETTERS', jr).ok, true);
+  assert.equal(checkTicker('ELEVENCHARS', jr).ok, false);
+  assert.equal(checkTicker('NEAR', jr).ok, false); // blocked tickers still apply
+});
+await t('justhoot: no auction, and prepare_launch builds launch_meme from the views', async () => {
+  const { startCall } = await import('../src/agent.ts');
+  const { launchDesk } = await import('../src/desks/launch.ts');
+  const { justhootArgs, justhootCost, buildJustHootTx } = await import('../src/justhoot.ts');
+  const { drawLogo } = await import('../src/image.ts');
+  const { db } = await import('../src/store.ts');
+  const call = startCall('whatsapp', '15550000002').call;
+  call.turns.push({ at: Date.now(), who: 'caller', text: 'an owl coin' });
+  assert.equal(((await launchDesk.run(call, 'set_launchpad', { launchpad: 'justhoot' })) as any).ok, true);
+  assert.equal(((await launchDesk.run(call, 'set_auction', { duration_minutes: 60, soft_cap_near: 10 })) as any).ok, false);
+  assert.equal(((await launchDesk.run(call, 'set_team_allocation', { pct: 5 })) as any).ok, false);
+  assert.equal(((await launchDesk.run(call, 'set_coin', { name: 'Elon Hoot', ticker: 'HOOT' })) as any).ok, false);
+  assert.equal(((await launchDesk.run(call, 'set_coin', { name: 'Night Owl', ticker: 'HOOTHOOT1', description: 'owl' })) as any).ok, true);
+  const { draftOf } = await import('../src/desks/launch.ts');
+  Object.assign(draftOf(call.id), { icon: (await drawLogo('HOOT')).icon });
+  const r: any = await launchDesk.run(call, 'prepare_launch', { caller_confirmed: true });
+  assert.equal(r.ok, true, r.reason);
+  const l = db.launches.find((x) => x.id === call.launchId)!;
+  assert.equal(l.launchpad, 'justhoot');
+  assert.equal(l.network, 'mainnet');
+  assert.ok(l.params.icon.length <= 7000);
+  const views: Record<string, unknown> = { get_launch_deposit: '58080000000000000000000', get_launch_gas: '456', storage_balance_of: null, storage_balance_bounds: { min: '2170000000000000000000' }, get_next_token_id: 'hoothoot1.v2-launchpad.justhoot.near' };
+  const args = justhootArgs(l.params);
+  const cost = await justhootCost(args, 'owl.near', (async (m: string) => views[m]) as any);
+  const tx = buildJustHootTx(args, cost);
+  assert.equal(tx.receiverId, 'v2-launchpad.justhoot.near');
+  assert.deepEqual(tx.actions.map((a) => a.methodName), ['storage_deposit', 'launch_meme']);
+  assert.equal(tx.actions[1].gas, '456000000000000');
+  assert.equal(tx.actions[1].deposit, '58080000000000000000000');
+  assert.deepEqual(tx.actions[1].args, { args });
+  assert.equal(cost.totalYocto, '60250000000000000000000');
+  const again = startCall('whatsapp', '15550000002').call;
+  assert.match((await import('../src/memory.ts')).recap(again), /on JustHoot/);
+});
+
 t('thinking noises are not turns', () => {
   for (const s of ['Um...', 'uh', 'Hmm.', 'Erm, uh', 'mm']) assert.ok(isFiller(s), s);
   for (const s of ['um, a cat coin', 'yes', 'Umbrella']) assert.ok(!isFiller(s), s);

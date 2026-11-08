@@ -31,10 +31,10 @@ export function recap(call: Call): string {
     const bits = [`${day(c.startedAt)}, ${c.desk ?? 'no'} desk`];
     if (c.caller?.name) bits.push(`name ${c.caller.name}`);
     const l = db.launches.find((x) => x.callId === c.id);
-    if (l) bits.push(`coin ${l.params.name} (${l.params.symbol}) ${l.status}`);
+    if (l) bits.push(`coin ${l.params.name} (${l.params.symbol}) on ${l.launchpad === 'justhoot' ? 'JustHoot' : 'meme.cooking'}, ${l.status}`);
     else {
       const d = draftOf(c.id);
-      if (d.symbol || d.name) bits.push(`unfinished coin draft ${d.name ?? ''}${d.symbol ? ` (${d.symbol})` : ''}`);
+      if (d.symbol || d.name) bits.push(`unfinished coin draft ${d.name ?? ''}${d.symbol ? ` (${d.symbol})` : ''}${d.pad ? ` for ${d.pad === 'justhoot' ? 'JustHoot' : 'meme.cooking'}` : ''}`);
     }
     const j = db.jobs.find((x) => x.callId === c.id);
     if (j) bits.push(`quote ${j.serviceName} $${j.quotedUsd}, deposit ${j.payment?.status ?? 'not paid'}`);

@@ -45,6 +45,7 @@ export type Launchpad = {
     total_supply: string;
     decimals: number;
   };
+  launchpads?: { meme_cooking?: { enabled?: boolean }; justhoot?: { enabled?: boolean; ticker_min?: number; ticker_max?: number } };
   blocked_tickers: string[];
   blocked_names: string[];
   forbidden_claims: string[];
