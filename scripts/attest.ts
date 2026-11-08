@@ -1,4 +1,4 @@
-// Verifies the TEE attestation of every model callhand uses. Network only, no API key: the endpoint is public.
+// Verifies the TEE attestation of every model Ringfence uses. Network only, no API key: the endpoint is public.
 //   npm run attest            (exit code 1 if any model fails a check)
 import { attest } from '../src/ai.ts';
 import { env } from '../src/config.ts';

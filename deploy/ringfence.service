@@ -1,12 +1,12 @@
-# /etc/systemd/system/callhand.service
+# /etc/systemd/system/ringfence.service
 [Unit]
-Description=callhand
+Description=ringfence
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-User=callhand
-WorkingDirectory=/opt/callhand
+User=ringfence
+WorkingDirectory=/opt/ringfence
 ExecStart=/usr/bin/npm start
 Restart=always
 RestartSec=3

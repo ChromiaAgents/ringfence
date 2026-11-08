@@ -1,5 +1,5 @@
 # /etc/caddy/Caddyfile. Caddy gets the HTTPS certificate itself; WebSockets pass through reverse_proxy as is.
-callhand.example.com {
+ringfence.example.com {
 	encode gzip
 	reverse_proxy 127.0.0.1:8787
 }

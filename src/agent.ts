@@ -14,7 +14,7 @@ import { walletDesk } from './desks/wallet.ts';
 
 export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, business: businessDesk, owner: ownerDesk, wallet: walletDesk };
 
-export const ROUTER_GREETING = 'Hi, this is callhand. Are you calling to launch a memecoin, or about building work?';
+export const ROUTER_GREETING = 'Hi, this is Ringfence. Want to send money, launch a coin, or get a building quote?';
 
 /** Picks a desk from what the caller says first. Plain keywords, so the choice is predictable and testable. */
 export function route(text: string): Desk | null {
@@ -46,7 +46,7 @@ export function startCall(channel: Call['channel'], from?: string, desk?: Desk):
   if (back) desk = call.desk = 'launch';
   const greeting = back
     ? `Hey, welcome back! Want to pick up ${back.ticker ?? back.name}, or start something new?`
-    : desk ? DESKS[desk].greeting() : isKnown(call) ? 'Hey, good to hear from you again. Coin launch or building work today?' : ROUTER_GREETING;
+    : desk ? DESKS[desk].greeting() : isKnown(call) ? 'Hey, good to hear from you again. Sending money, a coin, or building work today?' : ROUTER_GREETING;
   call.turns.push({ at: Date.now(), who: 'agent', text: greeting });
   histories.set(call.id, desk ? [{ role: 'system', content: sys(desk, call) }, { role: 'assistant', content: greeting }] : []);
   save();
@@ -85,7 +85,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   if (!call.desk) {
     const d = call.isOwner && /\b(owner|my rules|settings)\b/i.test(text) ? 'owner' : route(text);
     if (!d) {
-      const ask = 'Sorry, is that a coin launch, or building work?';
+      const ask = 'Sorry, is that sending money, a coin launch, or building work?';
       o.onSentence?.(ask);
       call.turns.push({ at: Date.now(), who: 'agent', text: ask, timing });
       save();

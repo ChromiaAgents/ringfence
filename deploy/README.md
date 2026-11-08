@@ -2,7 +2,7 @@
 
 One Ubuntu 24.04 box (Hetzner or DigitalOcean, **Singapore** region), 2 vCPU / 4 GB is plenty with `TTS_PROVIDER=cartesia` (no local voice model). With Kokoro, take 4 vCPU. No Vercel: calls need a long-running process and inbound UDP.
 
-Replace `callhand.example.com` with your domain and point its DNS A record at the server's IP first.
+Replace `ringfence.example.com` with your domain and point its DNS A record at the server's IP first.
 
 ## 1. Firewall
 
@@ -32,19 +32,19 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo 
 sudo apt-get update && sudo apt-get install -y caddy
 
 # App, as its own user
-sudo useradd --system --create-home --home-dir /opt/callhand callhand
-sudo -u callhand git clone git@github.com:ChromiaAgents/callhand.git /opt/callhand   # or rsync the repo
-cd /opt/callhand
-sudo -u callhand npm ci
-sudo -u callhand npm run build
+sudo useradd --system --create-home --home-dir /opt/ringfence ringfence
+sudo -u ringfence git clone git@github.com:ChromiaAgents/callhand.git /opt/ringfence   # or rsync the repo
+cd /opt/ringfence
+sudo -u ringfence npm ci
+sudo -u ringfence npm run build
 ```
 
 ## 3. .env
 
-Copy the `.env` from Tan to `/opt/callhand/.env` (never commit it), then set at least:
+Copy the `.env` from Tan to `/opt/ringfence/.env` (never commit it), then set at least:
 
 ```
-PUBLIC_URL=https://callhand.example.com
+PUBLIC_URL=https://ringfence.example.com
 RTC_PORT_MIN=40000
 RTC_PORT_MAX=40100
 TTS_PROVIDER=cartesia
@@ -52,18 +52,18 @@ CARTESIA_API_KEY=sk_car_...
 ```
 
 ```bash
-sudo chown callhand:callhand /opt/callhand/.env && sudo chmod 600 /opt/callhand/.env
+sudo chown ringfence:ringfence /opt/ringfence/.env && sudo chmod 600 /opt/ringfence/.env
 ```
 
 ## 4. Service and HTTPS
 
 ```bash
-sudo cp /opt/callhand/deploy/callhand.service /etc/systemd/system/callhand.service
-sudo systemctl daemon-reload && sudo systemctl enable --now callhand
-journalctl -u callhand -f            # expect "voice ready (cartesia + fillers ...)"
+sudo cp /opt/ringfence/deploy/ringfence.service /etc/systemd/system/ringfence.service
+sudo systemctl daemon-reload && sudo systemctl enable --now ringfence
+journalctl -u ringfence -f            # expect "voice ready (cartesia + fillers ...)"
 
-sudo cp /opt/callhand/deploy/Caddyfile /etc/caddy/Caddyfile
-sudo sed -i 's/callhand.example.com/<your-domain>/' /etc/caddy/Caddyfile
+sudo cp /opt/ringfence/deploy/Caddyfile /etc/caddy/Caddyfile
+sudo sed -i 's/ringfence.example.com/<your-domain>/' /etc/caddy/Caddyfile
 sudo systemctl reload caddy
 ```
 
@@ -79,9 +79,9 @@ Then point the Meta webhook at `https://<your-domain>/webhooks/whatsapp` (HANDOV
 ## Docker instead of systemd
 
 ```bash
-docker build -t callhand .
-docker run -d --name callhand --restart always --env-file .env -v /opt/callhand-data:/app/data \
-  -p 127.0.0.1:8787:8787 -p 40000-40100:40000-40100/udp callhand
+docker build -t ringfence .
+docker run -d --name ringfence --restart always --env-file .env -v /opt/ringfence-data:/app/data \
+  -p 127.0.0.1:8787:8787 -p 40000-40100:40000-40100/udp ringfence
 ```
 
 Caddy stays on the host as above. Keep `data/` on the volume.
@@ -89,5 +89,5 @@ Caddy stays on the host as above. Keep `data/` on the volume.
 ## Update
 
 ```bash
-cd /opt/callhand && sudo -u callhand git pull && sudo -u callhand npm ci && sudo -u callhand npm run build && sudo systemctl restart callhand
+cd /opt/ringfence && sudo -u ringfence git pull && sudo -u ringfence npm ci && sudo -u ringfence npm run build && sudo systemctl restart ringfence
 ```

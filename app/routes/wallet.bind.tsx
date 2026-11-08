@@ -13,7 +13,7 @@ const getCfg = createServerFn({ method: 'GET' }).handler(async () => {
 
 export const Route = createFileRoute('/wallet/bind')({
   loader: () => getCfg(),
-  head: () => ({ meta: [{ title: 'Bind your wallet · callhand' }], links: [{ rel: 'stylesheet', href: walletCss }] }),
+  head: () => ({ meta: [{ title: 'Bind your wallet · Ringfence' }], links: [{ rel: 'stylesheet', href: walletCss }] }),
   component: Bind,
 });
 

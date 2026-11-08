@@ -8,7 +8,7 @@ const getState = createServerFn({ method: 'GET' }).handler(async () => (await im
 
 export const Route = createFileRoute('/dashboard')({
   loader: () => getState() as Promise<State>,
-  head: () => ({ meta: [{ title: 'Dashboard · callhand' }] }),
+  head: () => ({ meta: [{ title: 'Dashboard · Ringfence' }] }),
   component: Dashboard,
 });
 

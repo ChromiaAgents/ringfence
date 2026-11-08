@@ -9,8 +9,8 @@ export const Phone = () => (
 
 export function Wordmark({ href = '/' }: { href?: string }) {
   return (
-    <a className="wordmark" href={href} aria-label="callhand home">
-      <span className="dot"><Phone /></span>callhand
+    <a className="wordmark" href={href} aria-label="Ringfence home">
+      <span className="dot"><Phone /></span>Ringfence
     </a>
   );
 }

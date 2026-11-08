@@ -4,7 +4,7 @@ import { AttRow, Wordmark, type Att } from '../ui';
 
 // Public: anyone can see which TEE each model runs in and what this server checked. No call data here.
 export const Route = createFileRoute('/proof')({
-  head: () => ({ meta: [{ title: 'Proof of private inference · callhand' }] }),
+  head: () => ({ meta: [{ title: 'Proof of private inference · Ringfence' }] }),
   component: Proof,
 });
 
@@ -20,7 +20,7 @@ function Proof() {
     <main className="app canvas" style={{ maxWidth: 760, margin: '0 auto', padding: '24px 16px' }}>
       <Wordmark />
       <h1>Proof of private inference</h1>
-      <p>Every model callhand uses runs on NEAR AI Cloud inside an Intel TDX confidential VM with NVIDIA confidential-computing GPUs. For each model this server fetches the attestation report with a fresh random nonce and checks:</p>
+      <p>Every model Ringfence uses runs on NEAR AI Cloud inside an Intel TDX confidential VM with NVIDIA confidential-computing GPUs. For each model this server fetches the attestation report with a fresh random nonce and checks:</p>
       <ol>
         <li><b>Intel TDX quote</b>: the ECDSA signature and certificate chain up to Intel’s root, with collateral from Intel PCS, and the platform’s TCB status (<a href="https://github.com/Phala-Network/dcap-qvl">dcap-qvl</a>).</li>
         <li><b>Key + nonce bound</b>: the quote’s report_data is the model’s signing address followed by our nonce, so the key was made inside that TEE, just now.</li>

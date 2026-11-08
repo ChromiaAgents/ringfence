@@ -1,4 +1,4 @@
-# callhand: one Node process (web UI, voice WebSocket, WhatsApp webhook and WebRTC call media) on port 8787.
+# Ringfence: one Node process (web UI, voice WebSocket, WhatsApp webhook and WebRTC call media) on port 8787.
 FROM node:22-slim
 WORKDIR /app
 ENV NODE_ENV=production

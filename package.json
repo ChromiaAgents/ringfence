@@ -1,7 +1,7 @@
 {
-  "name": "callhand",
+  "name": "Ringfence",
   "version": "1.0.0",
-  "description": "One number, two desks: a voice agent that prepares meme.cooking launches you sign, and a builder desk that quotes from photos. NEAR AI Cloud TEE models, NEAR Intents.",
+  "description": "Ringfence: your phone number is a wallet on every chain. Call, say what to do, confirm by voice; limits enforced by a NEAR contract, AI in NEAR AI TEEs.",
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=.env server.ts --dev",
     "build": "vite build",

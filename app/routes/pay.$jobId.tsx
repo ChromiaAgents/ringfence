@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Wordmark, usd } from '../ui';
 
 export const Route = createFileRoute('/pay/$jobId')({
-  head: () => ({ meta: [{ title: 'Pay your deposit · callhand' }] }),
+  head: () => ({ meta: [{ title: 'Pay your deposit · Ringfence' }] }),
   component: Pay,
 });
 

@@ -11,7 +11,7 @@ const getNet = createServerFn({ method: 'GET' }).handler(async () => ({ network:
 export const Route = createFileRoute('/wallet/send')({
   loader: () => getNet(),
   validateSearch: (s: Record<string, unknown>) => ({ to: String(s.to ?? ''), amount: String(s.amount ?? '') }),
-  head: () => ({ meta: [{ title: 'Sign a transfer · callhand' }], links: [{ rel: 'stylesheet', href: walletCss }] }),
+  head: () => ({ meta: [{ title: 'Sign a transfer · Ringfence' }], links: [{ rel: 'stylesheet', href: walletCss }] }),
   component: Send,
 });
 

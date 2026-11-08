@@ -1,4 +1,4 @@
-/* callhand: one palette and two faces for the landing page, the launch and pay screens and the dashboard.
+/* Ringfence: one palette and two faces for the landing page, the launch and pay screens and the dashboard.
    Archivo Black (display) and Hanken Grotesk (text), both SIL OFL, self-hosted from @fontsource. */
 @font-face { font-family: 'Archivo Black'; src: url('/fonts/archivo-black-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
 @font-face { font-family: 'Hanken Grotesk'; src: url('/fonts/hanken-grotesk-latin-wght-normal.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }

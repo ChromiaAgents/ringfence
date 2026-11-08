@@ -1,5 +1,5 @@
 // Phone wallet: one instance per user, on a sub-account of the user (e.g. phone.alice.testnet).
-// The owner (the user's main account) has full control. The agent (callhand's server account) may only spend
+// The owner (the user's main account) has full control. The agent (Ringfence's server account) may only spend
 // within the limits below; every limit is checked here, not by the AI.
 //
 // Assets: "near" (native transfers) and "evm:<chainId>" for any EVM chain the owner allows (Chain Signatures: the

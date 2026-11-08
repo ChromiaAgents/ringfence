@@ -22,7 +22,7 @@ const getLaunch = createServerFn({ method: 'GET' }).validator((id: string) => id
 export const Route = createFileRoute('/launch/$id')({
   loader: ({ params }) => getLaunch({ data: params.id }),
   head: ({ loaderData }) => ({
-    meta: [{ title: loaderData ? `Launch $${loaderData.params.symbol} · callhand` : 'Launch · callhand' }],
+    meta: [{ title: loaderData ? `Launch $${loaderData.params.symbol} · Ringfence` : 'Launch · Ringfence' }],
     links: [{ rel: 'stylesheet', href: walletCss }],
   }),
   component: LaunchPage,

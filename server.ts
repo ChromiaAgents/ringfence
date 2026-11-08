@@ -56,7 +56,7 @@ server.on('request', async (req, res) => {
 });
 attachVoice(server);
 server.listen(env.port, () => {
-  console.log(`callhand on ${env.publicUrl}  (call: /  launches: /launch/:id  dashboard: /dashboard)  network: ${env.network}`);
+  console.log(`Ringfence on ${env.publicUrl}  (call: /  launches: /launch/:id  dashboard: /dashboard)  network: ${env.network}`);
   const t = Date.now();
   warmUp().then(() => console.log(`voice ready (${ttsProvider} + fillers, ${Date.now() - t} ms)`), (e) => console.error('tts warm-up', e));
   // Fetch TEE attestations now so the first call doesn't wait for them (cached 10 min, refreshed on use).

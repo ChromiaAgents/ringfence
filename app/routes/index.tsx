@@ -14,7 +14,7 @@ type D = Awaited<ReturnType<typeof getDesks>>;
 
 export const Route = createFileRoute('/')({
   loader: () => getDesks(),
-  head: () => ({ meta: [{ title: 'callhand: one number, two desks' }, { name: 'description', content: 'Call one number. The launch desk sets up your memecoin on meme.cooking for you to sign; the business desk quotes a building job from a photo and takes a deposit in any token. Private AI on NEAR, rules in code.' }] }),
+  head: () => ({ meta: [{ title: 'Ringfence: your phone number is a wallet on every chain' }, { name: 'description', content: 'Call one number. The launch desk sets up your memecoin on meme.cooking for you to sign; the business desk quotes a building job from a photo and takes a deposit in any token. Private AI on NEAR, rules in code.' }] }),
   component: Landing,
 });
 
@@ -45,7 +45,7 @@ function Landing() {
           <Wordmark />
           <a className="right" href="/dashboard">Dashboard</a>
         </div>
-        <h1>One call, two desks</h1>
+        <h1>Your phone number is a wallet on every chain</h1>
         <p className="sub">Call it, text it or ring it on WhatsApp. The launch desk sets up your memecoin on meme.cooking for you to sign. The business desk quotes a building job from a photo and takes the deposit in any token.</p>
 
         <div className="folders">
@@ -72,7 +72,7 @@ function Landing() {
                   ? `It runs you through name, ticker, logo, auction and caps, then sends a page you sign with your own wallet, on NEAR ${d.network}.`
                   : active === 'business'
                     ? `A sample building firm in ${d.business.area}. Describe the job or send a photo of it.`
-                    : 'The first thing you say picks the desk: a coin launch, or building work. Speak, or type if you have no mic.'}</p>
+                    : 'The first thing you say picks the desk: send money, launch a coin, or building work. Speak, or type if you have no mic.'}</p>
                 <div className="calltry">
                   <b>Things to say</b>
                   <div className="chips">
@@ -239,7 +239,7 @@ function Landing() {
       </main>
 
       <footer className="foot reveal">
-        <div className="t1"><p>callhand is a NEAR hackathon entry. The building firm is a sample set in owner.yaml.</p><small>MIT licence · 2026. Pictures: <a href="https://commons.wikimedia.org/w/index.php?curid=105321989">Elwood Street, Highbury</a> by Jim Osley (CC BY-SA 2.0); <a href="https://www.flickr.com/photos/159630537@N08/28918563378">claw hammer</a> by Homedust (CC BY 2.0); <a href="https://commons.wikimedia.org/w/index.php?curid=106415915">Kenwood House scaffolded</a> by Peter O'Connor (CC BY-SA 2.0); <a href="https://commons.wikimedia.org/w/index.php?curid=3581977">Mozart Terrace</a> by Oosoom (CC BY-SA 3.0).</small></div>
+        <div className="t1"><p>Ringfence is a NEAR hackathon entry. The building firm is a sample set in owner.yaml.</p><small>MIT licence · 2026. Pictures: <a href="https://commons.wikimedia.org/w/index.php?curid=105321989">Elwood Street, Highbury</a> by Jim Osley (CC BY-SA 2.0); <a href="https://www.flickr.com/photos/159630537@N08/28918563378">claw hammer</a> by Homedust (CC BY 2.0); <a href="https://commons.wikimedia.org/w/index.php?curid=106415915">Kenwood House scaffolded</a> by Peter O'Connor (CC BY-SA 2.0); <a href="https://commons.wikimedia.org/w/index.php?curid=3581977">Mozart Terrace</a> by Oosoom (CC BY-SA 3.0).</small></div>
         <div className="t2"><ul><li><a href="#call">Call now</a></li><li><a href="#launch">Launch desk</a></li><li><a href="#ticker">Try a ticker</a></li><li><a href="#business">Business desk</a></li><li><a href="#questions">Questions</a></li></ul></div>
         <div className="t3"><span>Launches go to</span><b>{d.network}</b></div>
         <div className="t4"><span>Memecoins are risky and most lose value. The launch desk never promises returns.</span><span>Rules in launchpad.yaml</span></div>
@@ -253,7 +253,7 @@ function Landing() {
 }
 
 const faq = (d: D): [string, string][] => [
-  ['Does callhand hold my wallet or my money?', 'No. The launch desk prepares a transaction and you sign it in your own wallet on the launch page. The server has no keys. Building deposits go from the customer through NEAR Intents to the owner.'],
+  ['Does Ringfence hold my wallet or my money?', 'No. The launch desk prepares a transaction and you sign it in your own wallet on the launch page. The server has no keys. Building deposits go from the customer through NEAR Intents to the owner.'],
   ['Can someone launch $NEAR or an Elon coin?', `No. Tickers of real assets, brand and celebrity names, and tickers already on meme.cooking are refused in code before a launch can be prepared. So are team allocations above ${d.launch.max_team_allocation_pct}%, cliffs under ${d.launch.min_cliff_days} days and vesting under ${d.launch.min_vesting_days} days. Each refusal goes to the ledger on the dashboard.`],
   ['Will it tell me my coin will go up?', 'No. The prompt forbids it, and a filter replaces any reply that promises returns before it is spoken. The replacement is logged. Most memecoins lose value.'],
   ['Who hears the call, and who sees my photo?', 'Whisper transcribes, Qwen answers, Qwen3-VL reads photos and FLUX draws logos, all in TEEs on NEAR AI Cloud. Photos are kept on this server only. This server verifies each enclave’s Intel TDX quote and NVIDIA GPU attestation (see /proof) and checks each reply’s signature against the attested key.'],

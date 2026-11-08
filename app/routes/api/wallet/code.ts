@@ -17,7 +17,7 @@ export const Route = createFileRoute('/api/wallet/code')({
         last.set(phone, Date.now());
         const code = newCode(phone);
         if (!env.waToken) { console.log(`[wallet] no WhatsApp token: code for ${phone} is ${code}`); return json({ sent: false, note: 'WhatsApp is not configured on this server; the code is in the server log.' }); }
-        await sendText(phone, `Your callhand wallet code is ${code}. It expires in 10 minutes. If you didn't ask for it, ignore this.`);
+        await sendText(phone, `Your Ringfence wallet code is ${code}. It expires in 10 minutes. If you didn't ask for it, ignore this.`);
         return json({ sent: true });
       },
     },

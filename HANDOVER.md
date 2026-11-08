@@ -1,4 +1,4 @@
-# callhand: deployment handover
+# Ringfence: deployment handover
 
 For Johnson. Tan sends you the `.env` separately (by DM). Nothing secret is in this repo.
 
@@ -57,24 +57,24 @@ To give it a stable public URL, a Cloudflare named tunnel is easiest. Tan has be
 
 ```bash
 cloudflared tunnel login
-cloudflared tunnel create callhand
-cloudflared tunnel route dns callhand callhand.<your-domain>
-cloudflared tunnel run --url http://localhost:8787 callhand
+cloudflared tunnel create Ringfence
+cloudflared tunnel route dns Ringfence Ringfence.<your-domain>
+cloudflared tunnel run --url http://localhost:8787 Ringfence
 ```
 
-For a plain VPS (Hetzner or DigitalOcean, Singapore) there is a ready setup: `Dockerfile`, `deploy/Caddyfile`, `deploy/callhand.service` and the steps in `deploy/README.md`.
+For a plain VPS (Hetzner or DigitalOcean, Singapore) there is a ready setup: `Dockerfile`, `deploy/Caddyfile`, `deploy/ringfence.service` and the steps in `deploy/README.md`.
 
-A reverse proxy works too (for example Caddy: `callhand.example.com { reverse_proxy localhost:8787 }`). WebSockets must pass through.
+A reverse proxy works too (for example Caddy: `ringfence.example.com { reverse_proxy localhost:8787 }`). WebSockets must pass through.
 
 To keep it running, a systemd unit:
 
 ```ini
 [Unit]
-Description=callhand
+Description=ringfence
 After=network-online.target
 
 [Service]
-WorkingDirectory=/opt/callhand
+WorkingDirectory=/opt/ringfence
 ExecStart=/usr/bin/npm start
 Restart=always
 Environment=NODE_ENV=production
@@ -127,7 +127,7 @@ Phone wallet, empty until the deploy steps below are done:
 
 | Variable | Notes |
 | --- | --- |
-| `AGENT_ACCOUNT_ID` | Our agent account, e.g. `callhand-agent.near` (mainnet). Each user's contract lets it spend within limits. |
+| `AGENT_ACCOUNT_ID` | Our agent account, e.g. `ringfence-agent.near` (mainnet). Each user's contract lets it spend within limits. |
 | `AGENT_PRIVATE_KEY` | `ed25519:...` key of that account. Without it the wallet desk is a labelled dry run. |
 | `MPC_SIGNER` | Optional, default `v1.signer` on mainnet, `v1.signer-prod.testnet` on testnet. |
 | `RPC_<chainId>`, `SEPOLIA_RPC`, `EXTRA_CHAINS` | Optional EVM RPC overrides and extra chains (`src/chains.ts`). |
@@ -180,10 +180,10 @@ Uses near-cli-rs (`cargo install near-cli-rs` or `npx near-cli-rs`). Replace `te
 #    (MPC_SIGNER defaults to v1.signer on mainnet; Base RPC defaults to https://mainnet.base.org, override with RPC_8453=)
 
 # 1. The agent account, funded by the team (it only pays gas: ~0.5 NEAR is plenty), key saved in ~/.near-credentials
-near account create-account fund-myself callhand-agent.near '0.5 NEAR' autogenerate-new-keypair save-to-legacy-keychain sign-as team.near network-config mainnet sign-with-keychain send
-# put in .env:  AGENT_ACCOUNT_ID=callhand-agent.near
-#               AGENT_PRIVATE_KEY=<"private_key" from ~/.near-credentials/mainnet/callhand-agent.near.json>
-# then restart the server (npm start / systemctl restart callhand)
+near account create-account fund-myself ringfence-agent.near '0.5 NEAR' autogenerate-new-keypair save-to-legacy-keychain sign-as team.near network-config mainnet sign-with-keychain send
+# put in .env:  AGENT_ACCOUNT_ID=ringfence-agent.near
+#               AGENT_PRIVATE_KEY=<"private_key" from ~/.near-credentials/mainnet/ringfence-agent.near.json>
+# then restart the server (npm start / systemctl restart ringfence)
 
 # 2. (only after contract changes) rebuild the wasm the bind page deploys, then the app
 cd contracts/phone-wallet && cargo near build non-reproducible-wasm && cp target/near/phone_wallet.wasm ../../public/ && cd ../..
@@ -194,7 +194,7 @@ npm run build
 #    2.5 NEAR covers the contract's storage (~1.9 NEAR); step 4 adds the money it can spend.
 #    If the wallet refuses a deploy action, sign it from the CLI instead (after "Bind" so the server has the PIN hash):
 near account create-account fund-myself phone.alice.near '2.5 NEAR' autogenerate-new-keypair save-to-legacy-keychain sign-as alice.near network-config mainnet sign-with-keychain send
-near contract deploy phone.alice.near use-file public/phone_wallet.wasm with-init-call new json-args "{\"owner\":\"alice.near\",\"agent\":\"callhand-agent.near\",\"phone_hash\":\"$(printf %s '<digits>' | shasum -a 256 | cut -d' ' -f1)\",\"signer\":\"v1.signer\",\"evm_chain_ids\":[8453]}" prepaid-gas '100 Tgas' attached-deposit '0 NEAR' network-config mainnet sign-with-legacy-keychain send
+near contract deploy phone.alice.near use-file public/phone_wallet.wasm with-init-call new json-args "{\"owner\":\"alice.near\",\"agent\":\"ringfence-agent.near\",\"phone_hash\":\"$(printf %s '<digits>' | shasum -a 256 | cut -d' ' -f1)\",\"signer\":\"v1.signer\",\"evm_chain_ids\":[8453]}" prepaid-gas '100 Tgas' attached-deposit '0 NEAR' network-config mainnet sign-with-legacy-keychain send
 #    (no limits in the JSON = the safe defaults above; add "near_limit":{"per_tx":"<yocto>","per_day":"<yocto>"},
 #     "evm_limit":{...wei...}, "new_recipient_delay_sec":600 to change them. The CLI path leaves a full-access key for
 #     phone.alice.near in your keychain: it is yours, the owner's.)
