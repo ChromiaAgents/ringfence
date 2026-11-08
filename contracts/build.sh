@@ -11,9 +11,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 EVM=(); [[ "${1:-}" == "--evm" ]] && EVM=(--features evm)
+HERE="$PWD"
 SYSROOT="$(rustc --print sysroot)"
 CARGO_REG="${CARGO_HOME:-$HOME/.cargo}/registry/src"
-flags() { echo "RUSTFLAGS=-C link-arg=-s --remap-path-prefix=$SYSROOT=/rust --remap-path-prefix=$CARGO_REG=/cargo --remap-path-prefix=$PWD/$1=/src"; }
+flags() { echo "RUSTFLAGS=-C link-arg=-s --remap-path-prefix=$SYSROOT=/rust --remap-path-prefix=$CARGO_REG=/cargo --remap-path-prefix=$HERE/$1=/src"; }
 shrink() {
   if command -v wasm-opt >/dev/null; then
     # Allow only the features the input already uses: try MVP + memory.copy/fill, then add sign-ext if needed.
