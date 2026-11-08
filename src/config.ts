@@ -81,6 +81,10 @@ export const env = {
   factoryAccountId: process.env.FACTORY_ACCOUNT_ID || (process.env.NETWORK === 'mainnet' ? 'ringfence-wallet.near' : 'ringfence-wallet.testnet'),
   custodyAccountId: process.env.CUSTODY_ACCOUNT_ID || (process.env.NETWORK === 'mainnet' ? 'ringfence-custody.near' : 'ringfence-custody.testnet'),
   custodyKey: process.env.CUSTODY_PRIVATE_KEY ?? '',
+  // HMAC key for phone hashes on chain and pepper for PIN hashes. Required on mainnet or with any key set.
+  walletSecret: process.env.WALLET_SECRET ?? '',
+  // The WhatsApp number people text (digits), shown as a wa.me link on /wallet/bind.
+  waNumber: (process.env.WHATSAPP_NUMBER ?? '').replace(/\D/g, ''),
   // Tiered confirmation: up to SMALL_LIMIT NEAR to a saved recipient is confirmed by spoken PIN; more needs the WhatsApp Approve tap.
   smallLimitNear: process.env.SMALL_LIMIT ?? '0.2',
   // Custodial demo wallets: spends stop above this balance; at most this many are created per day (protects the custody account).

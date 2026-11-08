@@ -57,7 +57,8 @@ function Claim() {
         <h2>2. Prove you hold the WhatsApp number</h2>
         <label className="field-label" htmlFor="ph">Number with country code</label>
         <input id="ph" className="control" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+44 7700 900123" autoComplete="tel" />
-        <button className="btn white small" disabled={!phone} onClick={async () => { const d = await post('/api/wallet/code', { phone }); if (d) setSent(d.sent ? 'Code sent on WhatsApp.' : d.note); }}>Send me a code</button>
+        <button className="btn white small" disabled={!phone || !w.account} onClick={async () => { const d = await post('/api/wallet/code', { phone, purpose: 'claim', owner: w.account }); if (d) setSent(d.sent ? 'Code sent on WhatsApp.' : d.note); }}>Send me a code</button>
+        <p className="muted small">The code gives ownership of the wallet to {w.account || 'your connected account'}. Never read it out to anyone or type it on a page someone sent you.</p>
         {sent && <p className="muted small">{sent}</p>}
         <label className="field-label" htmlFor="cd">6-digit code</label>
         <input id="cd" className="control" value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" maxLength={6} />
@@ -68,7 +69,7 @@ function Claim() {
         <section className="card">
           <h2>3. Sign: accept ownership</h2>
           {claim.dryRun && <p className="err">DRY RUN: this server has no custody key, so no owner change was proposed on chain. Signing would fail.</p>}
-          <p className="muted">Ringfence proposed <b>{w.account}</b> as the owner of <b className="mono">{claim.receiverId}</b>. Sign accept_owner to finish.</p>
+          <p className="muted">Ringfence proposed <b>{w.account}</b> as the owner of <b className="mono">{claim.receiverId}</b>. Demo custodial wallets wait 24 hours after this before you can accept, so a stolen code can be noticed. Then sign accept_owner to finish.</p>
           {done ? <p>Done. {claim.receiverId} is now owned by <b>{done}</b>. The custody key has no control over it any more.</p>
             : <button className="btn green" onClick={accept}>Sign accept_owner</button>}
         </section>

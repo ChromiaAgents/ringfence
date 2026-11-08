@@ -236,7 +236,7 @@ await t('wallet: refusals (unbound number, bad input, nothing to confirm) and th
   assert.match(db.ledger.at(-1)!.detail, /DRY RUN/);
   assert.match((await import('../src/memory.ts')).recap(startCall('whatsapp', '15550000010').call), /phone\.alice\.testnet/);
 });
-await t('wallet: tiered confirmation: PIN up to 0.2 NEAR, WhatsApp Approve above (single use, 120 s, bound phone only)', async () => {
+await t('wallet: tiered confirmation: PIN up to 0.2 NEAR, PIN then WhatsApp Approve above (single use, 120 s, bound phone only)', async () => {
   const { startCall } = await import('../src/agent.ts');
   const { walletDesk, onButton, onCallNews } = await import('../src/desks/wallet.ts');
   const { db } = await import('../src/store.ts');
@@ -247,9 +247,12 @@ await t('wallet: tiered confirmation: PIN up to 0.2 NEAR, WhatsApp Approve above
   assert.equal(((await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.2', asset: 'near' })) as any).next, 'Ask for their 4-digit PIN.');
   const logs: string[] = []; const orig = console.log; console.log = (s: string) => logs.push(s);
   const big: any = await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.3', asset: 'near' });
+  assert.equal(big.approvalSent, undefined, 'no Approve button before the PIN'); assert.match(big.next, /PIN.*Approve/);
+  assert.equal(((await walletDesk.run(c, 'confirm_transfer', { pin: '9999' })) as any).ok, false, 'wrong PIN: no button');
+  assert.ok(!logs.join(' ').includes('approve:'), 'nothing sent on a wrong PIN');
+  const pinned: any = await walletDesk.run(c, 'confirm_transfer', { pin: '1234' });
   console.log = orig;
-  assert.equal(big.approvalSent, true); assert.match(big.next, /Approve/);
-  assert.match(((await walletDesk.run(c, 'confirm_transfer', { pin: '1234' })) as any).reason, /Nothing to confirm|Approve tap/, 'a PIN cannot authorise it');
+  assert.equal(pinned.approvalSent, true, 'PIN, then the Approve button');
   const token = logs.join(' ').match(/approve:([0-9a-f]{32})/)![1];
   assert.match(await onButton('15550009999', `approve:${token}`), /not valid/, 'another phone');
   const heard: string[] = []; onCallNews(c.id, (s) => heard.push(s));
@@ -259,6 +262,7 @@ await t('wallet: tiered confirmation: PIN up to 0.2 NEAR, WhatsApp Approve above
   assert.match(await onButton('15550000020', `approve:${token}`), /not valid/, 'single use');
   console.log = (s: string) => logs.push(s);
   await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.4', asset: 'near' });
+  await walletDesk.run(c, 'confirm_transfer', { pin: '1234' });
   console.log = orig;
   const t2 = logs.join(' ').match(/approve:([0-9a-f]{32})/g)!.at(-1)!.slice(8);
   assert.match(await onButton('15550000020', `approve:${t2}`, Date.now() + 121_000), /expired/);
@@ -271,9 +275,11 @@ await t('wallet: Reject freezes spending on the server for 15 minutes and is log
   const c = startCall('whatsapp', '15550000020', 'wallet').call;
   const logs: string[] = []; const orig = console.log; console.log = (s: string) => logs.push(s);
   await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.5', asset: 'near' });
+  await walletDesk.run(c, 'confirm_transfer', { pin: '1234' });
   console.log = orig;
   const token = logs.join(' ').match(/reject:([0-9a-f]{32})/)![1];
-  assert.match(await onButton('15550000020', `reject:${token}`), /15 minutes/);
+  // a late Reject still freezes: it is the "I didn't ask for this" alarm
+  assert.match(await onButton('15550000020', `reject:${token}`, Date.now() + 121_000), /15 minutes/);
   assert.match(db.ledger.at(-1)!.detail, /Rejected on WhatsApp.*frozen for 15 minutes/);
   const r: any = await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' });
   assert.equal(r.ok, false); assert.match(r.reason, /paused/);
@@ -309,17 +315,19 @@ await t('wallet: custodial onboarding in chat (PIN never stored in clear), dry r
 await t('wallet: claim (code to the bound phone, refusals, dry run) and bind via the factory', async () => {
   const { newCode, startClaim, finishClaim, bind, bindTx, ownerOk } = await import('../src/wallet.ts');
   const { env } = await import('../src/config.ts');
-  const code = newCode('15550000030');
+  const code = newCode('15550000030', 'claim', 'dave.testnet');
   assert.match(((await startClaim({ phone: '15550000030', code: '000000' === code ? '111111' : '000000', newOwner: 'dave.testnet' })) as any).reason, /Wrong code/);
   assert.match(((await startClaim({ phone: '15550000010', code, newOwner: 'dave.testnet' })) as any).reason, /no custodial wallet/);
+  assert.match(((await startClaim({ phone: '15550000030', code, newOwner: 'evil.testnet' })) as any).reason, /for something else/, 'a claim code is for one account');
   const r: any = await startClaim({ phone: '15550000030', code, newOwner: 'dave.testnet' });
   assert.equal(r.ok, true); assert.equal(r.method, 'accept_owner'); assert.equal(r.dryRun, true);
   assert.match(((await finishClaim('15550000099')) as any).reason, /No claim/);
   assert.equal(ownerOk('a'.repeat(64)), true, 'implicit accounts'); assert.equal(ownerOk('bob.near'), false);
-  const c2 = newCode('15550000040');
+  const c2 = newCode('15550000040', 'bind', 'mum-guardian.testnet');
   const bd: any = bind({ phone: '15550000040', code: c2, pin: '1234', owner: 'mum-guardian.testnet' });
   assert.equal(bd.ok, true);
-  const tx = bindTx(bd.binding);
+  const tx: any = bindTx(bd.binding);
+  assert.equal(tx.wallet, undefined, 'no guessed address shown before signing');
   assert.equal(tx.receiverId, env.factoryAccountId); assert.equal(tx.method, 'create_wallet'); assert.equal(tx.deposit, '13000000000000000000000');
   assert.equal(tx.args.owner, 'mum-guardian.testnet'); assert.match(tx.args.phone_hash, /^[0-9a-f]{64}$/);
   assert.equal(tx.args.near_limit.per_tx, (2n * 10n ** 23n).toString());
@@ -425,5 +433,120 @@ await t('tts: provider switch and Cartesia request/response (mocked fetch)', asy
     await assert.rejects(cartesiaSpeak('x', 'sk_test'), /cartesia 401/);
     await assert.rejects(cartesiaSpeak('x', ''), /CARTESIA_API_KEY/);
   } finally { globalThis.fetch = real; }
+});
+// ---- security review regressions ----
+await t('security: phone hash is an HMAC under WALLET_SECRET, never a plain sha256; required once keys are set (H1, M1, M6)', async () => {
+  const { phoneHash, devServer } = await import('../src/wallet.ts');
+  const { env } = await import('../src/config.ts');
+  const { createHash } = await import('node:crypto');
+  assert.notEqual(phoneHash('15550000010'), createHash('sha256').update('15550000010').digest('hex'), 'not reversible by hashing every phone number');
+  const keep = { ...env };
+  try {
+    Object.assign(env, { agentAccountId: 'ringfence-agent.testnet', agentKey: 'ed25519:x' });
+    assert.equal(devServer(), false);
+    assert.throws(() => phoneHash('15550000010'), /WALLET_SECRET/);
+    Object.assign(env, { walletSecret: 's1' }); const a = phoneHash('15550000010');
+    Object.assign(env, { walletSecret: 's2' }); assert.notEqual(phoneHash('15550000010'), a, 'keyed');
+  } finally { Object.assign(env, keep); }
+});
+await t('security: PIN hash is peppered with WALLET_SECRET (M4)', async () => {
+  const { hashPin } = await import('../src/wallet.ts');
+  const { env } = await import('../src/config.ts');
+  const plain = hashPin('1234', 'salt').pinHash;
+  env.walletSecret = 'pepper';
+  try { assert.notEqual(hashPin('1234', 'salt').pinHash, plain); } finally { env.walletSecret = ''; }
+});
+await t('security: unsigned WhatsApp webhooks are refused on a real server (H3); approval tokens never logged there', async () => {
+  const { whatsappWebhook } = await import('../src/whatsapp.ts');
+  const { env } = await import('../src/config.ts');
+  const post = async () => {
+    let status = 0;
+    const res: any = { writeHead: (s: number) => { status = s; return res; }, end: () => res };
+    await whatsappWebhook({ method: 'POST', headers: {} } as any, res, Buffer.from('{}'), new URL('http://x/webhook'));
+    return status;
+  };
+  assert.equal(await post(), 200, 'dev server: local testing works');
+  const keep = { ...env };
+  try {
+    Object.assign(env, { network: 'mainnet' }); assert.equal(await post(), 401, 'mainnet without a secret');
+    Object.assign(env, { network: 'testnet', custodyKey: 'ed25519:x' }); assert.equal(await post(), 401, 'custody key without a secret');
+  } finally { Object.assign(env, keep); }
+});
+await t('security: codes are for one action and one account, and the message says so (M2)', async () => {
+  const { newCode, codeText, bind } = await import('../src/wallet.ts');
+  const code = newCode('15550000050', 'claim', 'evil.testnet');
+  assert.match((bind({ phone: '15550000050', code, pin: '1234', owner: 'evil.testnet' }) as any).reason, /for something else/, 'a claim code cannot bind');
+  const c2 = newCode('15550000050', 'bind', 'mum.testnet');
+  assert.match((bind({ phone: '15550000050', code: c2, pin: '1234', owner: 'evil.testnet' }) as any).reason, /for something else/, 'only for the named owner');
+  assert.match(codeText('123456', 'claim', 'evil.testnet'), /OWNERSHIP.*evil\.testnet.*Never read it out/s);
+  assert.match(codeText('123456', 'bind', 'mum.testnet'), /owned by mum\.testnet/);
+});
+await t('security: binding again never overwrites a live or custodial wallet (QA 1)', async () => {
+  const { newCode, bind, bindingOf, hashPin } = await import('../src/wallet.ts');
+  const { db } = await import('../src/store.ts');
+  db.wallets = db.wallets.filter((w) => w.phone !== '15550000060');
+  db.wallets.push({ phone: '15550000060', owner: 'ringfence-custody.testnet', contract: 'x.ringfence-wallet.testnet', custodial: true, ...hashPin('1111'), fails: 0, createdAt: 0, frozenUntil: 9e15 });
+  const code = newCode('15550000060', 'bind', 'evil.testnet');
+  assert.match((bind({ phone: '15550000060', code, pin: '1234', owner: 'evil.testnet' }) as any).reason, /already has a wallet/);
+  const b = bindingOf('15550000060')!;
+  assert.equal(b.custodial, true); assert.equal(b.owner, 'ringfence-custody.testnet'); assert.equal(b.frozenUntil, 9e15, 'freeze kept');
+});
+await t('security: a spoken PIN never reaches the model or transcript (M4); a prepared transfer expires (L7)', async () => {
+  const { startCall } = await import('../src/agent.ts');
+  const { walletDesk, takePin } = await import('../src/desks/wallet.ts');
+  const { db } = await import('../src/store.ts');
+  const { hashPin } = await import('../src/wallet.ts');
+  db.wallets = db.wallets.filter((w) => w.phone !== '15550000070');
+  db.wallets.push({ phone: '15550000070', owner: 'erin.testnet', contract: 'e.ringfence-wallet.testnet', ...hashPin('2468'), fails: 0, createdAt: Date.now() });
+  const c = startCall('whatsapp', '15550000070', 'wallet').call;
+  assert.equal(takePin(c.id, 'two four six eight'), false, 'nothing waiting: not taken');
+  await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' });
+  assert.equal(takePin(c.id, 'two four six eight'), true);
+  const ok: any = await walletDesk.run(c, 'confirm_transfer', { pin: '[PIN]' });
+  assert.equal(ok.ok, true, 'the desk uses the PIN it took, the model only passed [PIN]');
+  await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' });
+  const real = Date.now; Date.now = () => real() + 121_000;
+  try { assert.match(((await walletDesk.run(c, 'confirm_transfer', { pin: '2468' })) as any).reason, /expired/); } finally { Date.now = real; }
+});
+await t('security: through the agent, the PIN utterance is stored and sent as [PIN] only (M4)', async () => {
+  const { startCall, reply } = await import('../src/agent.ts');
+  const { env } = await import('../src/config.ts');
+  const { db } = await import('../src/store.ts');
+  env.mockLlm = true;
+  try {
+    const c = startCall('whatsapp', '15550000070', 'wallet').call;
+    await reply(c.id, 'send 0.1 NEAR to bob.testnet');
+    await reply(c.id, 'two four six eight');
+    assert.ok(!JSON.stringify(db.calls.find((x) => x.id === c.id)).includes('six eight'), 'not in the transcript');
+    assert.ok(c.turns.some((x) => x.who === 'caller' && x.text === '[PIN]'));
+    assert.ok(c.turns.some((x) => x.who === 'tool' && /confirm_transfer.*"ok":true/.test(x.text)), 'and it still confirmed');
+  } finally { env.mockLlm = false; }
+});
+await t('security: Approve re-checks the wallet and the contract it was asked for (L1, QA 3)', async () => {
+  const { startCall } = await import('../src/agent.ts');
+  const { walletDesk, onButton } = await import('../src/desks/wallet.ts');
+  const { bindingOf } = await import('../src/wallet.ts');
+  const c = startCall('whatsapp', '15550000070', 'wallet').call;
+  const logs: string[] = []; const orig = console.log; console.log = (s: string) => logs.push(s);
+  await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.3', asset: 'near' });
+  await walletDesk.run(c, 'confirm_transfer', { pin: '2468' });
+  console.log = orig;
+  const token = logs.join(' ').match(/approve:([0-9a-f]{32})/)![1];
+  bindingOf('15550000070')!.contract = 'other.ringfence-wallet.testnet';
+  assert.match(await onButton('15550000070', `approve:${token}`), /another wallet/);
+});
+await t('security: amounts are exact: what is read back is what is sent (L2)', async () => {
+  const { startCall } = await import('../src/agent.ts');
+  const { walletDesk } = await import('../src/desks/wallet.ts');
+  const c = startCall('whatsapp', '15550000010', 'wallet').call;
+  const r: any = await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1234567', asset: 'near' });
+  assert.equal(r.read_back, '0.1234567 NEAR to bob dot testnet');
+  assert.equal((await import('ethers')).parseUnits('0.1234567', 24), 123456700000000000000000n);
+  assert.equal(((await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.0000000000000000001', asset: 'near' })) as any).ok, false, 'more decimals than we read back: refused');
+});
+await t('security: "create a wallet" works again after a dry-run wallet (QA 6)', async () => {
+  const { onboard } = await import('../src/wallet.ts');
+  assert.match((await onboard('15550000030', 'create a wallet'))!, /4-digit PIN/);
+  assert.match((await onboard('15550000030', 'cancel'))!, /Cancelled/);
 });
 process.once("beforeExit", () => console.log(`${n} passed`));

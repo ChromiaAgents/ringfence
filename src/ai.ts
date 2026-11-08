@@ -222,7 +222,7 @@ export function mockStep(messages: Msg[], tools: unknown[]): { name: string; arg
   if (names.has('confirm_transfer')) {
     const send = u.match(/(?:send|pay|transfer)\s+([\d.]+)\s*([a-z]+)?\b(?:\s+on\s+([a-z0-9 ]+?))?\s+to\s+(\S+(?:\s+dot\s+\S+)*)/i);
     if (send) return { name: 'prepare_transfer', args: { to: send[4].replace(/[.,!?]$/, ''), amount: send[1], asset: send[3] ? send[3].trim().toLowerCase() : /^near$/i.test(send[2] ?? 'near') ? 'near' : (send[2] ?? '').toLowerCase() } };
-    if (/^[\s\d,.-]+$|^(\s*(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b[\s,.]*)+$/i.test(u)) return { name: 'confirm_transfer', args: { pin: u } };
+    if (u === '[PIN]' || /^[\s\d,.-]+$|^(\s*(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b[\s,.]*)+$/i.test(u)) return { name: 'confirm_transfer', args: { pin: u } };
     if (/\bbalance\b/i.test(u)) return { name: 'get_balance', args: {} };
     if (/\bspen[dt]\b/i.test(u)) return { name: 'get_spending', args: {} };
   }
@@ -257,7 +257,7 @@ function mockText(messages: Msg[], tools: unknown[] = []): string {
   if (tool === 'set_coin' && out.ok !== false && !out.error) return 'Got it. Shall I set it up? Say yes and I’ll put the launch on your screen to check and sign.';
   if (out.ok === false && /^I still need/.test(out.reason ?? '')) return out.reason;
   if (out.ok === false || out.error) return `Sorry, I can't do that: ${out.reason ?? out.error}`;
-  if (out.approvalDemo) return `That's ${out.read_back}. On a bound wallet that amount needs an Approve tap on WhatsApp, not a PIN. This browser demo stops here: nothing was sent.`;
+  if (out.approvalDemo) return `That's ${out.read_back}. On a bound wallet that amount needs your PIN and then an Approve tap on WhatsApp. This browser demo stops here: nothing was sent.`;
   if (out.approvalSent) return `That's ${out.read_back}. I've sent an Approve button to your WhatsApp. Tap it within two minutes.`;
   if (out.last && out.spentToday) return `Today you've spent ${out.spentToday} of your ${out.dailyLimit} daily limit, ${out.leftToday} left. ${out.last.length ? `Last: ${out.last[0]}.` : 'No transfers yet.'}`;
   if (out.last) return `This is a dry run, so I can't read today's total from the chain. ${out.last.length ? `Your last ${out.last.length} transfers: ${out.last.join('; ')}.` : 'No transfers yet.'}`;

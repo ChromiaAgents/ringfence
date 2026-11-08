@@ -9,7 +9,7 @@ import { isFiller, startCall, reply, endCall, setOnLink, photo } from './agent.t
 import { transcribe } from './ai.ts';
 import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
-import { onboard, bindingOf, NO_WALLET } from './wallet.ts';
+import { onboard, bindingOf, NO_WALLET, devServer } from './wallet.ts';
 import { onButton, setApprovalSender, onCallNews } from './desks/wallet.ts';
 
 const GRAPH = 'https://graph.facebook.com/v23.0';
@@ -46,7 +46,8 @@ if (env.waToken) setApprovalSender(sendButtons);
 const isOwner = (from: string) => !!env.ownerWhatsapp && from.replace(/\D/g, '') === env.ownerWhatsapp;
 
 function validSignature(req: IncomingMessage, body: Buffer) {
-  if (!env.waAppSecret) return true; // ponytail: local testing only; set WHATSAPP_APP_SECRET in any real deploy
+  // Unsigned webhooks only on a dry-run server: anywhere real, a missing secret would let anyone post as any number.
+  if (!env.waAppSecret) return devServer();
   const got = String(req.headers['x-hub-signature-256'] ?? '');
   const want = 'sha256=' + createHmac('sha256', env.waAppSecret).update(body).digest('hex');
   return got.length === want.length && timingSafeEqual(Buffer.from(got), Buffer.from(want));
@@ -179,7 +180,7 @@ async function onCallEvent(c: any) {
     const { signal, timing } = line.begin();
     const text = await transcribe(wav(pcm16k, 16000));
     timing.sttMs = Date.now() - timing.start!;
-    console.log(`wa heard (${timing.sttMs} ms): "${text}"`);
+    console.log(`wa heard (${timing.sttMs} ms): ${text.length} chars`); // never the words: they may be a PIN
     if (!text || text.length < 2 || isFiller(text)) return;
     line.ackSoon();
     try {

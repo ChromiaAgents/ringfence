@@ -24,7 +24,8 @@ async fn factory_in_sandbox() -> anyhow::Result<()> {
     factory.call(factory.id(), "new").args_json(json!({ "owner": custody.id(), "agent": agent.id() })).transact().await?.into_result()?;
     let h1 = "1".repeat(64);
     let h2 = "2".repeat(64);
-    let create = |h: &str, owner: &str, dep: NearToken| payer.call(factory.id(), "create_wallet")
+    // the caller must be the owner: custody creates custodial-style wallets for itself
+    let create = |h: &str, owner: &str, dep: NearToken| custody.call(factory.id(), "create_wallet")
         .args_json(json!({ "phone_hash": h, "owner": owner })).deposit(dep).max_gas().transact();
 
     // no code yet: refused
@@ -41,11 +42,13 @@ async fn factory_in_sandbox() -> anyhow::Result<()> {
     assert!(cfg[2].is_string());
 
     // (b) per wallet: named custodial owner; excess refunded
-    let p0 = payer.view_account().await?.balance.as_yoctonear();
+    assert!(err(payer.call(factory.id(), "create_wallet").args_json(json!({ "phone_hash": h1, "owner": family.id() }))
+        .deposit(NearToken::from_near(1)).max_gas().transact().await?).contains("the caller must be the owner"));
+    let p0 = custody.view_account().await?.balance.as_yoctonear();
     let r = create(&h1, custody.id().as_str(), NearToken::from_near(1)).await?;
     let burnt: u128 = r.outcomes().iter().map(|o| o.tokens_burnt.as_yoctonear()).sum();
     let w1: String = r.into_result()?.json::<Option<String>>()?.expect("created");
-    let p1 = payer.view_account().await?.balance.as_yoctonear();
+    let p1 = custody.view_account().await?.balance.as_yoctonear();
     assert_eq!(w1, format!("111111111111.{}", factory.id()));
     let wallet_cost = p0 - p1 - burnt;
     // min_deposit (0.013) kept; the rest refunded. The small extra is gas not counted in tokens_burnt (refund penalty).
@@ -60,10 +63,10 @@ async fn factory_in_sandbox() -> anyhow::Result<()> {
     assert!(format!("{:?}", wv.contract_state).starts_with("GlobalHash"), "no own code: it uses the global one");
 
     // duplicate number refused (the deposit comes back with the failed tx)
-    assert!(err(create(&h1, family.id().as_str(), NearToken::from_near(1)).await?).contains("already has a wallet"));
+    assert!(err(create(&h1, custody.id().as_str(), NearToken::from_near(1)).await?).contains("already has a wallet"));
 
-    // implicit (64-hex) owner, custom limits and a saved recipient
-    let implicit = "ab".repeat(32);
+    // the payer as its own owner, custom limits and a saved recipient (implicit owners: unit test)
+    let implicit = payer.id().to_string();
     let r = payer.call(factory.id(), "create_wallet").args_json(json!({ "phone_hash": h2, "owner": implicit,
         "near_limit": { "per_tx": (Y / 10).to_string(), "per_day": (Y / 4).to_string() }, "new_recipient_delay_sec": 2,
         "recipients": [liho.id()] })).deposit(NearToken::from_millinear(13)).max_gas().transact().await?;
@@ -102,11 +105,20 @@ async fn factory_in_sandbox() -> anyhow::Result<()> {
     family.call(&w1id, "withdraw").args_json(json!({ "amount": "1" })).deposit(one).transact().await?.into_result()?;
     assert!(err(custody.call(&w1id, "propose_owner").args_json(json!({ "new_owner": agent.id() })).deposit(one).transact().await?).contains("only the owner"));
 
+    // custodial mode: the custody owner can't withdraw, and a claim waits 24 h
+    let h3 = "3".repeat(64);
+    let r = custody.call(factory.id(), "create_wallet").args_json(json!({ "phone_hash": h3, "owner": custody.id(), "custodial": true }))
+        .deposit(NearToken::from_near(1)).max_gas().transact().await?;
+    let w3: near_workspaces::AccountId = r.into_result()?.json::<Option<String>>()?.unwrap().parse()?;
+    assert!(err(custody.call(&w3, "withdraw").args_json(json!({ "amount": "1" })).deposit(one).transact().await?).contains("custodial wallet"));
+    custody.call(&w3, "propose_owner").args_json(json!({ "new_owner": family.id() })).deposit(one).transact().await?.into_result()?;
+    assert!(err(family.call(&w3, "accept_owner").transact().await?).contains("24 h waiting period"));
+
     // costs, for HANDOVER.md
     let wasm_len = wallet_wasm.len() as u128;
     println!("COST wasm bytes: {wasm_len}");
     println!("COST global upload (factory balance drop): {:.5} NEAR", near(f0 - f1));
-    println!("COST per wallet (charged to payer, excl. gas): {:.5} NEAR; wallet storage_usage {} bytes, balance {:.5}",
+    println!("COST per wallet (charged to the caller, excl. gas): {:.5} NEAR; wallet storage_usage {} bytes, balance {:.5}",
         near(wallet_cost), wv.storage_usage, near(wv.balance.as_yoctonear()));
     println!("COST per wallet if each deployed its own code (wasm bytes x 1e19): {:.5} NEAR", near(wasm_len * 10_000_000_000_000_000_000));
     Ok(())

@@ -127,8 +127,8 @@ try {
     body: JSON.stringify({ entry: [{ changes: [{ value: { messages: [{ from, id: 'wamid.x', ...m }] } }] }] }) });
   const ledger = async () => JSON.parse((await get('/api/state')).text).ledger.map((l: any) => l.detail) as string[];
   const until = async (f: () => Promise<boolean>) => { for (let i = 0; i < 40; i++) { if (await f()) return true; await new Promise((r) => setTimeout(r, 250)); } return false; };
-  await step('wallet desk: 0.3 NEAR asks for the WhatsApp Approve tap; a simulated button reply executes it (dry run)', async () => {
-    const r = await call('wallet&from=15550001234', ['send 0.3 NEAR to liho.testnet']);
+  await step('wallet desk: 0.3 NEAR needs the PIN, then the WhatsApp Approve tap; a simulated button reply executes it (dry run)', async () => {
+    const r = await call('wallet&from=15550001234', ['send 0.3 NEAR to liho.testnet', 'one two three four']);
     must(r.said.some((s) => /Approve button/i.test(s)), 'no approval prompt: ' + r.said.join(' | '));
     const token = log.match(/approve:([0-9a-f]{32})/g)?.at(-1)?.slice(8);
     must(token, 'no approval token in the server log');

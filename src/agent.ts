@@ -10,7 +10,7 @@ import type { DeskDef } from './desks/types.ts';
 import { launchDesk } from './desks/launch.ts';
 import { businessDesk } from './desks/business.ts';
 import { ownerDesk } from './desks/owner.ts';
-import { walletDesk } from './desks/wallet.ts';
+import { walletDesk, takePin } from './desks/wallet.ts';
 
 export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, business: businessDesk, owner: ownerDesk, wallet: walletDesk };
 
@@ -87,6 +87,8 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   if (isFiller(text)) return '';
   const timing = o.timing;
   const t0 = timing?.start ?? Date.now();
+  // A PIN for a waiting transfer is taken here: the model, transcript and logs only ever see "[PIN]".
+  if (call.desk === 'wallet' && takePin(call.id, text)) text = '[PIN]';
   call.turns.push({ at: Date.now(), who: 'caller', text });
   if (!call.desk) {
     const d = call.isOwner && /\b(owner|my rules|settings)\b/i.test(text) ? 'owner' : route(text);

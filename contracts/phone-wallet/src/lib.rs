@@ -11,6 +11,10 @@ use near_sdk::{env, near, require, AccountId, Gas, NearToken, PanicOnDefault, Pr
 use std::collections::HashMap;
 
 const DAY_NS: u64 = 86_400_000_000_000;
+/// Custodial wallets: a proposed owner may accept only this long after the proposal.
+pub const CLAIM_DELAY_NS: u64 = DAY_NS;
+/// At most this many queued transfers (a compromised agent could otherwise fill storage and grow gas).
+pub const MAX_PENDING: usize = 10;
 const SIGN_GAS: Gas = Gas::from_tgas(50);
 pub const ETH_PATH: &str = "ethereum-1";
 pub const BASE_CHAIN_ID: u64 = 8453;
@@ -37,8 +41,8 @@ pub struct Pending {
 pub struct PhoneWallet {
     owner: AccountId,
     agent: Option<AccountId>,
-    /// sha256 of the WhatsApp number (digits only). The owner signs it at init, so the server can check that
-    /// a phone number really was bound to this contract by its owner.
+    /// HMAC of the WhatsApp number (digits only) under the server's secret. Set at init by the factory's caller,
+    /// who must be the owner (factory rule), so the server can check the number was bound by this owner.
     phone_hash: String,
     signer: AccountId,
     limits: HashMap<String, Limit>,
@@ -54,6 +58,10 @@ pub struct PhoneWallet {
     pending_owner: Option<AccountId>,
     /// Agent spends are refused until this time (ns). The owner's own actions are never frozen.
     frozen_until_ns: u64,
+    /// Custodial (owner = Ringfence's custody account until claimed): the owner can't withdraw, raise limits, change
+    /// the agent or unfreeze; it can only freeze and propose the real owner, who may accept after CLAIM_DELAY_NS.
+    custodial: bool,
+    claim_ready_ns: u64,
 }
 
 #[near(serializers = [json])]
@@ -72,6 +80,8 @@ pub struct State {
     pub balance: U128,
     pub pending_owner: Option<AccountId>,
     pub frozen_until_ns: U64,
+    pub custodial: bool,
+    pub claim_ready_ns: U64,
 }
 
 #[near]
@@ -82,7 +92,7 @@ impl PhoneWallet {
     #[init]
     pub fn new(owner: AccountId, agent: AccountId, phone_hash: String, signer: Option<AccountId>, evm_chain_ids: Option<Vec<u64>>,
                near_limit: Option<Limit>, evm_limit: Option<Limit>, new_recipient_delay_sec: Option<u64>,
-               recipients: Option<Vec<String>>) -> Self {
+               recipients: Option<Vec<String>>, custodial: Option<bool>) -> Self {
         require!(agent != owner, "the agent can't be the owner");
         let e18 = 10u128.pow(18);
         let e24 = 10u128.pow(24);
@@ -96,6 +106,7 @@ impl PhoneWallet {
             signer: signer.unwrap_or_else(|| "v1.signer".parse().unwrap()),
             limits, chains, allowlist: recipients.unwrap_or_default().iter().map(|r| r.to_lowercase()).collect(), new_recipient_delay_sec: new_recipient_delay_sec.unwrap_or(600),
             day: 0, spent: HashMap::new(), pending: vec![], next_id: 0, pending_owner: None, frozen_until_ns: 0,
+            custodial: custodial.unwrap_or(false), claim_ready_ns: 0,
         }
     }
 
@@ -103,13 +114,13 @@ impl PhoneWallet {
 
     #[payable]
     pub fn set_limits(&mut self, asset: String, per_tx: U128, per_day: U128) {
-        self.only_owner();
+        self.only_owner(); self.not_custodial();
         self.limits.insert(asset, Limit { per_tx, per_day });
     }
     /// Lets the agent use an EVM chain, with its limits (native units of that chain, e.g. wei).
     #[payable]
     pub fn allow_chain(&mut self, chain_id: u64, per_tx: U128, per_day: U128) {
-        self.only_owner();
+        self.only_owner(); self.not_custodial();
         if !self.chains.contains(&chain_id) { self.chains.push(chain_id); }
         self.limits.insert(evm_key(chain_id), Limit { per_tx, per_day });
     }
@@ -121,7 +132,7 @@ impl PhoneWallet {
     }
     #[payable]
     pub fn set_delay(&mut self, new_recipient_delay_sec: u64) {
-        self.only_owner();
+        self.only_owner(); self.not_custodial();
         self.new_recipient_delay_sec = new_recipient_delay_sec;
     }
     #[payable]
@@ -138,7 +149,7 @@ impl PhoneWallet {
     }
     #[payable]
     pub fn set_agent(&mut self, agent: AccountId) {
-        self.only_owner();
+        self.only_owner(); self.not_custodial();
         require!(agent != self.owner, "the agent can't be the owner");
         self.agent = Some(agent);
     }
@@ -148,14 +159,17 @@ impl PhoneWallet {
         self.only_owner();
         require!(Some(&new_owner) != self.agent.as_ref(), "the agent can't be the owner");
         self.pending_owner = Some(new_owner);
+        self.claim_ready_ns = if self.custodial { env::block_timestamp() + CLAIM_DELAY_NS } else { 0 };
     }
     /// Step 2: the proposed account accepts.
     pub fn accept_owner(&mut self) {
         let me = env::predecessor_account_id();
         require!(self.pending_owner.as_ref() == Some(&me), "not the proposed owner");
         require!(Some(&me) != self.agent.as_ref(), "the agent can't be the owner");
+        require!(env::block_timestamp() >= self.claim_ready_ns, "custodial claim: still in the 24 h waiting period");
         self.owner = me;
         self.pending_owner = None;
+        self.custodial = false;
     }
     #[payable]
     pub fn cancel_owner_transfer(&mut self) {
@@ -170,7 +184,7 @@ impl PhoneWallet {
     }
     #[payable]
     pub fn unfreeze(&mut self) {
-        self.only_owner();
+        self.only_owner(); self.not_custodial();
         self.frozen_until_ns = 0;
     }
     #[payable]
@@ -181,7 +195,7 @@ impl PhoneWallet {
     /// Always works, whatever the agent does: there is no agent-side lock on the owner's money.
     #[payable]
     pub fn withdraw(&mut self, amount: U128) -> Promise {
-        self.only_owner();
+        self.only_owner(); self.not_custodial();
         Promise::new(self.owner.clone()).transfer(NearToken::from_yoctonear(amount.0))
     }
     #[payable]
@@ -191,6 +205,11 @@ impl PhoneWallet {
         self.pending.retain(|p| p.id != pending_id);
         require!(self.pending.len() < n, "no such pending transfer");
     }
+    #[payable]
+    pub fn cancel_all(&mut self) {
+        self.only_owner();
+        self.pending.clear();
+    }
 
     // ---- agent ----
 
@@ -198,7 +217,7 @@ impl PhoneWallet {
     pub fn transfer_near(&mut self, to: AccountId, amount: U128) -> Option<u64> {
         self.only_agent();
         self.check_tx("near", amount.0);
-        if !self.allowed(to.as_str()) { return Some(self.queue("near", to.to_string(), amount, None)); }
+        if !self.allowed("near", to.as_str()) { return Some(self.queue("near", to.to_string(), amount, None)); }
         self.spend("near", amount.0);
         let _ = Promise::new(to).transfer(NearToken::from_yoctonear(amount.0));
         None
@@ -213,10 +232,12 @@ impl PhoneWallet {
         let id: u64 = chain.strip_prefix("evm:").and_then(|x| x.parse().ok()).unwrap_or_else(|| env::panic_str("chain must be evm:<chainId>"));
         require!(self.chains.contains(&id), format!("chain {id} is not allowed by the owner"));
         let bytes = hex::decode(tx.trim_start_matches("0x")).unwrap_or_else(|_| env::panic_str("tx is not hex"));
-        let (to, value) = parse_eip1559(&bytes, id);
-        self.check_tx(&chain, value);
-        if !self.allowed(&to) { return PromiseOrValue::Value(U64(self.queue(&chain, to, U128(value), Some(tx)))); }
-        self.spend(&chain, value);
+        let (to, value, max_fee) = parse_eip1559(&bytes, id);
+        // gas counts too: value + gasLimit * maxFeePerGas is what the account can lose.
+        let cost = value.checked_add(max_fee).unwrap_or_else(|| env::panic_str("cost overflow"));
+        self.check_tx(&chain, cost);
+        if !self.allowed(&chain, &to) { return PromiseOrValue::Value(U64(self.queue(&chain, to, U128(cost), Some(tx)))); }
+        self.spend(&chain, cost);
         PromiseOrValue::Promise(self.sign(&bytes))
     }
 
@@ -250,6 +271,7 @@ impl PhoneWallet {
             pending: self.pending.clone(),
             balance: U128(env::account_balance().as_yoctonear()),
             pending_owner: self.pending_owner.clone(), frozen_until_ns: U64(self.frozen_until_ns),
+            custodial: self.custodial, claim_ready_ns: U64(self.claim_ready_ns),
         }
     }
 
@@ -263,7 +285,12 @@ impl PhoneWallet {
         require!(self.agent.as_ref() == Some(&env::predecessor_account_id()), "only the agent");
         require!(env::block_timestamp() >= self.frozen_until_ns, "frozen by the owner");
     }
-    fn allowed(&self, to: &str) -> bool { self.allowlist.contains(&to.to_lowercase()) }
+    fn not_custodial(&self) { require!(!self.custodial, "custodial wallet: claim it to your own account first"); }
+    /// One saved list, split by kind: a saved 0x address is for EVM chains only, never NEAR's eth-implicit 0x account.
+    fn allowed(&self, asset: &str, to: &str) -> bool {
+        let to = to.to_lowercase();
+        (asset == "near") != to.starts_with("0x") && self.allowlist.contains(&to)
+    }
     fn limit(&self, asset: &str) -> Limit {
         self.limits.get(asset).cloned().unwrap_or_else(|| env::panic_str(&format!("no limit set for {asset}")))
     }
@@ -282,6 +309,7 @@ impl PhoneWallet {
         *self.spent.entry(asset.to_string()).or_insert(0) += amount;
     }
     fn queue(&mut self, asset: &str, to: String, amount: U128, tx: Option<String>) -> u64 {
+        require!(self.pending.len() < MAX_PENDING, "too many queued transfers: the owner can cancel them");
         let id = self.next_id;
         self.next_id += 1;
         let ready_at_ns = U64(env::block_timestamp() + self.new_recipient_delay_sec * 1_000_000_000);
@@ -316,8 +344,8 @@ fn be(b: &[u8]) -> u128 {
     b.iter().fold(0u128, |a, x| (a << 8) | *x as u128)
 }
 
-/// 0x02 || rlp([chainId, nonce, maxPriorityFee, maxFee, gas, to, value, data, accessList]) → ("0x…to", value).
-pub fn parse_eip1559(tx: &[u8], chain_id: u64) -> (String, u128) {
+/// 0x02 || rlp([chainId, nonce, maxPriorityFee, maxFee, gas, to, value, data, accessList]) → ("0x…to", value, gas * maxFee).
+pub fn parse_eip1559(tx: &[u8], chain_id: u64) -> (String, u128, u128) {
     require!(tx.first() == Some(&2), "not an EIP-1559 transaction");
     let (body, rest, list) = rlp_item(&tx[1..]);
     require!(list && rest.is_empty(), "bad transaction");
@@ -329,7 +357,8 @@ pub fn parse_eip1559(tx: &[u8], chain_id: u64) -> (String, u128) {
     require!(f[5].0.len() == 20, "recipient must be an address");
     require!(f[7].0.is_empty(), "plain transfers only: no contract calls");
     require!(f[8].1 && f[8].0.is_empty(), "no access list");
-    (format!("0x{}", hex::encode(f[5].0)), be(f[6].0))
+    let max_fee = be(f[4].0).checked_mul(be(f[3].0)).unwrap_or_else(|| env::panic_str("fee overflow"));
+    (format!("0x{}", hex::encode(f[5].0)), be(f[6].0), max_fee)
 }
 
 #[cfg(test)]
@@ -354,9 +383,9 @@ mod tests {
     fn wallet() -> PhoneWallet {
         ctx(0, 1000, 0);
         PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, Some(vec![SEPOLIA]),
-            Some(Limit { per_tx: U128(5 * NEAR), per_day: U128(10 * NEAR) }), Some(Limit { per_tx: U128(10u128.pow(16)), per_day: U128(2 * 10u128.pow(16)) }), None, None)
+            Some(Limit { per_tx: U128(5 * NEAR), per_day: U128(10 * NEAR) }), Some(Limit { per_tx: U128(10u128.pow(16)), per_day: U128(2 * 10u128.pow(16)) }), None, None, None)
     }
-    fn mainnet_wallet() -> PhoneWallet { ctx(0, 1000, 0); PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None, None) }
+    fn mainnet_wallet() -> PhoneWallet { ctx(0, 1000, 0); PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None, None, None) }
 
     #[test]
     fn limits_and_allowlist() {
@@ -430,7 +459,7 @@ mod tests {
 
     #[test]
     fn parses_eip1559_transfer() {
-        let (to, value) = parse_eip1559(&hex::decode(TX).unwrap(), SEPOLIA);
+        let (to, value, _) = parse_eip1559(&hex::decode(TX).unwrap(), SEPOLIA);
         assert_eq!(to, "0x1111111111111111111111111111111111111111");
         assert_eq!(value, 10u128.pow(15));
     }
@@ -463,7 +492,7 @@ mod tests {
     }
     #[test]
     fn base_tx_parses_and_queues() {
-        let (to, value) = parse_eip1559(&hex::decode(BASE_TX).unwrap(), 8453);
+        let (to, value, _) = parse_eip1559(&hex::decode(BASE_TX).unwrap(), 8453);
         assert_eq!(to, "0x1111111111111111111111111111111111111111");
         assert_eq!(value, 10u128.pow(14));
         let mut w = mainnet_wallet();
@@ -500,7 +529,7 @@ mod tests {
     #[test]
     fn recipients_at_init_are_allowlisted() {
         ctx(0, 1000, 0);
-        let mut w = PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None, Some(vec!["Charlie".into()]));
+        let mut w = PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None, Some(vec!["Charlie".into()]), None);
         ctx(1, 1000, 0);
         assert_eq!(w.transfer_near(accounts(2), U128(NEAR / 10)), None);
     }
@@ -579,4 +608,71 @@ mod tests {
     #[test]
     #[should_panic(expected = "only the owner")]
     fn agent_cant_unfreeze() { let mut w = wallet(); ctx(1, 1000, 1); w.unfreeze(); }
+
+    // ---- security review fixes ----
+    fn custodial_wallet() -> PhoneWallet {
+        ctx(0, 1000, 0);
+        PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None, None, Some(true))
+    }
+    #[test]
+    #[should_panic(expected = "custodial wallet")]
+    fn custodial_owner_cant_withdraw() { let mut w = custodial_wallet(); ctx(0, 1000, 1); w.withdraw(U128(1)); }
+    #[test]
+    #[should_panic(expected = "custodial wallet")]
+    fn custodial_owner_cant_raise_limits() { let mut w = custodial_wallet(); ctx(0, 1000, 1); w.set_limits("near".into(), U128(NEAR), U128(NEAR)); }
+    #[test]
+    #[should_panic(expected = "custodial wallet")]
+    fn custodial_owner_cant_change_agent() { let mut w = custodial_wallet(); ctx(0, 1000, 1); w.set_agent(accounts(4)); }
+    #[test]
+    #[should_panic(expected = "custodial wallet")]
+    fn custodial_owner_cant_unfreeze() { let mut w = custodial_wallet(); ctx(0, 1000, 1); w.freeze(U64(5000)); w.unfreeze(); }
+    #[test]
+    #[should_panic(expected = "24 h waiting period")]
+    fn custodial_claim_waits_a_day() { let mut w = custodial_wallet(); ctx(0, 1000, 1); w.propose_owner(accounts(3)); ctx(3, 1000 + 86_399, 0); w.accept_owner(); }
+    #[test]
+    fn custodial_claim_after_a_day_gives_full_control() {
+        let mut w = custodial_wallet();
+        ctx(0, 1000, 1); w.propose_owner(accounts(3));
+        ctx(3, 1000 + 86_400, 0); w.accept_owner();
+        assert!(!w.get_state().custodial);
+        ctx(3, 1000 + 86_400, 1); w.withdraw(U128(1));
+    }
+    #[test]
+    #[should_panic(expected = "too many queued transfers")]
+    fn queue_is_capped() {
+        let mut w = wallet();
+        ctx(1, 1000, 0);
+        for _ in 0..=MAX_PENDING { w.transfer_near(accounts(3), U128(1)); }
+    }
+    #[test]
+    fn owner_cancels_all() {
+        let mut w = wallet();
+        ctx(1, 1000, 0); w.transfer_near(accounts(3), U128(1)); w.transfer_near(accounts(4), U128(1));
+        ctx(0, 1000, 1); w.cancel_all();
+        assert!(w.get_state().pending.is_empty());
+    }
+    #[test]
+    fn evm_gas_counts_against_limits() {
+        let mut w = wallet();
+        ctx(0, 1000, 1); w.allow("0x1111111111111111111111111111111111111111".into());
+        ctx(1, 1000, 0); w.request_signature("evm:11155111".into(), TX.into());
+        // 0.001 ETH value + 21000 gas * 2 gwei max fee
+        assert_eq!(w.get_state().spent_today["evm:11155111"].0, 10u128.pow(15) + 21_000 * 2_000_000_000);
+    }
+    #[test]
+    #[should_panic(expected = "over the per-transfer limit for evm:11155111")]
+    fn evm_huge_fee_refused() {
+        let mut w = wallet();
+        // value exactly at the limit: the fee pushes it over
+        ctx(0, 1000, 1); w.set_limits("evm:11155111".into(), U128(10u128.pow(15)), U128(10u128.pow(18)));
+        ctx(1, 1000, 0); w.request_signature("evm:11155111".into(), TX.into());
+    }
+    #[test]
+    fn saved_evm_address_does_not_allow_near_eth_implicit() {
+        let mut w = wallet();
+        let addr = "0x1111111111111111111111111111111111111111";
+        ctx(0, 1000, 1); w.allow(addr.into());
+        ctx(1, 1000, 0);
+        assert_eq!(w.transfer_near(addr.parse().unwrap(), U128(1)), Some(0), "queued, not instant");
+    }
 }

@@ -1,7 +1,7 @@
 // Phone wallet (UNAUDITED PROTOTYPE: keep small amounts): a WhatsApp number bound to a per-user phone-wallet contract (contracts/phone-wallet).
 // Here: the binding (code by WhatsApp, PIN as a salted scrypt hash), PIN checks with lockout, and the agent's calls to
 // the contract. The contract enforces the limits; nothing here can spend more than it allows.
-import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
 import { Account, JsonRpcProvider, actions, getTransactionLastResult, type KeyPairString } from 'near-api-js';
 import { env } from './config.ts';
 import { db, save, log } from './store.ts';
@@ -21,12 +21,21 @@ export type Binding = {
 export type WalletState = {
   owner: string; agent: string | null; phone_hash: string; signer: string; balance: string;
   limits: Record<string, { per_tx: string; per_day: string }>; chains: number[]; allowlist: string[]; spent_today: Record<string, string>; new_recipient_delay_sec: number;
-  pending_owner?: string | null; frozen_until_ns?: string;
+  pending_owner?: string | null; frozen_until_ns?: string; custodial?: boolean;
 };
 
 export const digits = (phone: string) => String(phone ?? '').replace(/\D/g, '');
-export const phoneHash = (phone: string) => createHash('sha256').update(digits(phone)).digest('hex');
-/** The factory names each wallet <first 12 hex of the phone hash>.<factory> (4 more chars if taken: walletState asks the factory). */
+/** A server that can't move anything: testnet, no agent or custody key. Only here may codes and approval tokens go to the log. */
+export const devServer = () => env.network !== 'mainnet' && !live() && !custodyLive();
+/** WALLET_SECRET: HMAC key for phone hashes (a plain sha256 of a phone number reverses in minutes) and PIN pepper.
+ *  Required anywhere real (mainnet or a key set); a fixed dev key otherwise. */
+const secret = () => {
+  if (env.walletSecret) return env.walletSecret;
+  if (!devServer()) throw new Error('WALLET_SECRET is not set: refusing to hash phone numbers without it.');
+  return 'ringfence-dev-only';
+};
+export const phoneHash = (phone: string) => createHmac('sha256', secret()).update(digits(phone)).digest('hex');
+/** Placeholder only, never shown as a deposit address: the real account is read from factory.get_wallet (walletState). */
 export const walletFor = (phone: string) => `${phoneHash(phone).slice(0, 12)}.${env.factoryAccountId}`;
 /** factory.min_deposit(): 0.010 NEAR stays on the wallet for storage, 0.003 pays the factory's records. */
 export const CREATE_DEPOSIT = 13n * 10n ** 21n;
@@ -43,7 +52,9 @@ export function normalizePin(said: string): string | null {
 }
 
 export function hashPin(pin: string, salt = randomBytes(16).toString('hex')) {
-  return { salt, pinHash: scryptSync(pin, salt, 32).toString('hex') };
+  // Peppered with WALLET_SECRET when set: a leaked DB alone doesn't give up 4-digit PINs.
+  const p = env.walletSecret ? createHmac('sha256', env.walletSecret).update(pin).digest('hex') : pin;
+  return { salt, pinHash: scryptSync(p, salt, 32).toString('hex') };
 }
 
 const MAX_FAILS = 3, LOCK_MS = 15 * 60_000;
@@ -61,16 +72,23 @@ export function checkPin(b: Binding, said: string, now = Date.now()): { ok: true
 
 // ---- binding: a 6-digit code by WhatsApp, then the PIN ----
 
-const codes = new Map<string, { hash: string; until: number; tries: number }>();
-export function newCode(phone: string) {
+/** A code is for one action and one account: "bind to alice.near" or "give ownership to alice.near". */
+export type CodePurpose = 'bind' | 'claim';
+const codes = new Map<string, { hash: string; until: number; tries: number; purpose: CodePurpose; target: string }>();
+export function newCode(phone: string, purpose: CodePurpose, target: string) {
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
-  codes.set(digits(phone), { hash: createHash('sha256').update(code).digest('hex'), until: Date.now() + 10 * 60_000, tries: 0 });
+  codes.set(digits(phone), { hash: createHash('sha256').update(code).digest('hex'), until: Date.now() + 10 * 60_000, tries: 0, purpose, target });
   return code;
 }
+/** The WhatsApp text: names the action and the account, so nobody reads out a code without knowing what it gives away. */
+export const codeText = (code: string, purpose: CodePurpose, target: string) => purpose === 'claim'
+  ? `Ringfence: code ${code} gives OWNERSHIP of the wallet for this WhatsApp number to ${target}. Whoever has it can take the money. Never read it out or share it. Expires in 10 minutes.`
+  : `Ringfence: code ${code} links this WhatsApp number to a wallet owned by ${target}, which can then spend within limits when this number calls. Only share it if you trust ${target}. Expires in 10 minutes.`;
 /** Checks a code sent to the phone (expires in 10 minutes, 5 tries). Returns a reason, or null when it matches. */
-function codeProblem(phone: string, code: string): string | null {
+function codeProblem(phone: string, code: string, purpose: CodePurpose, target: string): string | null {
   const c = codes.get(phone);
   if (!c || Date.now() > c.until || ++c.tries > 5) return 'The code expired. Ask for a new one.';
+  if (c.purpose !== purpose || c.target !== target) return 'That code was sent for something else. Ask for a new one.';
   if (createHash('sha256').update(String(code).trim()).digest('hex') !== c.hash) return 'Wrong code.';
   return null;
 }
@@ -79,13 +97,16 @@ const ownerReason = () => (env.network === 'mainnet' ? 'Mainnet accounts only (n
  *  account, phone = the family member's (the code went to their phone and they read it out). */
 export function bind(p: { phone: string; code: string; pin: string; owner: string }): { ok: true; binding: Binding } | { ok: false; reason: string } {
   const phone = digits(p.phone);
-  const bad = codeProblem(phone, p.code);
+  const bad = codeProblem(phone, p.code, 'bind', p.owner);
   if (bad) return { ok: false, reason: bad };
+  const old = bindingOf(phone);
+  // Never overwrite a live wallet (custodial or someone else's): the factory refuses a second wallet anyway.
+  if (old && !old.dryRun && (old.custodial || old.owner !== p.owner)) return { ok: false, reason: 'This number already has a wallet. Its owner can revoke it; a demo custodial wallet can be claimed at /wallet/claim.' };
   if (!/^\d{4}$/.test(String(p.pin))) return { ok: false, reason: 'The PIN is 4 digits.' };
   if (!ownerOk(p.owner)) return { ok: false, reason: ownerReason() };
   if (p.owner === env.agentAccountId) return { ok: false, reason: "The agent can't be the owner." };
   codes.delete(phone);
-  const binding: Binding = { phone, owner: p.owner, contract: walletFor(phone), ...hashPin(p.pin), fails: 0, createdAt: Date.now() };
+  const binding: Binding = { phone, owner: p.owner, contract: old && !old.dryRun ? old.contract : walletFor(phone), ...hashPin(p.pin), fails: 0, createdAt: Date.now(), frozenUntil: old?.frozenUntil };
   db.wallets = db.wallets.filter((b) => b.phone !== phone).concat(binding);
   save();
   return { ok: true, binding };
@@ -110,7 +131,6 @@ export function bindTx(b: Binding) {
     receiverId: env.factoryAccountId,
     method: 'create_wallet',
     deposit: CREATE_DEPOSIT.toString(),
-    wallet: b.contract,
     args: { phone_hash: phoneHash(b.phone), owner: b.owner, agent: env.agentAccountId || null, near_limit, new_recipient_delay_sec },
   };
 }
@@ -123,12 +143,15 @@ export const explorer = { near: (h: string) => net(env.network).explorer(h), evm
 
 /** The contract's state, checked against this binding: the owner signed this phone's hash and our agent is set. */
 export async function walletState(b: Binding): Promise<WalletState> {
+  // The address always comes from the factory, never from a guess: a guessed address could be someone else's account.
   const real = await view<string | null>('get_wallet', { phone_hash: phoneHash(b.phone) }, env.network, env.factoryAccountId).catch(() => null);
-  if (real && real !== b.contract) { b.contract = real; save(); }
+  if (!real) throw new Error('The factory has no wallet for this phone yet.');
+  if (real !== b.contract) { b.contract = real; save(); }
   const s = await view<WalletState>('get_state', {}, env.network, b.contract);
   if (b.pendingOwner && s.owner === b.pendingOwner) finishClaimWith(b, s.owner);
   if (s.owner !== b.owner || s.phone_hash !== phoneHash(b.phone)) throw new Error('This phone is not the one bound to that wallet contract.');
   if (s.agent !== env.agentAccountId) throw new Error('The agent is not (or no longer) allowed on this wallet.');
+  if (b.custodial && !s.custodial) throw new Error('This phone is not the one bound to that wallet: it should be in custodial mode.');
   return s;
 }
 
@@ -179,9 +202,9 @@ export async function createCustodial(phone: string, pin: string, now = Date.now
     b.dryRun = true;
     db.wallets = db.wallets.filter((x) => x.phone !== phone).concat(b);
     log({ kind: 'wallet', desk: 'wallet', detail: `DRY RUN (no CUSTODY_PRIVATE_KEY): would create custodial wallet ${b.contract}` });
-    return { ok: true, binding: b, message: `DEMO DRY RUN: this server has no custody key, so nothing was created on chain. Your custodial wallet would be ${b.contract}. Your PIN is saved (hashed), so you can try a call; sends are dry runs too.` };
+    return { ok: true, binding: b, message: `DEMO DRY RUN: this server has no custody key, so nothing was created on chain. Your PIN is saved (hashed), so you can try a call; sends are dry runs too.` };
   }
-  const r = await callContract(env.factoryAccountId, 'create_wallet', { phone_hash: phoneHash(phone), owner: env.custodyAccountId }, CREATE_DEPOSIT, custody());
+  const r = await callContract(env.factoryAccountId, 'create_wallet', { phone_hash: phoneHash(phone), owner: env.custodyAccountId, custodial: true }, CREATE_DEPOSIT, custody());
   if (!r.result) return { ok: false, reason: 'The factory refused to create the wallet. Try again later.' };
   b.contract = String(r.result);
   db.wallets = db.wallets.filter((x) => x.phone !== phone).concat(b);
@@ -194,7 +217,8 @@ export async function createCustodial(phone: string, pin: string, now = Date.now
 const onboarding = new Set<string>();
 export async function onboard(from: string, text: string): Promise<string | null> {
   const phone = digits(from), t = String(text ?? '').trim();
-  if (bindingOf(phone) && !onboarding.has(phone)) return null;
+  const had = bindingOf(phone);
+  if (had && !had.dryRun && !onboarding.has(phone)) return null;
   if (onboarding.has(phone)) {
     if (/^(cancel|no|stop)\b/i.test(t)) { onboarding.delete(phone); return 'Cancelled. Nothing was created.'; }
     if (!/^\d{4}$/.test(t.replace(/\s/g, ''))) return 'Send 4 digits for your PIN, or "cancel".';
@@ -203,6 +227,7 @@ export async function onboard(from: string, text: string): Promise<string | null
     return r.ok ? r.message : r.reason;
   }
   if (/\b(create|make|open|new)\b.*\bwallet\b/i.test(t)) { onboarding.add(phone); return CUSTODIAL_INTRO(); }
+  if (had) return null; // a dry-run wallet: everything else goes to the agent
   return null;
 }
 
@@ -212,7 +237,7 @@ export async function startClaim(p: { phone: string; code: string; newOwner: str
   const phone = digits(p.phone);
   const b = bindingOf(phone);
   if (!b?.custodial) return { ok: false, reason: 'This number has no custodial wallet to claim.' };
-  const bad = codeProblem(phone, p.code);
+  const bad = codeProblem(phone, p.code, 'claim', p.newOwner);
   if (bad) return { ok: false, reason: bad };
   if (!ownerOk(p.newOwner)) return { ok: false, reason: ownerReason() };
   if (p.newOwner === env.agentAccountId || p.newOwner === env.custodyAccountId) return { ok: false, reason: 'Pick your own account, not the agent or custody account.' };

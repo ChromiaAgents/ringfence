@@ -1,21 +1,34 @@
 // The wallet desk: "send 0.1 NEAR to liho.testnet", read back, then confirmed by tier: up to SMALL_LIMIT NEAR to a saved
-// recipient by spoken 4-digit PIN; more (still within limits) by an Approve tap on WhatsApp to the bound phone; over a
+// recipient by spoken 4-digit PIN; more (still within limits) by the PIN and then an Approve tap on WhatsApp; over a
 // limit or to a new recipient, a link to sign in their own wallet. The phone-wallet contract enforces the limits either
 // way. NETWORK picks testnet or mainnet. UNAUDITED: keep small amounts.
 import { randomBytes } from 'node:crypto';
 import { parseUnits, formatUnits } from 'ethers';
 import { env } from '../config.ts';
 import { db, log, type Call } from '../store.ts';
-import { nearToYocto, yoctoToNear } from '../memecook.ts';
-import { bindingOf, checkPin, normalizePin, live, sendEvm, sendNear, walletState, ethAddressOf, rejectFreeze, NO_WALLET, digits, type Binding, type WalletState } from '../wallet.ts';
+import { yoctoToNear } from '../memecook.ts';
+import { bindingOf, checkPin, normalizePin, live, devServer, sendEvm, sendNear, walletState, ethAddressOf, rejectFreeze, digits, type Binding, type WalletState } from '../wallet.ts';
 import { CHAINS, chainById, findChain, defaultChainIds } from '../chains.ts';
 import { GasShortError, prepareTransfer } from '../eth.ts';
 import type { DeskDef } from './types.ts';
 
 /** "near", or "evm:<chainId>" for an EVM chain's native coin. */
 export type Asset = 'near' | `evm:${number}`;
-type Transfer = { to: string; amount: string; asset: Asset; base: bigint; tier?: 'pin' | 'approve' };
+type Transfer = { to: string; amount: string; asset: Asset; base: bigint; tier?: 'pin' | 'approve'; until?: number };
 const pending = new Map<string, Transfer>();
+const PENDING_MS = 120_000;
+/** Spoken PINs, taken out of the caller's words before the model sees them (see takePin). */
+const spokenPins = new Map<string, string>();
+/** Called by the agent before each caller turn: while a transfer waits for its PIN, a 4-digit utterance is kept here
+ *  and the model (and transcript, and logs) only ever see "[PIN]". Returns true when the text was a PIN. */
+export function takePin(callId: string, text: string): boolean {
+  const pin = pending.has(callId) ? normalizePin(text) : null;
+  if (pin) spokenPins.set(callId, pin);
+  return !!pin;
+}
+/** Exact decimal amounts (no float rounding): what is read back is what is sent. */
+const AMOUNT = /^\d+(\.\d{1,18})?$/;
+const toYocto = (amount: string) => parseUnits(amount, 24);
 const links = new Map<string, { url: string; label: string }>();
 const chainOf = (a: Asset) => (a === 'near' ? undefined : chainById(Number(a.slice(4))));
 const suffix = () => (env.network === 'mainnet' ? 'near' : 'testnet');
@@ -48,13 +61,13 @@ const fmt = (asset: string, base: bigint | string) => {
 const tools = [
   { type: 'function', function: { name: 'get_balance', description: "The caller's phone-wallet balance and today's limits.", parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'get_spending', description: 'How much did I spend? Today\'s spending against the daily limit, and the last 5 transfers.', parameters: { type: 'object', properties: {} } } },
-  { type: 'function', function: { name: 'prepare_transfer', description: 'Get a transfer ready. Read back the returned read_back, then follow its next: ask for the 4-digit PIN, or tell them to tap Approve on WhatsApp.', parameters: { type: 'object', properties: { to: { type: 'string', description: 'NEAR account like liho.near (liho.testnet on testnet), or a 0x address for an EVM chain' }, amount: { type: 'string' }, asset: { type: 'string', description: '"near", or the EVM chain name for its native coin: base, ethereum, arbitrum, optimism, polygon, bnb, avalanche (sepolia on testnet)' } }, required: ['to', 'amount', 'asset'] } } },
-  { type: 'function', function: { name: 'confirm_transfer', description: 'After the caller says their PIN. Pass exactly what they said.', parameters: { type: 'object', properties: { pin: { type: 'string' } }, required: ['pin'] } } },
+  { type: 'function', function: { name: 'prepare_transfer', description: 'Get a transfer ready. Read back the returned read_back, then ask for the 4-digit PIN.', parameters: { type: 'object', properties: { to: { type: 'string', description: 'NEAR account like liho.near (liho.testnet on testnet), or a 0x address for an EVM chain' }, amount: { type: 'string' }, asset: { type: 'string', description: '"near", or the EVM chain name for its native coin: base, ethereum, arbitrum, optimism, polygon, bnb, avalanche (sepolia on testnet)' } }, required: ['to', 'amount', 'asset'] } } },
+  { type: 'function', function: { name: 'confirm_transfer', description: 'After the caller says their PIN (you see it as [PIN]). Pass "[PIN]".', parameters: { type: 'object', properties: { pin: { type: 'string' } }, required: ['pin'] } } },
 ];
 
 export const ONLY_NEAR = 'Only NEAR transfers for now, sorry. I can send NEAR, or check your balance.';
 const system = () => `You are Ringfence's wallet desk. The caller's WhatsApp number is bound to their own NEAR ${env.network} wallet contract; ${env.evmEnabled ? `you can send NEAR, or the native coin of an EVM chain the owner allowed (${chainList()}),` : 'you can send NEAR (only NEAR for now: politely decline other chains or coins),'} within limits the contract enforces.
-For a transfer: call prepare_transfer and read back its read_back exactly ("0.1 NEAR to liho dot ${suffix()}"). Then do what its next says: up to ${env.smallLimitNear} NEAR, ask for their 4-digit PIN and call confirm_transfer with what they said (never repeat the PIN aloud); above that, tell them an Approve button is on their WhatsApp, valid for two minutes, and do not ask for a PIN. For "how much did I spend", call get_spending.${env.evmEnabled ? ' If they say just "ETH", ask which chain.\nTheir EVM address is the same on every EVM chain: they fund gas on whichever chain they want to use.' : ''}
+For a transfer: call prepare_transfer and read back its read_back exactly ("0.1 NEAR to liho dot ${suffix()}"). Then ask for their 4-digit PIN; their answer reaches you as [PIN]: call confirm_transfer with pin "[PIN]". Above ${env.smallLimitNear} NEAR, confirm_transfer then sends an Approve button to their WhatsApp: tell them to tap it within two minutes. For "how much did I spend", call get_spending.${env.evmEnabled ? ' If they say just "ETH", ask which chain.\nTheir EVM address is the same on every EVM chain: they fund gas on whichever chain they want to use.' : ''}
 If a tool refuses, say why in plain words. If a link was sent, say it's on WhatsApp. ${env.network === 'mainnet' ? 'This is mainnet, real money, and an unaudited prototype: suggest small amounts.' : 'Testnet only: no real money.'} Never give financial advice.`;
 
 async function run(call: Call, name: string, a: any): Promise<unknown> {
@@ -64,7 +77,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
   if (name === 'prepare_transfer' && !env.evmEnabled && parseAsset(a.asset) !== 'near') return refuse(ONLY_NEAR);
   if (!b && call.channel === 'web') return browserDemo(call, name, a);
   if (!b) {
-    links.set(call.id, { url: `${env.publicUrl}/wallet/bind`, label: NO_WALLET() });
+    links.set(call.id, { url: `${env.publicUrl}/wallet/bind`, label: 'No wallet yet. Reply "create a wallet" for a demo custodial wallet, or bind your own NEAR wallet' });
     return refuse('This number has no wallet yet. Two ways in: text "create a wallet" to this number for a demo custodial wallet, or bind your own NEAR wallet: the link is on WhatsApp.', { linkSent: true });
   }
   const state = live() && !b.dryRun ? await walletState(b).catch((e) => e as Error) : null;
@@ -90,8 +103,8 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     const to = parseRecipient(a.to, asset);
     if (!to) return refuse(asset === 'near' ? `I need a NEAR ${env.network} account, like liho dot ${suffix()}.` : `I need a 0x address for ${chain!.name}: text it to me.`);
     const amount = String(a.amount ?? '').trim();
-    if (!/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0) return refuse('How much? Say a number.');
-    const t: Transfer = { to, amount, asset, base: asset === 'near' ? nearToYocto(Number(amount)) : parseUnits(amount, chain!.decimals) };
+    if (!AMOUNT.test(amount) || Number(amount) <= 0) return refuse('How much? Say a number, with at most 18 decimals.');
+    const t: Transfer = { to, amount, asset, base: asset === 'near' ? toYocto(amount) : parseUnits(amount, chain!.decimals) };
     // The contract would refuse these anyway; here we say so early and hand over a self-sign link.
     if (state) {
       if (chain && !(state.chains ?? []).includes(chain.id)) return refuse(`${chain.name} is not enabled on your wallet. You can allow it on your wallet contract with allow_chain, with its own limits.`);
@@ -110,39 +123,46 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
         return refuse(`I can't send that myself: ${over || `${to} is a new recipient`}. A link to sign it in your own wallet is on WhatsApp.`, { linkSent: true });
       }
     }
-    // Tier: small NEAR sends (and EVM, off by default) by spoken PIN; larger ones by the WhatsApp Approve tap.
-    t.tier = asset === 'near' && t.base > nearToYocto(Number(env.smallLimitNear)) ? 'approve' : 'pin';
-    if (t.tier === 'pin') {
-      pending.set(call.id, t);
-      return { ok: true, read_back: readBack(t) + tag, next: 'Ask for their 4-digit PIN.' };
-    }
-    pending.delete(call.id);
-    const l = state?.limits.near;
-    const left = l ? fmt('near', BigInt(l.per_day) - BigInt(state!.spent_today.near ?? 0) - t.base) : 'unknown (dry run)';
-    const sent = await askApproval(b, call.id, t, left);
-    return { ok: true, read_back: readBack(t) + tag, approvalSent: true, whatsapp: sent, next: 'Tell them: an Approve button is on their WhatsApp, valid for two minutes. Do not ask for a PIN.' };
+    // Every send needs the spoken PIN; larger NEAR sends also need the Approve tap on WhatsApp after it.
+    t.tier = asset === 'near' && t.base > toYocto(env.smallLimitNear) ? 'approve' : 'pin';
+    t.until = Date.now() + PENDING_MS;
+    pending.set(call.id, t);
+    spokenPins.delete(call.id);
+    return { ok: true, read_back: readBack(t) + tag, next: t.tier === 'pin' ? 'Ask for their 4-digit PIN.' : 'Ask for their 4-digit PIN; after it, an Approve button goes to their WhatsApp.' };
   }
   if (name === 'confirm_transfer') {
     const t = pending.get(call.id);
     if (!t) return refuse('Nothing to confirm: prepare a transfer first.');
-    if (t.tier === 'approve') return refuse('This one needs the Approve tap on WhatsApp, not a PIN.');
-    // The PIN is taken from what the caller said, and blanked from the stored transcript.
-    const turn = [...call.turns].reverse().find((x) => x.who === 'caller');
-    const v = checkPin(b, String(a.pin ?? turn?.text ?? ''));
-    if (turn) turn.text = '[PIN]';
+    if (Date.now() > t.until!) { pending.delete(call.id); return refuse('That transfer expired (2 minutes). Say it again.'); }
+    const v = checkPin(b, spokenPin(call, a));
     if (!v.ok) return refuse(v.reason);
     pending.delete(call.id);
+    if (t.tier === 'approve') {
+      const l = state?.limits.near;
+      const left = l ? fmt('near', BigInt(l.per_day) - BigInt(state!.spent_today.near ?? 0) - t.base) : 'unknown (dry run)';
+      const sent = await askApproval(b, call.id, t, left);
+      return { ok: true, approvalSent: true, whatsapp: sent, read_back: readBack(t) + tag, next: 'PIN accepted. Tell them: an Approve button is on their WhatsApp, valid for two minutes.' };
+    }
     const r = await execute(call.id, b, t);
     return r.ok ? r : refuse(r.reason);
   }
   return { error: 'unknown tool' };
 }
 
+/** The PIN taken by takePin, else what the model passed (a typed chat). The caller's turn is blanked either way. */
+function spokenPin(call: Call, a: any) {
+  const pin = spokenPins.get(call.id) ?? String(a.pin ?? '');
+  spokenPins.delete(call.id);
+  const turn = [...call.turns].reverse().find((x) => x.who === 'caller');
+  if (turn && normalizePin(turn.text)) turn.text = '[PIN]';
+  return pin;
+}
+
 /** Server-side stops before any spend: a Reject freeze, an on-chain freeze, or a custodial wallet over its balance cap. */
 export function frozen(b: Binding, s: WalletState | null, now = Date.now()): string | null {
   if (b.frozenUntil && now < b.frozenUntil) return `Spending is paused for ${Math.ceil((b.frozenUntil - now) / 60_000)} more minutes because a transfer was rejected on WhatsApp.`;
   if (s && BigInt(s.frozen_until_ns ?? 0) > BigInt(now) * 1_000_000n) return 'The owner has frozen this wallet, so I can\'t send anything right now.';
-  if (b.custodial && s && BigInt(s.balance) > nearToYocto(Number(env.custodialMaxNear)))
+  if (b.custodial && s && BigInt(s.balance) > toYocto(env.custodialMaxNear))
     return `This demo custodial wallet holds more than ${env.custodialMaxNear} NEAR, over its cap, so spends are stopped. Claim it to your own wallet at ${env.publicUrl}/wallet/claim.`;
   return null;
 }
@@ -162,8 +182,9 @@ async function execute(callId: string, b: Binding, t: Transfer): Promise<{ ok: t
 
 /** "How much did I spend?": today's spend vs the daily limit from the contract, last 5 transfers from the ledger. */
 function spending(b: Binding, s: WalletState | null) {
+  // Sends only (not "approved on WhatsApp" duplicates); dry runs are marked as such.
   const last = db.ledger.filter((l) => l.kind === 'wallet' && l.detail.includes(` from ${b.contract}`)).slice(-5).reverse()
-    .map((l) => `${new Date(l.at).toISOString().slice(0, 16).replace('T', ' ')} ${l.detail.split(` from ${b.contract}`)[0]}`);
+    .map((l) => `${new Date(l.at).toISOString().slice(0, 16).replace('T', ' ')} ${l.detail.split(` from ${b.contract}`)[0].replace(/^DRY RUN \([^)]*\): would send (.*)$/, '$1 (dry run, not sent)')}`);
   if (!s) return { ok: true, dryRun: true, last, note: 'DRY RUN: no chain read, so today\'s total is not known. Say so, then list the recent transfers.' };
   const l = s.limits.near;
   return { ok: true, spentToday: fmt('near', s.spent_today.near ?? '0'), dailyLimit: fmt('near', l.per_day), leftToday: fmt('near', BigInt(l.per_day) - BigInt(s.spent_today.near ?? 0)), last };
@@ -171,7 +192,7 @@ function spending(b: Binding, s: WalletState | null) {
 
 // ---- WhatsApp Approve / Reject (larger sends) ----
 
-type Approval = { phone: string; callId: string; t: Transfer; until: number };
+type Approval = { phone: string; callId: string; t: Transfer; until: number; contract: string };
 const approvals = new Map<string, Approval>();
 const APPROVAL_MS = 120_000;
 let buttons: ((to: string, body: string, token: string) => Promise<unknown>) | undefined;
@@ -183,9 +204,13 @@ export const onCallNews = (callId: string, f: ((s: string) => void) | null) => (
 
 async function askApproval(b: Binding, callId: string, t: Transfer, left: string) {
   const token = randomBytes(16).toString('hex');
-  approvals.set(token, { phone: b.phone, callId, t, until: Date.now() + APPROVAL_MS });
+  approvals.set(token, { phone: b.phone, callId, t, until: Date.now() + APPROVAL_MS, contract: b.contract });
   const body = `Approve this transfer?\n${t.amount} NEAR to ${t.to}\nFrom ${b.contract}${b.custodial ? ' (demo custodial)' : ''}\nDaily limit left after it: ${left}\nExpires in 2 minutes. If you didn't ask for this, tap Reject: spending pauses for 15 minutes.`;
-  if (!buttons) { console.log(`[wallet] no WhatsApp token: approval for ${b.phone}: approve:${token} / reject:${token}`); return false; }
+  if (!buttons) {
+    // Only a dry-run server may print tokens: on a real one, log access would be spend access.
+    if (devServer()) console.log(`[wallet] no WhatsApp token: approval for ${b.phone}: approve:${token} / reject:${token}`);
+    return false;
+  }
   await buttons(b.phone, body, token).catch((e) => console.error('approval buttons', e));
   return true;
 }
@@ -196,18 +221,23 @@ export async function onButton(from: string, id: string, now = Date.now()): Prom
   const a = approvals.get(token ?? '');
   if (!a || digits(from) !== a.phone) return 'That approval is not valid any more.';
   approvals.delete(token);
-  if (now > a.until) return 'That approval expired (2 minutes). Ask again on the call.';
   const b = bindingOf(a.phone);
   if (!b) return 'This number has no wallet any more.';
   const call = db.calls.find((c) => c.id === a.callId);
   const say = (s: string) => { call?.turns.push({ at: Date.now(), who: 'agent', text: s }); news.get(a.callId)?.(s); return s; };
+  // Reject is the "I didn't ask for this" alarm: it freezes even after the approval expired.
   if (verb === 'reject') {
     await rejectFreeze(b, now);
     say('You rejected it on WhatsApp, so nothing was sent. Spending is paused for 15 minutes.');
     return 'Rejected. Nothing was sent, and the agent cannot spend from this wallet for 15 minutes.';
   }
   if (verb !== 'approve') return 'Unknown button.';
-  const stop = frozen(b, null, now);
+  if (now > a.until) return 'That approval expired (2 minutes). Ask again on the call.';
+  // Same checks as at the PIN: the chain's freeze, the custodial cap, owner and agent, and the same contract.
+  const state = live() && !b.dryRun ? await walletState(b).catch((e) => e as Error) : null;
+  if (state instanceof Error) return say(`It didn't go through: ${state.message}`);
+  if (b.contract !== a.contract) return say('It didn\'t go through: this number was bound to another wallet since.');
+  const stop = frozen(b, state, now);
   if (stop) return say(stop);
   const r = await execute(a.callId, b, a.t);
   if (!r.ok) return say(`It didn't go through: ${r.reason}`);
@@ -228,19 +258,17 @@ function browserDemo(call: Call, name: string, a: any): unknown {
     const to = String(a.to ?? '').trim().toLowerCase().replace(/\s+dot\s+/g, '.').replace(/\s+/g, '');
     if (!/^([a-z0-9_-]+\.)*[a-z0-9_-]+\.(near|testnet)$/.test(to)) return { ok: false, reason: 'I need a NEAR account, like liho dot near.' };
     const amount = String(a.amount ?? '').trim();
-    if (!/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0) return { ok: false, reason: 'How much? Say a number.' };
+    if (!AMOUNT.test(amount) || Number(amount) <= 0) return { ok: false, reason: 'How much? Say a number.' };
     if (Number(amount) > DEMO_LIMIT.per_tx) return { ok: false, demo: true, reason: `That is over the ${DEMO_LIMIT.per_tx} ${DEMO_LIMIT.unit} per-transfer default, so the contract would refuse it. Try 0.5 NEAR.` };
-    const t: Transfer = { to, amount, asset, base: nearToYocto(Number(amount)) };
-    if (Number(amount) > Number(env.smallLimitNear)) return { ok: true, demo: true, approvalDemo: true, read_back: readBack(t), note: `${note} Above ${env.smallLimitNear} NEAR, a bound wallet gets an Approve button on WhatsApp instead of a PIN.` };
+    const t: Transfer = { to, amount, asset, base: toYocto(amount) };
+    if (Number(amount) > Number(env.smallLimitNear)) return { ok: true, demo: true, approvalDemo: true, read_back: readBack(t), note: `${note} Above ${env.smallLimitNear} NEAR, a bound wallet also needs an Approve tap on WhatsApp after the PIN.` };
     pending.set(call.id, t);
     return { ok: true, read_back: readBack(t), next: 'Ask for their 4-digit PIN.', note };
   }
   if (name === 'confirm_transfer') {
     const t = pending.get(call.id);
     if (!t) return { ok: false, reason: 'Nothing to confirm: prepare a transfer first.' };
-    const turn = [...call.turns].reverse().find((x) => x.who === 'caller');
-    const pin = normalizePin(String(a.pin ?? turn?.text ?? ''));
-    if (turn) turn.text = '[PIN]';
+    const pin = normalizePin(spokenPin(call, a));
     if (!pin) return { ok: false, reason: 'Say four digits.' };
     pending.delete(call.id);
     log({ kind: 'wallet', desk: 'wallet', callId: call.id, detail: `BROWSER DEMO: would ask the contract to send ${readBack(t)}` });

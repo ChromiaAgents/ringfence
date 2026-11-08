@@ -39,12 +39,15 @@ impl Factory {
 
     /// Creates <id>.<factory> running the phone-wallet global contract and initialises it. Attach at least
     /// `min_deposit()`; the excess is refunded. Limits default to the wallet's (0.2 NEAR per transfer, 0.5 per day, 600 s).
+    /// The caller must be the owner, so nobody can create (squat) a wallet owned by someone else. phone_hash is an HMAC
+    /// under the server's secret, so only the server (after a WhatsApp code) can hand out the right one.
     #[payable]
     pub fn create_wallet(&mut self, phone_hash: String, owner: AccountId, agent: Option<AccountId>, near_limit: Option<Limit>,
-                         new_recipient_delay_sec: Option<u64>, recipients: Option<Vec<String>>) -> Promise {
+                         new_recipient_delay_sec: Option<u64>, recipients: Option<Vec<String>>, custodial: Option<bool>) -> Promise {
         let code_hash = self.code_hash.unwrap_or_else(|| env::panic_str("no wallet code uploaded yet"));
         require!(phone_hash.len() == 64 && phone_hash.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c)),
             "phone_hash must be 64 lowercase hex chars");
+        require!(env::predecessor_account_id() == owner, "the caller must be the owner");
         require!(!self.wallets.contains_key(&phone_hash), "this phone number already has a wallet");
         let agent = agent.unwrap_or_else(|| self.agent.clone());
         require!(agent != owner, "the agent can't be the owner");
@@ -59,7 +62,7 @@ impl Factory {
         self.wallets.insert(phone_hash.clone(), account.clone());
 
         let args = json!({ "owner": owner, "agent": agent, "phone_hash": phone_hash, "evm_chain_ids": [],
-            "near_limit": near_limit, "new_recipient_delay_sec": new_recipient_delay_sec, "recipients": recipients });
+            "near_limit": near_limit, "new_recipient_delay_sec": new_recipient_delay_sec, "recipients": recipients, "custodial": custodial });
         Promise::new(account)
             .create_account()
             .transfer(WALLET_STORAGE)
@@ -131,7 +134,7 @@ mod tests {
         f.code_hash = Some([7; 32]);
         f
     }
-    fn create(f: &mut Factory, h: &str) { let _ = f.create_wallet(h.into(), accounts(2), None, None, None, None); }
+    fn create(f: &mut Factory, h: &str) { let _ = f.create_wallet(h.into(), accounts(3), None, None, None, None, None); }
 
     #[test]
     fn derives_short_id_and_refuses_duplicate_number() {
@@ -152,8 +155,9 @@ mod tests {
     #[test]
     fn implicit_owner_accepted() {
         let mut f = factory();
-        ctx(3, NearToken::from_near(1));
-        let _ = f.create_wallet(H.into(), "a".repeat(64).parse().unwrap(), None, None, None, None);
+        testing_env!(VMContextBuilder::new().current_account_id("ringfence-wallet.near".parse().unwrap())
+            .predecessor_account_id("a".repeat(64).parse().unwrap()).attached_deposit(NearToken::from_near(1)).build());
+        let _ = f.create_wallet(H.into(), "a".repeat(64).parse().unwrap(), None, None, None, None, None);
         assert!(f.get_wallet(H.into()).is_some());
     }
     #[test]
@@ -164,11 +168,14 @@ mod tests {
     fn bad_phone_hash() { let mut f = factory(); ctx(3, NearToken::from_near(1)); create(&mut f, "+15551234"); }
     #[test]
     #[should_panic(expected = "the agent can't be the owner")]
-    fn agent_never_owner() { let mut f = factory(); ctx(3, NearToken::from_near(1)); let _ = f.create_wallet(H.into(), accounts(1), None, None, None, None); }
+    fn agent_never_owner() { let mut f = factory(); ctx(3, NearToken::from_near(1)); ctx(1, NearToken::from_near(1)); let _ = f.create_wallet(H.into(), accounts(1), None, None, None, None, None); }
     #[test]
     #[should_panic(expected = "no wallet code uploaded")]
     fn needs_code() { ctx(0, NearToken::from_near(1)); let mut f = Factory::new(accounts(0), accounts(1)); create(&mut f, H); }
     #[test]
     #[should_panic(expected = "only the owner")]
     fn only_owner_sets_agent() { let mut f = factory(); ctx(3, NearToken::from_yoctonear(1)); f.set_agent(accounts(3)); }
+    #[test]
+    #[should_panic(expected = "the caller must be the owner")]
+    fn cant_create_for_someone_else() { let mut f = factory(); ctx(3, NearToken::from_near(1)); let _ = f.create_wallet(H.into(), accounts(4), None, None, None, None, None); }
 }

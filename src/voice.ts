@@ -9,6 +9,7 @@ import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
 import { whatsappWebhook } from './whatsapp.ts';
 import { onCallNews } from './desks/wallet.ts';
+import { devServer } from './wallet.ts';
 import { env } from './config.ts';
 
 const readBody = (req: IncomingMessage) =>
@@ -40,8 +41,8 @@ export function attachVoice(server: Server) {
   wss.on('connection', (ws, req: IncomingMessage) => {
     // ?desk=launch picks the desk up front (the business desk is no longer offered to callers); without it the router asks. The owner desk is not reachable from here.
     const sp = new URL(req.url ?? '/', 'http://x').searchParams, q = sp.get('desk');
-    // ?from= stands in for a WhatsApp number in the keyless demo only (MOCK_LLM=1); a real browser call has no number.
-    const from = env.mockLlm ? sp.get('from') ?? undefined : undefined;
+    // ?from= stands in for a WhatsApp number in the keyless demo only (MOCK_LLM=1, no keys); a real browser call has no number.
+    const from = env.mockLlm && devServer() ? sp.get('from') ?? undefined : undefined; // never with real keys
     const { call, greeting } = startCall('web', from, q === 'launch' || (q === 'wallet' && from) ? (q as Desk) : undefined);
     const line = voiceLine((pcm, rate) => { if (ws.readyState === 1) ws.send(wav(pcm, rate)); });
     const sendLink = () => {

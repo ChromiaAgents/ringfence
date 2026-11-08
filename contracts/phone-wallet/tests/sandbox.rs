@@ -56,13 +56,13 @@ async fn phone_wallet_in_sandbox() -> anyhow::Result<()> {
     assert_eq!(req["domain_id"], 0);
     assert_eq!(req["payload_v2"]["Ecdsa"].as_str().unwrap().len(), 64);
     let st: serde_json::Value = w.view("get_state").await?.json()?;
-    assert_eq!(st["spent_today"]["evm:11155111"], "1000000000000000");
+    assert_eq!(st["spent_today"]["evm:11155111"], (1_000_000_000_000_000u128 + 21_000 * 2_000_000_000).to_string()); // value + gas * maxFee
 
     // Base (8453) through the same path: the same derived address signs on every EVM chain
     let base = "02ef82210507843b9aca008477359400825208941111111111111111111111111111111111111111865af3107a400080c0";
     agent.call(w.id(), "request_signature").args_json(json!({ "chain": "evm:8453", "tx": base })).max_gas().transact().await?.into_result()?;
     let st: serde_json::Value = w.view("get_state").await?.json()?;
-    assert_eq!(st["spent_today"]["evm:8453"], "100000000000000");
+    assert_eq!(st["spent_today"]["evm:8453"], (100_000_000_000_000u128 + 21_000 * 2_000_000_000).to_string());
     // a chain the owner never allowed is refused
     let r = agent.call(w.id(), "request_signature").args_json(json!({ "chain": "evm:42161", "tx": base })).max_gas().transact().await?;
     assert!(format!("{:?}", r.into_result().unwrap_err()).contains("not allowed by the owner"));
