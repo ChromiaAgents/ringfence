@@ -21,7 +21,23 @@ const CARTESIA = {
   voice: process.env.CARTESIA_VOICE_ID ?? '9626c31c-bec5-4cca-baa8-f8ba9e84c8bc',
   timeoutMs: Number(process.env.CARTESIA_TIMEOUT_MS ?? 5000),
 };
-export async function cartesiaSpeak(text: string, key = process.env.CARTESIA_API_KEY ?? ''): Promise<Float32Array> {
+// ponytail: one Cartesia request at a time (the free plan's concurrency limit is tiny), retry 429 twice.
+// Sentences are spoken in order anyway; raise the plan and drop this queue if several calls run at once.
+let cartesiaChain: Promise<unknown> = Promise.resolve();
+export function cartesiaSpeak(text: string, key = process.env.CARTESIA_API_KEY ?? ''): Promise<Float32Array> {
+  const run = async () => {
+    for (let i = 0; ; i++) {
+      try { return await cartesiaOnce(text, key); } catch (e) {
+        if (i >= 2 || !/cartesia 429/.test((e as Error).message)) throw e;
+        await new Promise((r) => setTimeout(r, 300 * (i + 1)));
+      }
+    }
+  };
+  const p = cartesiaChain.then(run, run);
+  cartesiaChain = p.catch(() => {});
+  return p;
+}
+async function cartesiaOnce(text: string, key: string): Promise<Float32Array> {
   if (!key) throw new Error('CARTESIA_API_KEY is not set');
   const r = await fetch(CARTESIA.url, {
     method: 'POST',
