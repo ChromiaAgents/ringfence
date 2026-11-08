@@ -90,8 +90,10 @@ try {
     must(page.status === 200, `status ${page.status}`);
     must(page.text.includes('ZZOTR') || page.text.includes('Sleepy Otter'), 'terms not in the page');
     const api = JSON.parse((await get(`/api/launch/${id}`)).text);
-    must(api.params?.symbol === 'ZZOTR' && api.status === 'prepared' && api.network === 'testnet', JSON.stringify(api).slice(0, 200));
-    return `$${api.params.symbol}, ${api.params.durationMinutes} min, soft cap ${api.params.softCapNear} NEAR, ${api.status}, logo: ${api.logoModel}`;
+    must(api.params?.symbol === 'ZZOTR' && api.status === 'prepared', JSON.stringify(api).slice(0, 200));
+    // The pad comes from launchpad.yaml: JustHoot is mainnet only, meme.cooking follows NETWORK.
+    must(api.launchpad === 'justhoot' ? api.network === 'mainnet' : api.network === 'testnet', `pad ${api.launchpad} on ${api.network}`);
+    return `$${api.params.symbol} on ${api.launchpad} (${api.network}), ${api.status}, logo: ${api.logoModel}; nothing signed`;
   });
 
   let payUrl = '';

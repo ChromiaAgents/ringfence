@@ -105,7 +105,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
   drafts.set(call.id, d);
   const refuse = (reason: string) => { log({ kind: 'refused', desk: 'launch', callId: call.id, detail: `${name}: ${reason}` }); return { ok: false, reason }; };
 
-  const pad: Pad = d.pad ?? 'meme_cooking';
+  const pad: Pad = d.pad ?? (padEnabled('justhoot', lp) ? 'justhoot' : 'meme_cooking'); // first enabled pad
   if (name === 'set_launchpad') {
     const p = a.launchpad === 'justhoot' ? 'justhoot' : a.launchpad === 'meme_cooking' ? 'meme_cooking' : null;
     if (!p) return refuse('Pick meme_cooking or justhoot.');

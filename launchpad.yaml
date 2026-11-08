@@ -24,7 +24,7 @@ rules:
 # The two launchpads the desk can prepare. The caller picks one, or the agent suggests one.
 launchpads:
   meme_cooking:
-    enabled: true              # fair-launch auction first; testnet or mainnet per NETWORK
+    enabled: false             # fair-launch auction first; testnet or mainnet per NETWORK
   justhoot:
     enabled: true              # instant launch with a RHEA pool; mainnet only, real NEAR
     ticker_min: 1              # JustHoot's own rule: 1-10 letters or digits; tickers are not unique there
