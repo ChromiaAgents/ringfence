@@ -109,9 +109,9 @@ try {
     must(!kinds.includes('booking'), 'a booking was made');
     return `${s.ledger.length} entries`;
   });
-  await step('wallet desk: send 1 NEAR to liho.testnet, read back, PIN, dry run (no agent key)', async () => {
-    const r = await call('wallet&from=15550001234', ['send 1 NEAR to liho.testnet', 'one two three four']);
-    must(r.said.some((s) => /1 NEAR to liho dot testnet/.test(s)), 'no read-back: ' + r.said.join(' | '));
+  await step('wallet desk: send 0.1 NEAR to liho.testnet, read back, PIN, dry run (no agent key)', async () => {
+    const r = await call('wallet&from=15550001234', ['send 0.1 NEAR to liho.testnet', 'one two three four']);
+    must(r.said.some((s) => /0\.1 NEAR to liho dot testnet/.test(s)), 'no read-back: ' + r.said.join(' | '));
     must(r.said.some((s) => /dry run/i.test(s)), 'no dry-run reply: ' + r.said.join(' | '));
     const s = JSON.parse((await get('/api/state')).text);
     must(s.ledger.some((l: any) => l.kind === 'wallet' && /DRY RUN/.test(l.detail)), 'no DRY RUN ledger entry');
@@ -122,6 +122,33 @@ try {
     const r = await call('wallet&from=15550001234', ['send 0.0001 ETH on Base to 0x1111111111111111111111111111111111111111']);
     must(r.said.some((s) => /only NEAR/i.test(s)), 'no NEAR-only reply: ' + r.said.join(' | '));
   });
+  // WhatsApp webhook payloads, posted locally (no WHATSAPP_APP_SECRET in this clean env, so no signature to forge).
+  const wa = (from: string, m: object) => fetch(`${BASE}/webhooks/whatsapp`, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ entry: [{ changes: [{ value: { messages: [{ from, id: 'wamid.x', ...m }] } }] }] }) });
+  const ledger = async () => JSON.parse((await get('/api/state')).text).ledger.map((l: any) => l.detail) as string[];
+  const until = async (f: () => Promise<boolean>) => { for (let i = 0; i < 40; i++) { if (await f()) return true; await new Promise((r) => setTimeout(r, 250)); } return false; };
+  await step('wallet desk: 0.3 NEAR asks for the WhatsApp Approve tap; a simulated button reply executes it (dry run)', async () => {
+    const r = await call('wallet&from=15550001234', ['send 0.3 NEAR to liho.testnet']);
+    must(r.said.some((s) => /Approve button/i.test(s)), 'no approval prompt: ' + r.said.join(' | '));
+    const token = log.match(/approve:([0-9a-f]{32})/g)?.at(-1)?.slice(8);
+    must(token, 'no approval token in the server log');
+    await wa('15550001234', { type: 'interactive', interactive: { type: 'button_reply', button_reply: { id: `approve:${token}`, title: 'Approve' } } });
+    must(await until(async () => (await ledger()).some((d) => /approved on WhatsApp: 0\.3 NEAR/.test(d))), 'no approval in the ledger');
+    return 'approved by button reply; DRY RUN';
+  });
+  await step('custodial create in WhatsApp chat: no custody key -> labelled dry run, PIN not stored', async () => {
+    await wa('15550002222', { type: 'text', text: { body: 'create a wallet' } });
+    await new Promise((r) => setTimeout(r, 300));
+    await wa('15550002222', { type: 'text', text: { body: '9876' } });
+    must(await until(async () => (await ledger()).some((d) => /DRY RUN \(no CUSTODY_PRIVATE_KEY\): would create custodial wallet/.test(d))), 'no custodial dry run in the ledger');
+    must(!(await get('/api/state')).text.includes('9876'), 'PIN in the state');
+    return 'DRY RUN: nothing created on chain';
+  });
+  await step('wallet desk: "how much did I spend?" lists recent transfers', async () => {
+    const r = await call('wallet&from=15550001234', ['how much did I spend?']);
+    must(r.said.some((s) => /liho dot testnet/.test(s) && /dry run/i.test(s)), 'no spend summary: ' + r.said.join(' | '));
+  });
+  await step('/wallet/claim page renders', async () => { const r = await get('/wallet/claim'); must(r.status === 200 && /Claim your phone wallet/i.test(r.text), `status ${r.status}`); });
   await step('/wallet/bind page renders', async () => { const r = await get('/wallet/bind'); must(r.status === 200 && /phone number is a wallet/i.test(r.text), `status ${r.status}`); });
   await step('dashboard and /proof pages render', async () => {
     for (const p of ['/dashboard', '/proof']) { const r = await get(p); must(r.status === 200, `${p} answered ${r.status}`); }

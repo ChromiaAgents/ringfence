@@ -224,6 +224,7 @@ export function mockStep(messages: Msg[], tools: unknown[]): { name: string; arg
     if (send) return { name: 'prepare_transfer', args: { to: send[4].replace(/[.,!?]$/, ''), amount: send[1], asset: send[3] ? send[3].trim().toLowerCase() : /^near$/i.test(send[2] ?? 'near') ? 'near' : (send[2] ?? '').toLowerCase() } };
     if (/^[\s\d,.-]+$|^(\s*(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b[\s,.]*)+$/i.test(u)) return { name: 'confirm_transfer', args: { pin: u } };
     if (/\bbalance\b/i.test(u)) return { name: 'get_balance', args: {} };
+    if (/\bspen[dt]\b/i.test(u)) return { name: 'get_spending', args: {} };
   }
   if (names.has('quote_job')) {
     const said = messages.filter((m) => m.role === 'user').map(textOf).join(' ').toLowerCase();
@@ -256,6 +257,10 @@ function mockText(messages: Msg[], tools: unknown[] = []): string {
   if (tool === 'set_coin' && out.ok !== false && !out.error) return 'Got it. Shall I set it up? Say yes and I’ll put the launch on your screen to check and sign.';
   if (out.ok === false && /^I still need/.test(out.reason ?? '')) return out.reason;
   if (out.ok === false || out.error) return `Sorry, I can't do that: ${out.reason ?? out.error}`;
+  if (out.approvalDemo) return `That's ${out.read_back}. On a bound wallet that amount needs an Approve tap on WhatsApp, not a PIN. This browser demo stops here: nothing was sent.`;
+  if (out.approvalSent) return `That's ${out.read_back}. I've sent an Approve button to your WhatsApp. Tap it within two minutes.`;
+  if (out.last && out.spentToday) return `Today you've spent ${out.spentToday} of your ${out.dailyLimit} daily limit, ${out.leftToday} left. ${out.last.length ? `Last: ${out.last[0]}.` : 'No transfers yet.'}`;
+  if (out.last) return `This is a dry run, so I can't read today's total from the chain. ${out.last.length ? `Your last ${out.last.length} transfers: ${out.last.join('; ')}.` : 'No transfers yet.'}`;
   if (out.read_back) return `That's ${out.read_back}. What's your four digit PIN?`;
   if (out.demo && out.txHash) return 'Four digits heard. This was a browser demo: no wallet is bound to a browser call, so nothing was sent. On WhatsApp, your bound wallet contract would check the limits and send.';
   if (out.demo) return 'This is a browser demo: no wallet is bound to a browser call, so there is no balance to read.';

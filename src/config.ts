@@ -76,6 +76,16 @@ export const env = {
   // Phone wallet: the agent account allowed to spend within each user's contract limits (on NETWORK).
   agentAccountId: process.env.AGENT_ACCOUNT_ID ?? '',
   agentKey: process.env.AGENT_PRIVATE_KEY ?? '',
+  // Wallet factory (create_wallet) and the custodial owner of WhatsApp-only wallets. Without CUSTODY_PRIVATE_KEY,
+  // custodial creates and claims are labelled dry runs. FACTORY_PRIVATE_KEY is only for the one-time code upload (HANDOVER.md).
+  factoryAccountId: process.env.FACTORY_ACCOUNT_ID || (process.env.NETWORK === 'mainnet' ? 'ringfence-wallet.near' : 'ringfence-wallet.testnet'),
+  custodyAccountId: process.env.CUSTODY_ACCOUNT_ID || (process.env.NETWORK === 'mainnet' ? 'ringfence-custody.near' : 'ringfence-custody.testnet'),
+  custodyKey: process.env.CUSTODY_PRIVATE_KEY ?? '',
+  // Tiered confirmation: up to SMALL_LIMIT NEAR to a saved recipient is confirmed by spoken PIN; more needs the WhatsApp Approve tap.
+  smallLimitNear: process.env.SMALL_LIMIT ?? '0.2',
+  // Custodial demo wallets: spends stop above this balance; at most this many are created per day (protects the custody account).
+  custodialMaxNear: process.env.CUSTODIAL_MAX_NEAR ?? '5',
+  custodialDailyCap: Number(process.env.CUSTODIAL_DAILY_CAP ?? 20),
   mpcSigner: process.env.MPC_SIGNER || (process.env.NETWORK === 'mainnet' ? 'v1.signer' : 'v1.signer-prod.testnet'),
   // EVM sends (Chain Signatures) stay in the code but are off unless EVM_ENABLED=1: the pitch is NEAR only for now.
   evmEnabled: /^(1|true|yes)$/i.test(process.env.EVM_ENABLED ?? ''),

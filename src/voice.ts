@@ -8,6 +8,7 @@ import { transcribe } from './ai.ts';
 import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
 import { whatsappWebhook } from './whatsapp.ts';
+import { onCallNews } from './desks/wallet.ts';
 import { env } from './config.ts';
 
 const readBody = (req: IncomingMessage) =>
@@ -96,6 +97,8 @@ export function attachVoice(server: Server) {
         busy = false;
       }
     });
-    ws.on('close', () => endCall(call.id));
+    // After an Approve / Reject tap on WhatsApp, the agent on this call says what happened.
+    onCallNews(call.id, (s) => { if (ws.readyState !== 1) return; ws.send(JSON.stringify({ type: 'agent', text: s })); line.say(s); });
+    ws.on('close', () => { onCallNews(call.id, null); endCall(call.id); });
   });
 }

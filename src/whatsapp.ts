@@ -9,6 +9,8 @@ import { isFiller, startCall, reply, endCall, setOnLink, photo } from './agent.t
 import { transcribe } from './ai.ts';
 import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
+import { onboard, bindingOf, NO_WALLET } from './wallet.ts';
+import { onButton, setApprovalSender, onCallNews } from './desks/wallet.ts';
 
 const GRAPH = 'https://graph.facebook.com/v23.0';
 
@@ -34,6 +36,12 @@ setOnLink((call, link) => {
     : `${link.label}: ${link.url}`;
   sendText(call.from, text).catch(console.error);
 });
+
+/** Approve / Reject for larger sends: a Graph API interactive "button" message to the wallet's bound phone. */
+export const sendButtons = (to: string, body: string, token: string) =>
+  graph(`${env.waPhoneId}/messages`, { messaging_product: 'whatsapp', to, type: 'interactive', interactive: { type: 'button', body: { text: body },
+    action: { buttons: [{ type: 'reply', reply: { id: `approve:${token}`, title: 'Approve' } }, { type: 'reply', reply: { id: `reject:${token}`, title: 'Reject' } }] } } });
+if (env.waToken) setApprovalSender(sendButtons);
 
 const isOwner = (from: string) => !!env.ownerWhatsapp && from.replace(/\D/g, '') === env.ownerWhatsapp;
 
@@ -64,7 +72,11 @@ export async function whatsappWebhook(req: IncomingMessage, res: ServerResponse,
 }
 
 async function onMessage(m: any) {
+  // A tap on [Approve] / [Reject]: handled here, never by the model.
+  if (m.type === 'interactive' && m.interactive?.type === 'button_reply') return sendText(m.from, await onButton(m.from, m.interactive.button_reply.id));
   if (m.type !== 'text' && m.type !== 'image') return;
+  // No wallet yet: "create a wallet" starts the custodial onboarding; the PIN reply is handled here and never logged.
+  if (m.type === 'text') { const r = await onboard(m.from, m.text.body); if (r) return sendText(m.from, r); }
   let callId = chats.get(m.from);
   if (!callId) {
     // Everyone gets the router; the owner's number can also say "owner ..." to reach the settings desk.
@@ -72,7 +84,7 @@ async function onMessage(m: any) {
     call.isOwner = isOwner(m.from);
     callId = call.id;
     chats.set(m.from, callId);
-    if (m.type === 'text' && /^(hi|hello|hey)\b/i.test(m.text.body.trim())) return sendText(m.from, greeting);
+    if (m.type === 'text' && /^(hi|hello|hey)\b/i.test(m.text.body.trim())) return sendText(m.from, bindingOf(m.from) ? greeting : `${greeting}\n\n${NO_WALLET()}`);
   }
   if (m.type === 'text' && /^(reset|new|restart)$/i.test(m.text.body.trim())) {
     chats.delete(m.from);
@@ -130,9 +142,11 @@ async function onCallEvent(c: any) {
     audio.close();
     pc.close();
     endCall(call.id);
+    onCallNews(call.id, null);
     live.delete(c.id);
   };
   live.set(c.id, { pc, callId: call.id, stop });
+  onCallNews(call.id, (s) => line.say(s)); // "Approved and sent" after a WhatsApp tap
 
   pc.connectionStateChange.subscribe(async (s) => {
     if (s === 'connected') {

@@ -184,7 +184,7 @@ const at = (n: number) => ({ animationDelay: `${n * 600}ms` });
 const SampleCall = () => (
   <>
     <div className="msg you" style={at(0)}><span className="who">You</span>Send 0.5 NEAR to liho.near.</div>
-    <div className="msg agent" style={at(1)}><span className="who">Ringfence</span>0.5 NEAR to liho dot near. Your PIN, please.</div>
+    <div className="msg agent" style={at(1)}><span className="who">Ringfence</span>0.1 NEAR to liho dot near. Your PIN, please.</div>
     <div className="msg you" style={at(2)}><span className="who">You</span><span className="pins"><i /><i /><i /><i /></span> <span className="muted">blanked from the transcript</span></div>
     <div className="msg sys" style={at(3)}><span className="who">phone.you.near · contract</span><span className="ok">Approved · 0.5 of 3 NEAR today</span></div>
   </>
@@ -198,7 +198,7 @@ const STAGES: { name: string; c: string; t: string; ui: ReactNode }[] = [
   { name: 'Call', c: 'She calls the line', t: 'From WhatsApp, or from the browser call on this page. Her number is bound to a NEAR wallet once, with one signature from the owner’s wallet.',
     ui: <><div className="ui-head"><b><span className="live-dot lit" />Browser call</b><span className="muted">connected</span></div><div className="ui-body tx"><Msg who="agent">Hi, it’s Ringfence. What would you like to do?</Msg><Msg who="you">Send 0.5 NEAR to liho.near.</Msg></div></> },
   { name: 'Read back', c: 'It reads the payment back', t: 'Amount and recipient, out loud. The server builds the read-back and the transaction from the same request, so what she hears is what gets sent.',
-    ui: <><div className="ui-head"><b>Read back</b><span className="muted">wallet desk</span></div><div className="ui-body tx"><Msg who="agent">0.5 NEAR to liho.near, a saved recipient. Say your PIN.</Msg><div className="kv"><span>Amount</span><span>0.5 NEAR</span></div><div className="kv"><span>Recipient</span><span>liho.near, saved</span></div></div></> },
+    ui: <><div className="ui-head"><b>Read back</b><span className="muted">wallet desk</span></div><div className="ui-body tx"><Msg who="agent">0.1 NEAR to liho.near, a saved recipient. Say your PIN.</Msg><div className="kv"><span>Amount</span><span>0.1 NEAR</span></div><div className="kv"><span>Recipient</span><span>liho.near, saved</span></div></div></> },
   { name: 'PIN', c: 'She says her PIN', t: 'Four digits. The speech and chat models hear them inside NEAR AI TEEs. Our app server sees them too and isn’t attested. We keep a salted hash and blank the PIN from the transcript.',
     ui: <><div className="ui-head"><b>Spoken PIN</b><span className="muted">try 1 of 3</span></div><div className="ui-body keypad"><div className="dots"><i className="f" /><i className="f" /><i className="f" /><i className="f" /></div><p className="pin-line">Stored as a salted hash, blanked from the transcript. 3 wrong tries lock it 15 min.</p></div></> },
   { name: 'Contract', c: 'The contract decides', t: 'The AI can only ask. The contract checks the limits and the recipient, and only then does the transfer land on NEAR. On this site the call stops at a labelled dry run while mainnet signing is pending.',

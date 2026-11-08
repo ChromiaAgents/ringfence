@@ -1,6 +1,6 @@
 # Ringfence
 
-**Call to pay. A NEAR contract you own caps what the AI can spend.** Your phone number is a NEAR wallet. Call it from WhatsApp or the browser, say "send 0.5 NEAR to liho.near", hear it read back, confirm with a spoken PIN, and it's sent, but only within the limits in your contract.
+**Call to pay. A NEAR contract you own caps what the AI can spend.** Your phone number is a NEAR wallet. Call it from WhatsApp or the browser, say "send 0.1 NEAR to liho.near", hear it read back, confirm with a spoken PIN (larger sends: an Approve tap on WhatsApp), and it's sent, but only within the limits in your contract.
 
 > **Status: nothing has been signed on chain yet.** The links will go in [Evidence](#evidence-on-chain) as soon as the first mainnet transfers exist. Until then this is a tested design with a dry run you can check yourself (`npm run demo:check`, no keys needed).
 
@@ -26,7 +26,7 @@
 
 | Say | What happens | Who signs |
 | --- | --- | --- |
-| "Send 0.5 NEAR to liho.near" | Read back, you say your 4-digit PIN, `transfer_near` on your phone-wallet contract. To a recipient you haven't saved, the agent doesn't send: you get a link to sign it in your own wallet. The contract's 600 s queue is the backstop if the agent key ever asks for a new recipient directly | The agent key, inside your contract's limits |
+| "Send 0.1 NEAR to liho.near" | Read back; up to `SMALL_LIMIT` (0.2 NEAR) you say your 4-digit PIN, above it (within limits) you tap Approve on WhatsApp; then `transfer_near` on your phone-wallet contract. To a recipient you haven't saved, the agent doesn't send: you get a link to sign it in your own wallet. The contract's 600 s queue is the backstop if the agent key ever asks for a new recipient directly | The agent key, inside your contract's limits |
 | "What's my balance?" | `get_balance` on your phone wallet | Nobody (read only) |
 
 Over a limit, or to a recipient not on your saved list: the agent says so and gives a link to sign it yourself instead.
@@ -67,7 +67,11 @@ PASS  launch desk: refuses ticker NEAR, then prepares a launch over the call soc
 PASS  launch page renders (/launch/:id) with the agreed terms  ($ZZOTR on justhoot (mainnet), prepared, logo: drawn locally; nothing signed)
 PASS  building quotes are not offered: the router declines instead of opening the business desk  (Sorry, we don't do building quotes or bookings. …)
 PASS  ledger records the refusal and the launch  (4 entries)
-PASS  wallet desk: send 1 NEAR to liho.testnet, read back, PIN, dry run (no agent key)  (stopped before signing: DRY RUN)
+PASS  wallet desk: send 0.1 NEAR to liho.testnet, read back, PIN, dry run (no agent key)  (stopped before signing: DRY RUN)
+PASS  wallet desk: 0.3 NEAR asks for the WhatsApp Approve tap; a simulated button reply executes it (dry run)
+PASS  custodial create in WhatsApp chat: no custody key -> labelled dry run, PIN not stored
+PASS  wallet desk: "how much did I spend?" lists recent transfers
+PASS  /wallet/claim page renders
 PASS  wallet desk: an EVM send is refused politely (EVM_ENABLED off)
 PASS  /wallet/bind page renders
 PASS  dashboard and /proof pages render
@@ -77,7 +81,7 @@ To click through it yourself: `MOCK_LLM=1 npm start` (add `TTS=off` to skip down
 
 | Desk | Type | You should see |
 | --- | --- | --- |
-| Wallet | `send 1 NEAR to liho.testnet`, then a 4-digit PIN | Read back, then a result clearly labelled **DRY RUN** (no agent key set, nothing is signed) |
+| Wallet | `send 0.1 NEAR to liho.testnet`, then a 4-digit PIN | Read back, then a result clearly labelled **DRY RUN** (no agent key set, nothing is signed) |
 | Launch | `Call it Sleepy Otter, ticker NEAR` | "Sorry, I can't do that: NEAR is the ticker of an existing asset" (refused in `checkTicker`), logged as Refused on `/dashboard` |
 | Launch | `Call it Sleepy Otter, ticker ZZOTR` | Accepted |
 | Launch | `Logo vibe: a sleepy otter on a pillow` | Without a key the image model is skipped and a placeholder coin is drawn locally (the page says so) |
@@ -131,10 +135,14 @@ Bind your NEAR account (`.near` on mainnet, `.testnet` on testnet, per `NETWORK`
 
 **How it works**
 
-1. `/wallet/bind`: connect your wallet (wallet selector), get a 6-digit code on WhatsApp, set a PIN (stored only as a salted scrypt hash). The page shows your EVM address and the limits, which you can edit, then you sign one transaction from your own account: create `phone.<you>.near`, fund it, deploy `contracts/phone-wallet`, call `new(owner = you, agent = AGENT_ACCOUNT_ID, phone_hash = sha256(your number), signer = v1.signer, evm_chain_ids = [8453], near_limit, evm_limit, new_recipient_delay_sec)`. On testnet the signer is `v1.signer-prod.testnet` and the chain is Sepolia (11155111). Nothing runs until you sign.
+1. `/wallet/bind`: connect your NEAR wallet (or follow "No wallet? Create one in Meteor"), get a 6-digit code on WhatsApp, set a PIN (stored only as a salted scrypt hash), edit the limits, then sign one plain function call: `create_wallet(phone_hash, owner = you, agent, near_limit, new_recipient_delay_sec)` on the factory (`FACTORY_ACCOUNT_ID`, ringfence-wallet.near), attaching 0.013 NEAR. It creates `<12 hex>.ringfence-wallet.near` on the phone-wallet global contract. Works in any wallet, including implicit accounts. **Guardian option**: "Set up for someone else" makes your wallet the owner and your family member's WhatsApp the phone; the code goes to their phone and they read it out. Nothing runs until you sign.
+   - **No wallet at all (built, dry run until keys are set):** text "create a wallet" to the WhatsApp number. The agent explains it's a demo custodial wallet (capped, unaudited), you reply with a 4-digit PIN (answered outside the agent, never logged), and the server calls `create_wallet` with owner = `CUSTODY_ACCOUNT_ID`. Without `CUSTODY_PRIVATE_KEY` this is a labelled DRY RUN. Caps: spends stop above `CUSTODIAL_MAX_NEAR` (5) NEAR, at most `CUSTODIAL_DAILY_CAP` (20) wallets a day.
+   - **Claim (built, not run on chain):** `/wallet/claim`: connect your wallet, verify a WhatsApp code to the bound number; custody calls `propose_owner(you)`, you sign `accept_owner`. After that the server marks the wallet non-custodial and never uses the custody key on it.
 2. On a call the router sends "send / transfer / balance / wallet" to the **wallet desk** (`src/desks/wallet.ts`): `get_balance`, `prepare_transfer({to, amount, asset})` (reads back), `confirm_transfer({pin})`. `asset` is `near` or a chain name (`base`, `ethereum`, `arbitrum`, `optimism`, `polygon`, `bnb`, `avalanche`); plain "ETH" gets "which chain?". The PIN is checked against the hash; 3 wrong tries lock it for 15 minutes; the PIN is blanked from the stored transcript and the tool log.
 3. With the PIN right, the server calls your contract with the agent key (`near-api-js`): `transfer_near` for NEAR, `request_signature` for EVM chains.
-4. Over a limit, or a recipient not on your saved list: the agent says so and texts a link (`/wallet/send`) to sign it in your own wallet instead. An unbound number is told to bind first, with the link.
+4. **Confirmation tiers (built, tested offline):** up to `SMALL_LIMIT` (0.2 NEAR) to a saved recipient: spoken PIN. Larger, still within limits: a WhatsApp interactive message with [Approve] [Reject] goes to the wallet's bound phone (amount, recipient, daily limit left; single use, expires in 120 s), also for browser calls; on Approve the server executes and the agent on the call says so. Reject pauses all spends from that wallet on the server for 15 minutes (owner-only `freeze` is not available to the agent key) and, for a custodial wallet, also calls `freeze` on chain with the custody key. Over a limit or to a new recipient: the agent texts a link (`/wallet/send`) to sign it in your own wallet. With the default 0.2 NEAR per-transfer limit, the Approve tier only appears once the owner raises it.
+5. "How much did I spend?": today's spend vs the daily limit from the contract, and the last 5 transfers from the ledger.
+6. A number with no wallet gets the choice: a demo custodial wallet in chat, or `/wallet/bind`.
 
 **EVM chains through Chain Signatures (built, off unless `EVM_ENABLED=1`).** One MPC path (`ethereum-1`) gives your contract **the same EVM address on every EVM chain**; you fund gas on whichever chain you want to use. The address is derived as NEAR's MPC does (`src/eth.ts`; checked in `npm test` against the live `derived_public_key` views of both `v1.signer` (mainnet) and `v1.signer-prod.testnet`). Chains come from a small registry (`src/chains.ts`: Ethereum 1, Base 8453, Arbitrum 42161, Optimism 10, Polygon 137, BNB Chain 56, Avalanche 43114, plus Sepolia; more with `EXTRA_CHAINS`, RPCs overridable with `RPC_<chainId>`). The server builds an EIP-1559 transfer (nonce and fees from the chain's public RPC) and **checks gas first**: if the address holds less than value + maxFee × 21000, it says how much is missing and which address to fund, and no signature is requested. The contract parses the unsigned transaction itself (minimal RLP: the chain id must be on the owner's chain allowlist and match `evm:<chainId>`, `to` an address, no calldata, no access list), applies that chain's limits to the value it parsed, and calls `sign({request: {path, payload_v2: {Ecdsa: keccak256(tx)}, domain_id: 0}})` on the MPC signer with 1 yoctoNEAR. The signature comes back as the call's result; the server attaches it and broadcasts to that chain.
 
@@ -180,7 +188,7 @@ With `NEARAI_API_KEY` set (see [Run it with keys](#run-it-with-keys)), open `htt
 
 ### Wallet desk
 
-Bind first on `/wallet/bind` (see [Phone wallet](#phone-wallet-your-phone-number-is-a-near-wallet)). Then call and say "send 0.5 NEAR to liho.near", listen to the read back, and say your PIN. Without `AGENT_ACCOUNT_ID` and `AGENT_PRIVATE_KEY` the result is a labelled DRY RUN.
+Bind first on `/wallet/bind` (see [Phone wallet](#phone-wallet-your-phone-number-is-a-near-wallet)). Then call and say "send 0.1 NEAR to liho.near", listen to the read back, and say your PIN. Without `AGENT_ACCOUNT_ID` and `AGENT_PRIVATE_KEY` the result is a labelled DRY RUN.
 
 ### Launch desk
 
