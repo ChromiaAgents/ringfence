@@ -3,10 +3,6 @@ import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useState } from 'react';
 import { AttRow, Makers, Signed, SiteFooter, Wordmark, time, type Att, type Proof } from '../ui';
 
-// The builder (quote, jobs, deposits, owner settings line) is switched off: same flag as the voice line (src/agent.ts
-// routes building work to 'not_offered'). Its data stays in the store; nothing of it is shown while this is false.
-const BUILDER = false;
-
 // First paint comes with data; the page then polls /api/state every 3 s.
 const getState = createServerFn({ method: 'GET' }).handler(async () => (await import('../backend.ts')).snapshot(false));
 
@@ -19,25 +15,22 @@ export const Route = createFileRoute('/dashboard')({
 type Timing = { sttMs?: number; firstTokenMs?: number; firstAudioMs?: number; totalMs?: number };
 type Turn = { at: number; who: 'caller' | 'agent' | 'tool'; text: string; proof?: Proof; timing?: Timing };
 const ms = (x?: number) => (x == null ? '–' : `${(x / 1000).toFixed(1)}s`);
-type Call = { id: string; channel: 'web' | 'whatsapp' | 'dashboard'; desk?: string; from?: string; startedAt: number; endedAt?: number; turns: Turn[]; caller?: Record<string, string> };
-type Job = { id: string; serviceName: string; quotedUsd: number; discountPct: number; depositUsd: number; preferredDate?: string; notes?: string; caller: Record<string, string>; createdAt: number; payment?: { status: string; originSymbol: string; chain: string } };
+type Call = { id: string; channel: 'web' | 'whatsapp'; desk?: string; from?: string; startedAt: number; endedAt?: number; turns: Turn[]; caller?: Record<string, string> };
 type Launch = { id: string; createdAt: number; network: string; status: string; params: { name: string; symbol: string; durationMinutes: number; softCapNear: number; team?: { pct: number } }; logoModel?: string; signer?: string; memeId?: number; txHash?: string; reason?: string };
 type Ledger = { at: number; kind: string; desk?: string; detail: string };
 type State = {
-  owner: { business: { name: string; owner: string; area: string }; rules: Record<string, any>; payout: { asset_symbol: string; recipient: string } };
   launchpad: { rules: Record<string, any>; blocked_tickers: string[]; blocked_names: string[] };
-  network: string; attestation: Att[]; model: string; calls: Call[]; jobs: Job[]; launches: Launch[]; ledger: Ledger[];
+  network: string; attestation: Att[]; model: string; calls: Call[]; launches: Launch[]; ledger: Ledger[];
 };
 
-const PAYLABEL: Record<string, string> = { SUCCESS: 'Paid', PENDING_DEPOSIT: 'Waiting on the customer', KNOWN_DEPOSIT_TX: 'Deposit seen', PROCESSING: 'Swapping', REFUNDED: 'Refunded', FAILED: 'Failed', INCOMPLETE_DEPOSIT: 'Short deposit' };
-const KIND: Record<string, string> = { quote: 'Quote', refused: 'Refused', booking: 'Booking', deposit_link: 'Link sent', payment: 'Payment', message: 'Message', launch_prepared: 'Launch ready', launch_signed: 'Signed', logo: 'Logo', photo: 'Photo', rules_proposed: 'Rules proposed', rules_changed: 'Rules changed', filtered: 'Reply filtered' };
+const KIND: Record<string, string> = { refused: 'Refused', launch_prepared: 'Launch ready', launch_signed: 'Signed', logo: 'Logo', filtered: 'Reply filtered', wallet: 'Wallet' };
 const LSTATUS: Record<string, string> = { prepared: 'Waiting for signature', signed: 'Signed', live: 'Live', failed: 'Failed' };
 
 function Dashboard() {
   const [s, setS] = useState<State | null>(Route.useLoaderData());
   const [err, setErr] = useState('');
   const [open, setOpen] = useState<string | null>(null);
-  const [desk, setDesk] = useState<'all' | 'launch' | 'wallet' | 'business' | 'owner'>('all');
+  const [desk, setDesk] = useState<'all' | 'launch' | 'wallet'>('all');
   useEffect(() => {
     const load = () => fetch('/api/state').then(async (r) => (r.ok ? (setS(await r.json()), setErr('')) : setErr(`The server answered ${r.status}.`))).catch(() => setErr('Can’t reach the server.'));
     load(); const i = setInterval(load, 3000); return () => clearInterval(i);
@@ -45,14 +38,15 @@ function Dashboard() {
 
   if (!s) return <main className="app canvas"><Wordmark /><h1>Dashboard</h1><p className="muted">{err || 'Loading…'}</p></main>;
 
-  const o = s.owner, lr = s.launchpad.rules;
+  const lr = s.launchpad.rules;
   // Old test launches whose name or ticker the desk would now refuse stay in the DB but are not shown.
   const blocked = (l: Launch) => s.launchpad.blocked_tickers.includes(l.params.symbol.toUpperCase()) || s.launchpad.blocked_names.some((n) => `${l.params.name} ${l.params.symbol}`.toLowerCase().includes(n));
   const launches = s.launches.filter((l) => !blocked(l));
-  // The business (building-quote) desk is not offered any more: its old calls and ledger lines stay in the store but are not shown.
-  const calls = s.calls.filter((c) => (BUILDER || (c.desk !== 'business' && c.desk !== 'owner')) && (desk === 'all' || c.desk === desk));
-  const ledger = s.ledger.filter((l) => (BUILDER || (l.desk !== 'business' && l.desk !== 'owner' && !['quote', 'booking', 'deposit_link', 'photo', 'rules_proposed', 'rules_changed'].includes(l.kind))) && (desk === 'all' || l.desk === desk));
-  const refused = s.ledger.filter((l) => (BUILDER || l.desk !== 'business') && (l.kind === 'refused' || l.kind === 'filtered'));
+  // Only the wallet and launch desks exist; older records from other desks may still sit in the store and are skipped.
+  const known = (d?: string) => !d || d === 'wallet' || d === 'launch';
+  const calls = s.calls.filter((c) => known(c.desk) && c.channel !== ('dashboard' as string) && (desk === 'all' || c.desk === desk));
+  const ledger = s.ledger.filter((l) => known(l.desk) && l.kind in KIND && (desk === 'all' || l.desk === desk));
+  const refused = s.ledger.filter((l) => known(l.desk) && (l.kind === 'refused' || l.kind === 'filtered'));
   const call = calls.find((c) => c.id === open) ?? calls[0];
   const signed = call ? call.turns.filter((t) => t.who === 'agent' && t.proof?.status === 'verified').length : 0;
   const agentTurns = call ? call.turns.filter((t) => t.who === 'agent' && t.proof).length : 0;
@@ -66,7 +60,6 @@ function Dashboard() {
           <a href="#launches">Launches</a>
           <a href="#ledger">Ledger</a>
           <a href="#rules">Rules</a>
-          {BUILDER && <a href="#settings">Settings line</a>}
         </nav>
         <p className="foot-note">Launch rules come from launchpad.yaml and are checked in code. Spending limits live in each phone-wallet contract.</p>
       </aside>
@@ -78,7 +71,7 @@ function Dashboard() {
             <p className="muted">The last {calls.length} calls on the wallet and launch desks{err ? ` · ${err}` : ''}</p>
           </div>
           <div className="seg" role="radiogroup" aria-label="Filter by desk">
-            {(BUILDER ? (['all', 'wallet', 'launch', 'business', 'owner'] as const) : (['all', 'wallet', 'launch'] as const)).map((k) => <button key={k} role="radio" aria-checked={desk === k} className={desk === k ? 'on' : ''} onClick={() => setDesk(k)}>{k === 'all' ? 'All desks' : k[0].toUpperCase() + k.slice(1)}</button>)}
+            {(['all', 'wallet', 'launch'] as const).map((k) => <button key={k} role="radio" aria-checked={desk === k} className={desk === k ? 'on' : ''} onClick={() => setDesk(k)}>{k === 'all' ? 'All desks' : k[0].toUpperCase() + k.slice(1)}</button>)}
           </div>
         </div>
 
@@ -93,7 +86,7 @@ function Dashboard() {
             <section className="card" aria-labelledby="tr">
               <div className="panelhead">
                 <h2 id="tr">{call ? `Call at ${time(call.startedAt)}` : 'Calls'}{call?.desk ? ` · ${call.desk} desk` : ''}</h2>
-                {call && <span className="muted" style={{ fontSize: 13 }}>{call.channel === 'whatsapp' ? `WhatsApp ${call.from ?? ''}` : call.channel === 'dashboard' ? 'Dashboard' : 'Browser'}{agentTurns ? ` · ${signed} of ${agentTurns} replies TEE-signed` : ''}{call.endedAt ? '' : ' · live'}</span>}
+                {call && <span className="muted" style={{ fontSize: 13 }}>{call.channel === 'whatsapp' ? `WhatsApp ${call.from ?? ''}` : 'Browser'}{agentTurns ? ` · ${signed} of ${agentTurns} replies TEE-signed` : ''}{call.endedAt ? '' : ' · live'}</span>}
               </div>
               {call ? (
                 <div className="transcript">
@@ -122,10 +115,10 @@ function Dashboard() {
             </section>
 
             <section className="card" id="ledger" aria-labelledby="lh">
-              <div className="panelhead"><h2 id="lh">Ledger</h2><span className="muted" style={{ fontSize: 13 }}>Every refusal, launch and rule change</span></div>
+              <div className="panelhead"><h2 id="lh">Ledger</h2><span className="muted" style={{ fontSize: 13 }}>Every refusal, launch and wallet action</span></div>
               {ledger.length ? (
                 <div className="scroll"><table className="ledger"><tbody>{ledger.slice(0, 40).map((l, i) => (
-                  <tr key={i}><td>{time(l.at)}</td><td><span className={`pill ${l.kind === 'refused' || l.kind === 'filtered' ? 'warn' : l.kind === 'payment' || l.kind === 'launch_signed' || l.kind === 'rules_changed' ? 'ok' : ''}`}>{KIND[l.kind] ?? l.kind}</span><span className="sub">{l.desk ?? ''}</span></td><td>{l.detail}</td></tr>
+                  <tr key={i}><td>{time(l.at)}</td><td><span className={`pill ${l.kind === 'refused' || l.kind === 'filtered' ? 'warn' : l.kind === 'launch_signed' ? 'ok' : ''}`}>{KIND[l.kind] ?? l.kind}</span><span className="sub">{l.desk ?? ''}</span></td><td>{l.detail}</td></tr>
                 ))}</tbody></table></div>
               ) : <p className="none">Nothing yet.</p>}
             </section>
@@ -137,17 +130,12 @@ function Dashboard() {
               <div className="card">
                 {calls.length ? <ul className="calls">{calls.slice(0, 8).map((c) => (
                   <li key={c.id}><button className={c.id === call?.id ? 'on' : ''} onClick={() => setOpen(c.id)}>
-                    <span>{time(c.startedAt)} · {c.desk ?? 'agent'} · {c.caller?.name ?? (c.channel === 'whatsapp' ? c.from : c.channel === 'dashboard' ? 'Owner' : 'Browser')}</span>
+                    <span>{time(c.startedAt)} · {c.desk ?? 'agent'} · {c.caller?.name ?? (c.channel === 'whatsapp' ? c.from : 'Browser')}</span>
                     <span className="muted">{c.endedAt ? `${c.turns.length} turns` : 'live'}</span>
                   </button></li>
                 ))}</ul> : <p className="none">None yet.</p>}
               </div>
             </section>
-
-            {BUILDER && <section className="railsec" id="settings" aria-labelledby="sh">
-              <h2 id="sh">Settings line</h2>
-              <OwnerDesk />
-            </section>}
 
             <section className="railsec" id="rules" aria-labelledby="rh">
               <h2 id="rh">Rules</h2>
@@ -176,31 +164,3 @@ function Dashboard() {
   );
 }
 
-// The owner desk in text: say a rule change, read the diff, say yes.
-function OwnerDesk() {
-  const [id, setId] = useState<string | null>(null);
-  const [lines, setLines] = useState<{ who: 'agent' | 'caller'; text: string }[]>([]);
-  const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
-  async function send(t: string) {
-    setBusy(true);
-    if (t) setLines((l) => [...l, { who: 'caller', text: t }]);
-    const r = await fetch('/api/owner', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ callId: id, text: t }) });
-    const d = await r.json().catch(() => ({ error: 'Something went wrong' }));
-    setBusy(false);
-    if (d.callId) setId(d.callId);
-    setLines((l) => [...l, { who: 'agent', text: d.say ?? d.error }]);
-  }
-  return (
-    <div className="card ownerdesk">
-      <div className="transcript">
-        {lines.length ? lines.map((l, i) => <div key={i} className={`bubble ${l.who}`}>{l.text}</div>) : <p className="muted" style={{ margin: 0 }}>Change the rules by saying it. You hear the diff and confirm it before anything changes.</p>}
-      </div>
-      <form className="typed" onSubmit={(e) => { e.preventDefault(); if (text.trim()) { send(text.trim()); setText(''); } }}>
-        <label className="vh" htmlFor="ownerline">Tell the settings line what to change</label>
-        <input id="ownerline" value={text} onChange={(e) => setText(e.target.value)} placeholder="Max 15% off, no roofs" autoComplete="off" />
-        <button className="btn small ink" disabled={busy}>{busy ? '…' : 'Send'}</button>
-      </form>
-    </div>
-  );
-}

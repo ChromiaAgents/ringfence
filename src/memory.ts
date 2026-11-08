@@ -40,8 +40,6 @@ export function recap(call: Call): string {
       const d = draftOf(c.id);
       if (d.symbol || d.name) bits.push(`unfinished coin draft ${d.name ?? ''}${d.symbol ? ` (${d.symbol})` : ''}${d.pad ? ` for ${d.pad === 'justhoot' ? 'JustHoot' : 'meme.cooking'}` : ''}`);
     }
-    const j = db.jobs.find((x) => x.callId === c.id);
-    if (j) bits.push(`quote ${j.serviceName} $${j.quotedUsd}, deposit ${j.payment?.status ?? 'not paid'}`);
     const said = c.turns.filter((t) => t.who === 'caller').slice(-2).map((t) => `"${t.text.slice(0, 80)}"`).join(', ');
     if (said) bits.push(`they last said ${said}`);
     return `- ${bits.join('; ')}`;

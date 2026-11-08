@@ -1,6 +1,6 @@
 // Optional: fund a launch from any chain via NEAR Intents 1Click. Mainnet only (1Click has no testnet).
 import { createFileRoute } from '@tanstack/react-router';
-import { listTokens, quoteFunding } from '../../../../src/pay.ts';
+import { listTokens, quoteFunding } from '../../../../src/fund.ts';
 import { findLaunch, json } from '../../../backend.ts';
 
 export const Route = createFileRoute('/api/fund/$id')({

@@ -28,9 +28,9 @@ async function graph(path: string, body: unknown) {
 export const sendText = (to: string, text: string) =>
   graph(`${env.waPhoneId}/messages`, { messaging_product: 'whatsapp', to, type: 'text', text: { body: text, preview_url: true } });
 
-// Links (launch page, deposit page) go out as a WhatsApp message to whoever is on the line, on any channel that knows their number.
+// Links (launch page, wallet page) go out as a WhatsApp message to whoever is on the line, on any channel that knows their number.
 setOnLink((call, link) => {
-  if (!call.from || !env.waToken || call.channel === 'dashboard') return;
+  if (!call.from || !env.waToken) return;
   const text = call.desk === 'launch'
     ? `Your launch is ready to check and sign with your own NEAR wallet: ${link.url}\nNothing is launched until you sign. Memecoins are risky; most lose value.`
     : `${link.label}: ${link.url}`;
@@ -47,7 +47,6 @@ export const sendButtons = (to: string, body: string, token: string) =>
     action: { buttons: [{ type: 'reply', reply: { id: `approve:${token}`, title: 'Approve' } }, { type: 'reply', reply: { id: `reject:${token}`, title: 'Reject' } }] } } });
 if (env.waToken) setApprovalSender(sendButtons);
 
-const isOwner = (from?: string) => !!env.ownerWhatsapp && !!from && from.replace(/\D/g, '') === env.ownerWhatsapp;
 
 function validSignature(req: IncomingMessage, body: Buffer) {
   // Unsigned webhooks only on a dry-run server: anywhere real, a missing secret would let anyone post as any number.
@@ -86,7 +85,6 @@ async function onMessage(m: any) {
   if (!callId) {
     // Everyone gets the same agent; on the owner's number it also has the settings tools.
     const { call, greeting } = startCall('whatsapp', m.from);
-    call.isOwner = isOwner(m.from);
     callId = call.id;
     chats.set(m.from, callId);
     if (m.type === 'text' && /^(hi|hello|hey)\b/i.test(m.text.body.trim())) return sendText(m.from, bindingOf(m.from) ? greeting : `${greeting}\n\n${NO_WALLET()}`);
@@ -139,7 +137,6 @@ async function onCallEvent(c: any) {
   await graph(`${env.waPhoneId}/calls`, { messaging_product: 'whatsapp', call_id: c.id, action: 'pre_accept', session: { sdp_type: 'answer', sdp } });
 
   const { call, greeting } = startCall('whatsapp', c.from);
-  call.isOwner = isOwner(c.from);
   const audio = callAudio(out, payloadType(c.session.sdp));
   const line = voiceLine((pcm) => audio.play(pcm));
   audio.onBarge = () => line.cancel();

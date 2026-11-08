@@ -34,7 +34,7 @@ function Proof() {
         <li>The model’s signing key and our nonce are inside that report, so the key was made in that TEE, just now.</li>
         <li>NVIDIA’s attestation service (NRAS) vouches for every GPU, with the same nonce.</li>
       </ol>
-      <p>Each chat and photo reply is signed by the model’s key. The dashboard marks a reply TEE-signed only when that signature recovers to a key that passed checks 1 and 2.</p>
+      <p>Each chat reply is signed by the model’s key. The dashboard marks a reply TEE-signed only when that signature recovers to a key that passed checks 1 and 2.</p>
       <div className="card att" style={{ marginTop: 16 }}>
         {atts ? atts.map((a) => <AttRow key={a.model} a={a} full />) : <p className="muted">{err || 'Verifying (Intel PCS and NVIDIA NRAS, a few seconds)…'}</p>}
       </div>

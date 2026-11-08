@@ -12,28 +12,22 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ProofRouteImport } from './routes/proof'
-import { Route as ApiOwnerRouteImport } from './routes/api/owner'
-import { Route as ApiPriceRouteImport } from './routes/api/price'
 import { Route as ApiProofRouteImport } from './routes/api/proof'
 import { Route as ApiQrRouteImport } from './routes/api/qr'
 import { Route as ApiStateRouteImport } from './routes/api/state'
 import { Route as ApiTickerRouteImport } from './routes/api/ticker'
 import { Route as ApiTokensRouteImport } from './routes/api/tokens'
 import { Route as LaunchIdRouteImport } from './routes/launch.$id'
-import { Route as PayJobIdRouteImport } from './routes/pay.$jobId'
 import { Route as WalletBindRouteImport } from './routes/wallet.bind'
 import { Route as WalletClaimRouteImport } from './routes/wallet.claim'
 import { Route as WalletSendRouteImport } from './routes/wallet.send'
 import { Route as ApiFundIdRouteImport } from './routes/api/fund/$id'
 import { Route as ApiLaunchIdRouteImport } from './routes/api/launch/$id'
-import { Route as ApiPayJobIdRouteImport } from './routes/api/pay/$jobId'
 import { Route as ApiWalletBindRouteImport } from './routes/api/wallet/bind'
 import { Route as ApiWalletClaimRouteImport } from './routes/api/wallet/claim'
 import { Route as ApiWalletCodeRouteImport } from './routes/api/wallet/code'
 import { Route as ApiLaunchIdSignedRouteImport } from './routes/api/launch/$id.signed'
 import { Route as ApiLaunchIdTxRouteImport } from './routes/api/launch/$id.tx'
-import { Route as ApiPayJobIdQuoteRouteImport } from './routes/api/pay/$jobId.quote'
-import { Route as ApiPayJobIdStatusRouteImport } from './routes/api/pay/$jobId.status'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -48,16 +42,6 @@ const DashboardRoute = DashboardRouteImport.update({
 const ProofRoute = ProofRouteImport.update({
   id: '/proof',
   path: '/proof',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiOwnerRoute = ApiOwnerRouteImport.update({
-  id: '/api/owner',
-  path: '/api/owner',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPriceRoute = ApiPriceRouteImport.update({
-  id: '/api/price',
-  path: '/api/price',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiProofRoute = ApiProofRouteImport.update({
@@ -90,11 +74,6 @@ const LaunchIdRoute = LaunchIdRouteImport.update({
   path: '/launch/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PayJobIdRoute = PayJobIdRouteImport.update({
-  id: '/pay/$jobId',
-  path: '/pay/$jobId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const WalletBindRoute = WalletBindRouteImport.update({
   id: '/wallet/bind',
   path: '/wallet/bind',
@@ -118,11 +97,6 @@ const ApiFundIdRoute = ApiFundIdRouteImport.update({
 const ApiLaunchIdRoute = ApiLaunchIdRouteImport.update({
   id: '/api/launch/$id',
   path: '/api/launch/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPayJobIdRoute = ApiPayJobIdRouteImport.update({
-  id: '/api/pay/$jobId',
-  path: '/api/pay/$jobId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiWalletBindRoute = ApiWalletBindRouteImport.update({
@@ -150,98 +124,70 @@ const ApiLaunchIdTxRoute = ApiLaunchIdTxRouteImport.update({
   path: '/tx',
   getParentRoute: () => ApiLaunchIdRoute,
 } as any)
-const ApiPayJobIdQuoteRoute = ApiPayJobIdQuoteRouteImport.update({
-  id: '/quote',
-  path: '/quote',
-  getParentRoute: () => ApiPayJobIdRoute,
-} as any)
-const ApiPayJobIdStatusRoute = ApiPayJobIdStatusRouteImport.update({
-  id: '/status',
-  path: '/status',
-  getParentRoute: () => ApiPayJobIdRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/proof': typeof ProofRoute
-  '/api/owner': typeof ApiOwnerRoute
-  '/api/price': typeof ApiPriceRoute
   '/api/proof': typeof ApiProofRoute
   '/api/qr': typeof ApiQrRoute
   '/api/state': typeof ApiStateRoute
   '/api/ticker': typeof ApiTickerRoute
   '/api/tokens': typeof ApiTokensRoute
   '/launch/$id': typeof LaunchIdRoute
-  '/pay/$jobId': typeof PayJobIdRoute
   '/wallet/bind': typeof WalletBindRoute
   '/wallet/claim': typeof WalletClaimRoute
   '/wallet/send': typeof WalletSendRoute
   '/api/fund/$id': typeof ApiFundIdRoute
   '/api/launch/$id': typeof ApiLaunchIdRouteWithChildren
-  '/api/pay/$jobId': typeof ApiPayJobIdRouteWithChildren
   '/api/wallet/bind': typeof ApiWalletBindRoute
   '/api/wallet/claim': typeof ApiWalletClaimRoute
   '/api/wallet/code': typeof ApiWalletCodeRoute
   '/api/launch/$id/signed': typeof ApiLaunchIdSignedRoute
   '/api/launch/$id/tx': typeof ApiLaunchIdTxRoute
-  '/api/pay/$jobId/quote': typeof ApiPayJobIdQuoteRoute
-  '/api/pay/$jobId/status': typeof ApiPayJobIdStatusRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/proof': typeof ProofRoute
-  '/api/owner': typeof ApiOwnerRoute
-  '/api/price': typeof ApiPriceRoute
   '/api/proof': typeof ApiProofRoute
   '/api/qr': typeof ApiQrRoute
   '/api/state': typeof ApiStateRoute
   '/api/ticker': typeof ApiTickerRoute
   '/api/tokens': typeof ApiTokensRoute
   '/launch/$id': typeof LaunchIdRoute
-  '/pay/$jobId': typeof PayJobIdRoute
   '/wallet/bind': typeof WalletBindRoute
   '/wallet/claim': typeof WalletClaimRoute
   '/wallet/send': typeof WalletSendRoute
   '/api/fund/$id': typeof ApiFundIdRoute
   '/api/launch/$id': typeof ApiLaunchIdRouteWithChildren
-  '/api/pay/$jobId': typeof ApiPayJobIdRouteWithChildren
   '/api/wallet/bind': typeof ApiWalletBindRoute
   '/api/wallet/claim': typeof ApiWalletClaimRoute
   '/api/wallet/code': typeof ApiWalletCodeRoute
   '/api/launch/$id/signed': typeof ApiLaunchIdSignedRoute
   '/api/launch/$id/tx': typeof ApiLaunchIdTxRoute
-  '/api/pay/$jobId/quote': typeof ApiPayJobIdQuoteRoute
-  '/api/pay/$jobId/status': typeof ApiPayJobIdStatusRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/proof': typeof ProofRoute
-  '/api/owner': typeof ApiOwnerRoute
-  '/api/price': typeof ApiPriceRoute
   '/api/proof': typeof ApiProofRoute
   '/api/qr': typeof ApiQrRoute
   '/api/state': typeof ApiStateRoute
   '/api/ticker': typeof ApiTickerRoute
   '/api/tokens': typeof ApiTokensRoute
   '/launch/$id': typeof LaunchIdRoute
-  '/pay/$jobId': typeof PayJobIdRoute
   '/wallet/bind': typeof WalletBindRoute
   '/wallet/claim': typeof WalletClaimRoute
   '/wallet/send': typeof WalletSendRoute
   '/api/fund/$id': typeof ApiFundIdRoute
   '/api/launch/$id': typeof ApiLaunchIdRouteWithChildren
-  '/api/pay/$jobId': typeof ApiPayJobIdRouteWithChildren
   '/api/wallet/bind': typeof ApiWalletBindRoute
   '/api/wallet/claim': typeof ApiWalletClaimRoute
   '/api/wallet/code': typeof ApiWalletCodeRoute
   '/api/launch/$id/signed': typeof ApiLaunchIdSignedRoute
   '/api/launch/$id/tx': typeof ApiLaunchIdTxRoute
-  '/api/pay/$jobId/quote': typeof ApiPayJobIdQuoteRoute
-  '/api/pay/$jobId/status': typeof ApiPayJobIdStatusRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -249,103 +195,81 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/proof'
-    | '/api/owner'
-    | '/api/price'
     | '/api/proof'
     | '/api/qr'
     | '/api/state'
     | '/api/ticker'
     | '/api/tokens'
     | '/launch/$id'
-    | '/pay/$jobId'
     | '/wallet/bind'
     | '/wallet/claim'
     | '/wallet/send'
     | '/api/fund/$id'
     | '/api/launch/$id'
-    | '/api/pay/$jobId'
     | '/api/wallet/bind'
     | '/api/wallet/claim'
     | '/api/wallet/code'
     | '/api/launch/$id/signed'
     | '/api/launch/$id/tx'
-    | '/api/pay/$jobId/quote'
-    | '/api/pay/$jobId/status'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/dashboard'
     | '/proof'
-    | '/api/owner'
-    | '/api/price'
     | '/api/proof'
     | '/api/qr'
     | '/api/state'
     | '/api/ticker'
     | '/api/tokens'
     | '/launch/$id'
-    | '/pay/$jobId'
     | '/wallet/bind'
     | '/wallet/claim'
     | '/wallet/send'
     | '/api/fund/$id'
     | '/api/launch/$id'
-    | '/api/pay/$jobId'
     | '/api/wallet/bind'
     | '/api/wallet/claim'
     | '/api/wallet/code'
     | '/api/launch/$id/signed'
     | '/api/launch/$id/tx'
-    | '/api/pay/$jobId/quote'
-    | '/api/pay/$jobId/status'
   id:
     | '__root__'
     | '/'
     | '/dashboard'
     | '/proof'
-    | '/api/owner'
-    | '/api/price'
     | '/api/proof'
     | '/api/qr'
     | '/api/state'
     | '/api/ticker'
     | '/api/tokens'
     | '/launch/$id'
-    | '/pay/$jobId'
     | '/wallet/bind'
     | '/wallet/claim'
     | '/wallet/send'
     | '/api/fund/$id'
     | '/api/launch/$id'
-    | '/api/pay/$jobId'
     | '/api/wallet/bind'
     | '/api/wallet/claim'
     | '/api/wallet/code'
     | '/api/launch/$id/signed'
     | '/api/launch/$id/tx'
-    | '/api/pay/$jobId/quote'
-    | '/api/pay/$jobId/status'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
   ProofRoute: typeof ProofRoute
-  ApiOwnerRoute: typeof ApiOwnerRoute
-  ApiPriceRoute: typeof ApiPriceRoute
   ApiProofRoute: typeof ApiProofRoute
   ApiQrRoute: typeof ApiQrRoute
   ApiStateRoute: typeof ApiStateRoute
   ApiTickerRoute: typeof ApiTickerRoute
   ApiTokensRoute: typeof ApiTokensRoute
   LaunchIdRoute: typeof LaunchIdRoute
-  PayJobIdRoute: typeof PayJobIdRoute
   WalletBindRoute: typeof WalletBindRoute
   WalletClaimRoute: typeof WalletClaimRoute
   WalletSendRoute: typeof WalletSendRoute
   ApiFundIdRoute: typeof ApiFundIdRoute
   ApiLaunchIdRoute: typeof ApiLaunchIdRouteWithChildren
-  ApiPayJobIdRoute: typeof ApiPayJobIdRouteWithChildren
   ApiWalletBindRoute: typeof ApiWalletBindRoute
   ApiWalletClaimRoute: typeof ApiWalletClaimRoute
   ApiWalletCodeRoute: typeof ApiWalletCodeRoute
@@ -372,20 +296,6 @@ declare module '@tanstack/react-router' {
       path: '/proof'
       fullPath: '/proof'
       preLoaderRoute: typeof ProofRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/owner': {
-      id: '/api/owner'
-      path: '/api/owner'
-      fullPath: '/api/owner'
-      preLoaderRoute: typeof ApiOwnerRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/price': {
-      id: '/api/price'
-      path: '/api/price'
-      fullPath: '/api/price'
-      preLoaderRoute: typeof ApiPriceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/proof': {
@@ -430,13 +340,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LaunchIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pay/$jobId': {
-      id: '/pay/$jobId'
-      path: '/pay/$jobId'
-      fullPath: '/pay/$jobId'
-      preLoaderRoute: typeof PayJobIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/wallet/bind': {
       id: '/wallet/bind'
       path: '/wallet/bind'
@@ -470,13 +373,6 @@ declare module '@tanstack/react-router' {
       path: '/api/launch/$id'
       fullPath: '/api/launch/$id'
       preLoaderRoute: typeof ApiLaunchIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/pay/$jobId': {
-      id: '/api/pay/$jobId'
-      path: '/api/pay/$jobId'
-      fullPath: '/api/pay/$jobId'
-      preLoaderRoute: typeof ApiPayJobIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/wallet/bind': {
@@ -514,20 +410,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLaunchIdTxRouteImport
       parentRoute: typeof ApiLaunchIdRoute
     }
-    '/api/pay/$jobId/quote': {
-      id: '/api/pay/$jobId/quote'
-      path: '/quote'
-      fullPath: '/api/pay/$jobId/quote'
-      preLoaderRoute: typeof ApiPayJobIdQuoteRouteImport
-      parentRoute: typeof ApiPayJobIdRoute
-    }
-    '/api/pay/$jobId/status': {
-      id: '/api/pay/$jobId/status'
-      path: '/status'
-      fullPath: '/api/pay/$jobId/status'
-      preLoaderRoute: typeof ApiPayJobIdStatusRouteImport
-      parentRoute: typeof ApiPayJobIdRoute
-    }
   }
 }
 
@@ -545,39 +427,21 @@ const ApiLaunchIdRouteWithChildren = ApiLaunchIdRoute._addFileChildren(
   ApiLaunchIdRouteChildren,
 )
 
-interface ApiPayJobIdRouteChildren {
-  ApiPayJobIdQuoteRoute: typeof ApiPayJobIdQuoteRoute
-  ApiPayJobIdStatusRoute: typeof ApiPayJobIdStatusRoute
-}
-
-const ApiPayJobIdRouteChildren: ApiPayJobIdRouteChildren = {
-  ApiPayJobIdQuoteRoute: ApiPayJobIdQuoteRoute,
-  ApiPayJobIdStatusRoute: ApiPayJobIdStatusRoute,
-}
-
-const ApiPayJobIdRouteWithChildren = ApiPayJobIdRoute._addFileChildren(
-  ApiPayJobIdRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
   ProofRoute: ProofRoute,
-  ApiOwnerRoute: ApiOwnerRoute,
-  ApiPriceRoute: ApiPriceRoute,
   ApiProofRoute: ApiProofRoute,
   ApiQrRoute: ApiQrRoute,
   ApiStateRoute: ApiStateRoute,
   ApiTickerRoute: ApiTickerRoute,
   ApiTokensRoute: ApiTokensRoute,
   LaunchIdRoute: LaunchIdRoute,
-  PayJobIdRoute: PayJobIdRoute,
   WalletBindRoute: WalletBindRoute,
   WalletClaimRoute: WalletClaimRoute,
   WalletSendRoute: WalletSendRoute,
   ApiFundIdRoute: ApiFundIdRoute,
   ApiLaunchIdRoute: ApiLaunchIdRouteWithChildren,
-  ApiPayJobIdRoute: ApiPayJobIdRouteWithChildren,
   ApiWalletBindRoute: ApiWalletBindRoute,
   ApiWalletClaimRoute: ApiWalletClaimRoute,
   ApiWalletCodeRoute: ApiWalletCodeRoute,

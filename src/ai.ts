@@ -200,7 +200,6 @@ const MOCK_REPLIES = [
   'Got it. How long should the auction run, and what soft cap in NEAR?',
 ];
 let mockTurn = 0, mockSeq = 0;
-const SERVICES = ['kitchen', 'bathroom', 'extension', 'repair'];
 const textOf = (m: Msg) => (typeof m.content === 'string' ? m.content : Array.isArray(m.content) ? m.content.map((c: any) => c.text ?? '').join(' ') : '') ?? '';
 
 /** The scripted "model": which tool to call for the caller's last line, or null for a plain reply. */
@@ -227,23 +226,12 @@ export function mockStep(messages: Msg[], tools: unknown[]): { name: string; arg
     if (/\bbalance\b/i.test(u)) return { name: 'get_balance', args: {} };
     if (/\bspen[dt]\b/i.test(u)) return { name: 'get_spending', args: {} };
   }
-  if (names.has('quote_job')) {
-    const said = messages.filter((m) => m.role === 'user').map(textOf).join(' ').toLowerCase();
-    const service = [...SERVICES].reverse().find((x) => said.includes(x)) ?? 'repair';
-    const who = u.match(/name is ([A-Za-z]+(?: [A-Za-z]+)?).*postcode ([A-Za-z0-9 ]+)/i);
-    if (who) return { name: 'save_caller', args: { name: who[1], postcode: who[2].trim() } };
-    if (/\bbook\b/i.test(u)) return { name: 'book_visit', args: { service_id: service, size: 'medium', preferred_date: (u.match(/for (\w+)/i) ?? [])[1] } };
-    const off = u.match(/(\d+)\s*%\s*off/i);
-    if (off || SERVICES.some((x) => u.toLowerCase().includes(x)) || /\bquote\b|no discount/i.test(u))
-      return { name: 'quote_job', args: { service_id: service, size: 'medium', discount_pct: off ? Number(off[1]) : 0 } };
-  }
   return null;
 }
 
 function mockText(messages: Msg[], tools: unknown[] = []): string {
   const lastMsg = messages.at(-1);
   const names = new Set((tools as any[]).map((t) => t.function?.name));
-  if (lastMsg?.role !== 'tool' && names.has('quote_job')) return 'Happy to help. What size is the job, and can I take your name and postcode?';
   const said = messages.filter((m) => m.role === 'user').map(textOf).join(' ');
   const u = lastMsg?.role === 'user' ? textOf(lastMsg) : '';
   // One agent: a plain reply follows the conversation, as a model would.
@@ -273,8 +261,6 @@ function mockText(messages: Msg[], tools: unknown[] = []): string {
   if (out.dryRun && out.txHash) return 'PIN accepted. This was a dry run: the server has no agent key, so nothing was sent.';
   if (out.txHash) return 'Sent. The transaction link is on WhatsApp.';
   if (out.linkSent) return 'Done. Open the link on your screen, check the details, and sign with your own NEAR wallet.';
-  if (out.depositLinkSent) return `You're booked. The deposit is ${out.depositUsd} dollars; the link is on your screen.`;
-  if (out.priceUsd != null) return `That comes to ${out.priceUsd} dollars, with a ${out.depositUsd} dollar deposit. Shall I book it?`;
   return 'Got it. What next?';
 }
 
@@ -322,7 +308,7 @@ export async function transcribe(audio: Uint8Array, mime = 'audio/wav'): Promise
   const fd = new FormData();
   fd.set('model', env.sttModel);
   fd.set('language', 'en'); // short words like 'bye' were coming back as Korean
-  fd.set('prompt', 'A phone call about launching a memecoin on NEAR or meme.cooking, a ticker, a coin name, or building work.'); // vocabulary hint
+  fd.set('prompt', 'A phone call about launching a memecoin on NEAR or meme.cooking, a ticker, a coin name.'); // vocabulary hint
   fd.set('file', new Blob([audio as BlobPart], { type: mime }), mime.includes('webm') ? 'a.webm' : 'a.wav');
   const r = await fetch(`${BASE}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${env.nearAiKey}` }, body: fd });
   if (!r.ok) throw new Error(`stt ${r.status}: ${(await r.text()).slice(0, 200)}`);

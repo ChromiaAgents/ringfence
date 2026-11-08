@@ -7,7 +7,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --include=dev
 COPY . .
 RUN npm run build
-# data/ (db.json, photos) must live on a volume; .env is passed with --env-file, never baked in.
+# data/ (db.json) must live on a volume; .env is passed with --env-file, never baked in.
 VOLUME ["/app/data"]
 EXPOSE 8787
 CMD ["npm", "start"]

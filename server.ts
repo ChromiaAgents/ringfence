@@ -51,7 +51,7 @@ function ownerOnly(req: IncomingMessage) {
 server.on('request', async (req, res) => {
   if (await handleWebhook(req, res)) return;
   const p = (req.url ?? '/').split('?')[0];
-  if ((p === '/dashboard' || p === '/api/state' || p === '/api/owner') && !ownerOnly(req)) return res.writeHead(401, { 'www-authenticate': 'Basic realm="owner"' }).end();
+  if ((p === '/dashboard' || p === '/api/state') && !ownerOnly(req)) return res.writeHead(401, { 'www-authenticate': 'Basic realm="owner"' }).end();
   app(req, res);
 });
 attachVoice(server);

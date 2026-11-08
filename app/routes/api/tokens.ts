@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { listTokens } from '../../../src/pay.ts';
+import { listTokens } from '../../../src/fund.ts';
 import { json } from '../../backend.ts';
 
 export const Route = createFileRoute('/api/tokens')({

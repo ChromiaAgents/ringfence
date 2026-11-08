@@ -49,7 +49,7 @@ button, input, select { font: inherit; color: inherit; }
 .wordmark .dot { width: 24px; height: 24px; border-radius: 50%; background: var(--yellow); border: 2px solid currentColor; display: grid; place-items: center; color: var(--ink); }
 .wordmark .dot svg { width: 12px; height: 12px; }
 
-/* transcript bubbles and typed input (dashboard owner desk) */
+/* transcript bubbles and typed input */
 .state { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; margin: 0 0 20px; }
 .state i { width: 14px; height: 14px; border-radius: 50%; background: var(--white); border: 2px solid var(--ink); }
 .state.on i { background: var(--green-s); animation: blink 1.2s ease-in-out infinite; }
@@ -121,9 +121,6 @@ button, input, select { font: inherit; color: inherit; }
 .seg button.on { background: var(--pink-t); color: #8A1F3D; font-weight: 600; }
 .attrow + .attrow { border-top: 1px solid var(--rule); padding-top: 10px; } /* taste-skill-ignore: brand sticker / app-screen rule */
 .attrow p { margin: 0 0 6px; }
-.ownerdesk .transcript { padding: 16px 16px 4px; max-height: 280px; overflow-y: auto; }
-.ownerdesk .typed { border-top: 1px solid var(--rule); } /* taste-skill-ignore: brand sticker / app-screen rule */
-.ownerdesk .typed input { height: 40px; }
 
 /* dashboard */
 .dash { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 100svh; }

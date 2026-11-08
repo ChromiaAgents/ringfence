@@ -3,7 +3,7 @@
 import { attest } from '../src/ai.ts';
 import { env } from '../src/config.ts';
 
-const models = [env.llmModel, env.sttModel, env.visionModel, env.imageModel];
+const models = [env.llmModel, env.sttModel, env.imageModel];
 const mark = (b: boolean) => (b ? 'PASS' : 'FAIL');
 let bad = 0;
 for (const model of models) {

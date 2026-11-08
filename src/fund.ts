@@ -1,6 +1,6 @@
-// Deposits through NEAR Intents 1Click: the customer pays any supported token on any chain,
-// the owner receives exactly the deposit in USDC. Nobody in the middle holds the funds.
-import { env, owner } from './config.ts';
+// Launch funding through NEAR Intents 1Click (mainnet only): the creator pays any supported token on any chain
+// and exactly the launch cost lands in their own NEAR account as wNEAR. Nobody in the middle holds the funds.
+import { env } from './config.ts';
 
 const API = 'https://1click.chaindefuser.com/v0';
 
@@ -30,15 +30,7 @@ export type Quote = {
   dry: boolean;
 };
 
-// usd -> exact USDC out to the owner; the customer's token amount is what 1Click asks for.
-export async function quoteDeposit(opts: { usd: number; originAsset: string; refundTo: string; dry: boolean }): Promise<Quote> {
-  const o = owner();
-  if (!o.payout.recipient) throw new Error('OWNER_NEAR_ACCOUNT is not set');
-  const amount = BigInt(Math.round(opts.usd * 10 ** o.payout.asset_decimals)).toString();
-  return quoteExact({ amount, destinationAsset: o.payout.asset, recipient: o.payout.recipient, originAsset: opts.originAsset, refundTo: opts.refundTo, dry: opts.dry });
-}
-
-/** Launch funding (mainnet only; 1Click has no testnet): exactly `yocto` of wNEAR lands in the creator's own NEAR account. */
+/** Exactly `yocto` of wNEAR lands in the creator's own NEAR account. */
 export const WNEAR_ASSET = 'nep141:wrap.near';
 export function quoteFunding(opts: { yocto: string; recipient: string; originAsset: string; refundTo: string; dry: boolean }) {
   return quoteExact({ amount: opts.yocto, destinationAsset: WNEAR_ASSET, recipient: opts.recipient, originAsset: opts.originAsset, refundTo: opts.refundTo, dry: opts.dry });
@@ -74,13 +66,4 @@ async function quoteExact(opts: { amount: string; destinationAsset: string; reci
     originAsset: opts.originAsset,
     dry: opts.dry,
   };
-}
-
-export async function depositStatus(depositAddress: string, memo?: string): Promise<{ status: string; raw: any }> {
-  const u = new URL(`${API}/status`);
-  u.searchParams.set('depositAddress', depositAddress);
-  if (memo) u.searchParams.set('depositMemo', memo);
-  const r = await fetch(u, { headers: headers() });
-  const d: any = await r.json();
-  return { status: d.status ?? `HTTP_${r.status}`, raw: d };
 }

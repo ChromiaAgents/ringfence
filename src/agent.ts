@@ -6,11 +6,9 @@ import { db, save, id, log, type Call, type Desk, type Timing } from './store.ts
 import { recap, resume, isKnown } from './memory.ts';
 import type { DeskDef } from './desks/types.ts';
 import { launchDesk } from './desks/launch.ts';
-import { businessDesk } from './desks/business.ts';
-import { ownerDesk } from './desks/owner.ts';
 import { walletDesk, takePin, clearPending } from './desks/wallet.ts';
 
-export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, business: businessDesk, owner: ownerDesk, wallet: walletDesk };
+export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, wallet: walletDesk };
 
 /** The only fixed line: said the moment the call picks up. Everything after it is the AI's. */
 export const GREETING = 'Hi, this is Ringfence. How can I help?';
@@ -18,20 +16,20 @@ export const GREETING = 'Hi, this is Ringfence. How can I help?';
 /** The AI ends the call itself, after saying goodbye. The channel hangs up once the goodbye has played. */
 const END_CALL = { type: 'function', function: { name: 'end_call', description: 'Hang up. Call it only after you have said a short goodbye and the caller is done.', parameters: { type: 'object', properties: {} } } };
 
-/** The desks the AI may use on this call. The owner's settings tools only exist on the owner's own line. */
-const desksFor = (call: Call): DeskDef[] => call.channel === 'dashboard' ? (call.isOwner ? [ownerDesk] : []) : [walletDesk, launchDesk, ...(call.isOwner ? [ownerDesk] : [])];
+/** The desks the AI may use on a call. */
+const desksFor = (_call: Call): DeskDef[] => [walletDesk, launchDesk];
 const nameOf = (t: any): string => t.function?.name;
-/** One agent, every tool: the wallet and launch tools (+ owner tools for the owner) and end_call. */
+/** One agent, every tool: the wallet and launch tools and end_call. */
 export const toolsFor = (call: Call): unknown[] => [...desksFor(call).flatMap((d) => d.tools), END_CALL];
-/** Which desk's code runs a tool. Null for end_call and for anything not offered on this call (e.g. owner tools to a caller). */
+/** Which desk's code runs a tool. Null for end_call and for anything not offered on this call. */
 export const deskOfTool = (call: Call, name: string): DeskDef | null => desksFor(call).find((d) => d.tools.some((t) => nameOf(t) === name)) ?? null;
 /** Every desk filter runs on every sentence (the launch desk's no-promised-returns filter above all). */
 const filterAll = (text: string) => {
-  for (const d of [walletDesk, launchDesk, ownerDesk]) { const f = d.filter?.(text); if (f?.hit) return f; }
+  for (const d of [walletDesk, launchDesk]) { const f = d.filter?.(text); if (f?.hit) return f; }
   return { text };
 };
 const linksOf = (call: Call) => Object.values(DESKS).map((d) => d.link?.(call)).filter((l): l is { url: string; label: string } => !!l);
-/** The newest link for the caller (launch page, deposit page), if any. */
+/** The newest link for the caller (launch page, wallet page), if any. */
 export const linkOf = (call: Call) => (call.desk ? DESKS[call.desk].link?.(call) : null) ?? linksOf(call).at(-1) ?? null;
 
 // ---- hooks for channels (WhatsApp sends links as messages) ----
@@ -46,7 +44,6 @@ Keep the conversation moving: remember everything they've said and never ask for
 
 /** One system prompt for the whole call: what Ringfence does, each part's rules, and the caller's memory. */
 export function system(call: Call): string {
-  if (call.channel === 'dashboard') return `You are Ringfence's settings assistant for the owner, on the dashboard.\n${ownerDesk.system(call)}\nReply in one or two short plain sentences.${recap(call)}\n/no_think`;
   return `You are Ringfence, a voice agent on NEAR. You can:
 - pay by voice from the caller's phone wallet, check their balance, and answer "how much did I spend";
 - launch a memecoin they sign with their own wallet;
@@ -58,7 +55,7 @@ Paying:
 ${walletDesk.system(call)}
 
 Launching a coin:
-${launchDesk.system(call)}${call.isOwner ? `\n\nOwner settings (this caller is the owner):\n${ownerDesk.system(call)}` : ''}${recap(call)}
+${launchDesk.system(call)}${recap(call)}
 /no_think`;
 }
 const sys = system;
@@ -69,17 +66,16 @@ export const setChatForTest = (f: typeof chat | null) => (chatFn = f ?? chat);
 
 const histories = new Map<string, Msg[]>();
 
-/** desk only labels the call up front (the dashboard's owner line passes 'owner', which also makes it an owner call). */
+/** desk only labels the call up front. */
 export function startCall(channel: Call['channel'], from?: string, desk?: Desk): { call: Call; greeting: string } {
   const call: Call = { id: id(), channel, desk, from, startedAt: Date.now(), turns: [] };
-  if (desk === 'owner') call.isOwner = true;
   db.calls.push(call);
   const back = desk ? null : resume(call);
   // A returning caller with a coin in progress: the greeting offers to pick it up.
   if (back) call.desk = 'launch';
   const greeting = back
     ? `Hey, welcome back! Want to pick up ${back.ticker ?? back.name}, or start something new?`
-    : desk === 'owner' ? ownerDesk.greeting() : isKnown(call) ? 'Hey, good to hear from you again. How can I help?' : GREETING;
+    : isKnown(call) ? 'Hey, good to hear from you again. How can I help?' : GREETING;
   call.turns.push({ at: Date.now(), who: 'agent', text: greeting });
   histories.set(call.id, [{ role: 'system', content: '' }, { role: 'assistant', content: greeting }]);
   save();
@@ -113,7 +109,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   // A PIN for a waiting transfer is taken here: the model, transcript and logs only ever see "[PIN]".
   if (takePin(call.id, text)) text = '[PIN]';
   call.turns.push({ at: Date.now(), who: 'caller', text });
-  h[0] = { role: 'system', content: sys(call) }; // pick up config changes (and isOwner) mid-call
+  h[0] = { role: 'system', content: sys(call) }; // pick up config changes mid-call
   h.push({ role: 'user', content: text });
   const tools = toolsFor(call);
   const before = new Set(linksOf(call).map((l) => l.url));
@@ -173,5 +169,3 @@ export function endCall(callId: string) {
   clearPending(callId);
   histories.delete(callId);
 }
-
-export { priceFor } from './desks/business.ts';

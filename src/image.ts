@@ -1,7 +1,6 @@
-// Pictures through NEAR AI Cloud TEE models: a coin logo from FLUX, and a job description from a customer's photo.
+// Pictures through NEAR AI Cloud TEE models: a coin logo from FLUX.
 import sharp from 'sharp';
 import { env } from './config.ts';
-import { chat, type Proof } from './ai.ts';
 
 const BASE = 'https://cloud-api.near.ai/v1';
 
@@ -38,15 +37,3 @@ export async function toIcon(img: Buffer) {
   return { icon: `data:image/webp;base64,${out.toString('base64')}`, bytes: out.length };
 }
 
-/** Qwen3-VL (owned by nearai, TEE) looks at a customer's photo and describes the job for the business desk. */
-export async function describePhoto(img: Buffer): Promise<{ text: string; proof: Proof }> {
-  const small = await sharp(img).rotate().resize(1024, 1024, { fit: 'inside' }).jpeg({ quality: 80 }).toBuffer();
-  const { msg, proof } = await chat([{
-    role: 'user',
-    content: [
-      { type: 'text', text: 'You help a building firm scope a job from a customer photo. In 2-3 plain sentences say: which room or part of the building this is, what work it seems to need, and whether it looks small, medium or large. Do not give prices.' },
-      { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${small.toString('base64')}` } },
-    ],
-  }], [], env.visionModel, { maxTokens: 250 });
-  return { text: String(msg.content ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim(), proof };
-}

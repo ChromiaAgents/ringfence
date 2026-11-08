@@ -18,7 +18,7 @@
 
 - **A NEAR smart contract you own** holds the wallet and enforces the limits: per transfer and per day for each asset, a list of allowed chains, a list of saved recipients with a 600-second wait for new ones, and owner-only withdraw and revoke. The AI can only ask; the contract decides.
 - **NEAR Chain Signatures** (built, off by default behind `EVM_ENABLED`) lets that contract sign Ethereum-style transactions. Not advertised for now.
-- **NEAR AI Cloud** runs all four AI models (chat, speech-to-text, photo reading, logos) in sealed hardware (trusted execution environments, or TEEs), so the operator can't read what goes into them. The `/proof` page checks the hardware's signed proof live.
+- **NEAR AI Cloud** runs all three AI models (chat, speech-to-text, logos) in sealed hardware (trusted execution environments, or TEEs), so the operator can't read what goes into them. The `/proof` page checks the hardware's signed proof live.
 - **NEAR Intents 1Click** (optional, mainnet): "fund this launch from another chain" on the launch page.
 - **JustHoot** (also works for: coin launches) is an existing NEAR launchpad. Ringfence adds voice to it; the caller signs in their own wallet.
 
@@ -33,7 +33,7 @@ Over a limit, or to a recipient not on your saved list: the agent says so and gi
 
 **Also works for** (same line, same limits on the AI): a voice front end to the JustHoot coin launchpad ("Launch a coin called Sleepy Otter, ticker ZZZ": rules in code, then a page you sign in your own wallet).
 
-**Not offered: building quotes.** An earlier sample builder's desk (quotes from a photo, bookings, deposits through NEAR Intents) is still in the code (`src/desks/business.ts`, `owner.yaml`, `/pay/:jobId`), but its tools are not given to the agent: asked for a quote, the AI itself politely declines, and it tells callers it can't use photos.
+**Not offered: building quotes.** Asked for a quote, the AI itself politely declines; there are no building tools. It also tells callers it can't use photos.
 
 ## Trust model
 
@@ -44,8 +44,6 @@ Over a limit, or to a recipient not on your saved list: the agent says so and gi
 - **The contract is unaudited.** Keep small amounts in it. Mainnet defaults: 0.2 NEAR per transfer and 0.5 per day; 600 s wait for new recipients.
 - **Known privacy limits.** Reply text goes to Cartesia when Cartesia is the voice (not a TEE); `TTS_PROVIDER=kokoro` keeps it on the box. This app server itself is not attested, so transcripts and the PIN path pass through an ordinary server. On WhatsApp, Meta carries the call and sees its metadata.
 - **Nothing has been signed on chain yet.** See [Evidence](#evidence-on-chain).
-
-The building firm in `owner.yaml`, **Hart & Sons Builders**, is a sample, not a real company, and is not offered to callers.
 
 ## Run it with no keys in 2 minutes
 
@@ -90,7 +88,7 @@ To click through it yourself: `MOCK_LLM=1 npm start` (add `TTS=off` to skip down
 | Launch | `Yes, set it up` | **Open your launch** box. The page shows the terms and, after **Connect a wallet**, the exact NEAR cost from JustHoot's mainnet views (needs network) |
 | Let it ask | `I need a new kitchen` | "Sorry, we don't do building quotes or bookings…" (not offered; no desk opens) |
 
-With network but still no key: `npm run attest` verifies the TEE attestation of all four models (below), and `npm run test:meme` / `npm run test:justhoot` / `npm run test:quote` call the meme.cooking and JustHoot view methods and a dry 1Click quote.
+With network but still no key: `npm run attest` verifies the TEE attestation of all three models (below), and `npm run test:meme` / `npm run test:justhoot` call the meme.cooking and JustHoot view methods.
 
 ## Feature → where in the code → how to verify
 
@@ -109,23 +107,19 @@ With network but still no key: `npm run attest` verifies the TEE attestation of 
 | meme.cooking `create_meme` transaction, signed by the caller (built, off by default; JustHoot is the launchpad in use) | `src/memecook.ts` `createMemeArgs`, `buildTx`, `confirmTx`; `app/routes/launch.$id.tsx` | `npm test` (create_meme args); `npm run test:meme` (testnet view) / `npm run test:meme mainnet` |
 | JustHoot `launch_meme` (token + RHEA pool in one call), cost from the contract's views | `src/justhoot.ts` | `npm test` (justhoot args, justhoot prepare_launch); `npm run test:justhoot` (mainnet views) |
 | Wallet Selector: Meteor, HOT, Intear, MyNearWallet; server never signs | `app/routes/launch.$id.tsx` | Open a launch page, **Connect a wallet** |
-| Business pricing, discount cap, deposits from `owner.yaml` | `src/desks/business.ts` `priceFor` | `npm test` (business pricing rules); `npm run demo:check` step 4 |
-| Deposit in any token, settled to USDC through NEAR Intents 1Click (`EXACT_OUTPUT`) | `src/pay.ts`; `app/routes/pay.$jobId.tsx` | `npm run test:quote` (dry quotes from Base USDC, Solana SOL, wNEAR) |
-| Owner changes rules by talking, inside hard bounds; YAML rewritten with comments kept | `src/desks/owner.ts` `planChange`, `applyDiff` | `npm test` (owner desk bounds + write) |
 | One agent (all tools, dispatch to desk code, end_call) and returning-caller memory | `src/agent.ts` `toolsFor` / `deskOfTool`; `src/memory.ts` | `npm test` (one agent, returning caller) |
 | TEE attestation: Intel TDX quote signature + TCB status, key+nonce in report_data, NVIDIA GPUs via NRAS | `src/ai.ts` `attest`, `verifyIntelQuote`, `verifyGpu` | `npm run attest` (no key); `/proof`; `/api/proof?fresh=1` |
-| Every chat/vision reply's signature recovered and matched to the attested key (built; live check pending) | `src/ai.ts` `chat`, `verifyLater` | Needs `NEARAI_API_KEY`: call, then see **TEE-signed** badges on `/dashboard` |
-| Photo → job scope by a vision model in a TEE; photo stays on this server | `src/image.ts` `describePhoto`; `src/agent.ts` `photo` | Needs key: **Photo** button on the business desk |
+| Every chat reply's signature recovered and matched to the attested key (built; live check pending) | `src/ai.ts` `chat`, `verifyLater` | Needs `NEARAI_API_KEY`: call, then see **TEE-signed** badges on `/dashboard` |
 | Voice: TTS (Cartesia Sonic in the cloud, or local Kokoro), Whisper STT in a TEE, barge-in, fillers | `src/tts.ts`, `src/turn.ts`, `src/voice.ts` | `MOCK_LLM=1 npm run test:latency`; a browser call |
-| WhatsApp calls (WebRTC/Opus), text and photos | `src/whatsapp.ts` | Needs Meta test number, see [WhatsApp setup](#whatsapp-setup-metas-free-test-number) |
-| Ledger of every refusal, filter hit, launch, booking, rule change | `src/store.ts` `log`; `/dashboard` | `npm run demo:check` step 6 |
+| WhatsApp calls (WebRTC/Opus), text (photos get a polite "can't use photos") | `src/whatsapp.ts` | Needs Meta test number, see [WhatsApp setup](#whatsapp-setup-metas-free-test-number) |
+| Ledger of every refusal, filter hit, launch and wallet action | `src/store.ts` `log`; `/dashboard` | `npm run demo:check` step 6 |
 
 ## Tracks and the hints each feature uses
 
 - **Security**: wallet limits enforced by a NEAR contract, not by the AI (per-asset limits, chain and recipient allowlists, new-recipient delay, owner-only withdraw and revoke, agent never the owner); the contract parses the EVM transaction bytes itself before the MPC signer signs; spoken PIN stored as a salted hash with lockout; attestation verified rather than trusted; per-reply signature checks; owner pages behind basic auth (`DASHBOARD_PASSWORD`). Honest gap: the contract is unaudited, and the operator holding the agent key can spend inside your limits without the PIN.
-- **Agents**: tool-calling desks on one runtime (wallet, launch, owner settings; a sample business desk stays in the code but is not reachable by callers), each a config file + prompt + tools; rules enforced in tool code, not in the prompt; the agent acts on chain by calling the owner's own limited contract.
+- **Agents**: tool-calling desks on one runtime (wallet, launch), each a config file + prompt + tools; rules enforced in tool code, not in the prompt; the agent acts on chain by calling the owner's own limited contract.
 - **Real world**: a phone call is the interface, so someone without a wallet app can send money by voice; WhatsApp calls and texts.
-- **Privacy**: NEAR AI Cloud private inference for every model (chat, STT, vision, image), with attestation verified in this process (Intel TDX + NVIDIA NRAS) and signed chat and vision replies; the spoken PIN is heard only inside TEEs and blanked from storage; text-to-speech is either Cartesia (cloud: the reply text goes to Cartesia, a third party, not a TEE) or local Kokoro (`TTS_PROVIDER=kokoro`: the text never leaves the box); photos are stored only on this server.
+- **Privacy**: NEAR AI Cloud private inference for every model (chat, STT, image), with attestation verified in this process (Intel TDX + NVIDIA NRAS) and signed chat replies; the spoken PIN is heard only inside TEEs and blanked from storage; text-to-speech is either Cartesia (cloud: the reply text goes to Cartesia, a third party, not a TEE) or local Kokoro (`TTS_PROVIDER=kokoro`: the text never leaves the box).
 - **Memecoins**: launching on JustHoot (token plus RHEA pool in one `launch_meme` call, mainnet) by voice, signed in the caller's own wallet, with impersonation blocks, a no-promised-returns filter and a kill switch in code. The memecoin mechanic itself is thin: it is a voice front end to an existing launchpad, not a new launch design. meme.cooking support is built but off by default.
 
 ## Phone wallet: your phone number is a NEAR wallet
@@ -207,9 +201,9 @@ Bind first on `/wallet/bind` (see [Phone wallet](#phone-wallet-your-phone-number
 
 ### Building quotes: not offered
 
-Say "I need a new kitchen" on the line: the AI answers that building quotes are not offered; it has no building tools. The old business desk and its owner settings line on `/dashboard` remain in the code for reference only.
+Say "I need a new kitchen" on the line: the AI answers that building quotes are not offered; it has no building tools.
 
-`/dashboard` shows both desks: calls with a **TEE-signed** badge on each verified reply, launches (prepared, live, failed), jobs and deposits, the ledger of every refusal and change, the rules, and the verified attestation of all four models. `/proof` shows the same attestation publicly, with every check.
+`/dashboard` shows both desks: calls with a **TEE-signed** badge on each verified reply, launches (prepared, live, failed), the ledger of every refusal and action, the rules, and the verified attestation of all three models. `/proof` shows the same attestation publicly, with every check.
 
 ## TEE attestation, in detail
 
@@ -219,7 +213,7 @@ Say "I need a new kitchen" on the line: the AI answers that building quotes are 
 2. **report_data** (read from the verified quote) equals the model's signing address, zero-padded to 32 bytes, followed by our nonce.
 3. **NVIDIA GPUs**: `nvidia_payload` (8 × H100 evidence carrying our nonce) is posted to NVIDIA NRAS `/v3/attest/gpu`; the returned platform and per-GPU JWTs are verified (ES384) against NVIDIA's JWKS, and the overall result, each GPU's measurement result and nonce match must be true.
 
-Output on 2026-11-08 (abridged): all four models `PASS` on all three checks, TCB `UpToDate`, `8 x HOPPER`, "4/4 models fully verified". The same results are on `/proof` (public) and `/dashboard`, and chat replies only get the **TEE-signed** badge when their signer is a key that passed checks 1 and 2.
+Output on 2026-11-08 (abridged): every model `PASS` on all three checks, TCB `UpToDate`, `8 x HOPPER`, all models fully verified (that run also covered a photo-reading model that has since been removed). The same results are on `/proof` (public) and `/dashboard`, and chat replies only get the **TEE-signed** badge when their signer is a key that passed checks 1 and 2.
 
 Not checked: that the TD measurements (MRTD, RTMR0-3) and the event log match a published, reproducible NEAR AI image, and the `gateway_attestation` of NEAR AI's gateway. For those, follow [docs.near.ai/cloud/verification](https://docs.near.ai/cloud/verification/).
 
@@ -227,11 +221,11 @@ Not checked: that the TD measurements (MRTD, RTMR0-3) and the event log match a 
 
 - **Phone-wallet contract on NEAR** (`contracts/phone-wallet`): one contract per user, owned by the user, with the agent key allowed only inside its limits.
 - **NEAR Chain Signatures** (`src/eth.ts`, `lib.rs` `request_signature`): the contract calls `sign` on `v1.signer` (mainnet) or `v1.signer-prod.testnet` with path `ethereum-1`, giving one EVM address on every EVM chain.
-- **NEAR AI Cloud, private inference** (`src/ai.ts`, `src/image.ts`). Chat `Qwen/Qwen3.6-35B-A3B-FP8`, speech-to-text `openai/whisper-large-v3`, photo reading `Qwen/Qwen3-VL-30B-A3B-Instruct`, logos `black-forest-labs/FLUX.2-klein-4B`, all `owned_by: nearai` (Intel TDX + NVIDIA confidential GPUs). For each model we fetch the attestation report with a fresh nonce and verify the Intel TDX quote, the key and nonce in its report data, and the NVIDIA GPU evidence (see [TEE attestation, in detail](#tee-attestation-in-detail)). Every chat and vision reply's signature is fetched and verified (ECDSA recover) against that key.
+- **NEAR AI Cloud, private inference** (`src/ai.ts`, `src/image.ts`). Chat `Qwen/Qwen3.6-35B-A3B-FP8`, speech-to-text `openai/whisper-large-v3`, logos `black-forest-labs/FLUX.2-klein-4B`, all `owned_by: nearai` (Intel TDX + NVIDIA confidential GPUs). For each model we fetch the attestation report with a fresh nonce and verify the Intel TDX quote, the key and nonce in its report data, and the NVIDIA GPU evidence (see [TEE attestation, in detail](#tee-attestation-in-detail)). Every chat reply's signature is fetched and verified (ECDSA recover) against that key.
 - **meme.cooking on NEAR** (`src/memecook.ts`). Mainnet `meme-cooking.near`; testnet `factory.v10.meme-cooking.testnet` (the address in meme.cooking's developer docs; it whitelists `wrap.testnet`). One transaction: `storage_deposit` (only if `storage_balance_of` is null; deposit = `storage_costs.account`) + `create_meme` (250 Tgas, deposit = `create_meme_storage_cost`), arguments in the shape of the contract's published ABI. After signing, the server reads the transaction with `EXPERIMENTAL_tx_status` and takes the meme id from the `create_meme` event or the return value.
-- **NEAR Wallet Selector** (`app/routes/launch.$id.tsx`, `/wallet/bind`, `/wallet/send`): Meteor, HOT, Intear, MyNearWallet on the configured network. Launches, deposits and over-limit sends are signed by the caller. The server holds one key, the phone wallet's agent key, which can only call the user's own limited contract.
-- **NEAR Intents 1Click** (`src/pay.ts`): `EXACT_OUTPUT` quotes for building deposits (USDC to the owner) and, optionally and on mainnet only, "fund this launch from another chain": exactly the launch cost delivered to your NEAR account as wNEAR.
-- **WhatsApp Cloud API calling** (`src/whatsapp.ts`): calls over WebRTC (werift + Opus), text messages, and photos downloaded through the Graph API media endpoint.
+- **NEAR Wallet Selector** (`app/routes/launch.$id.tsx`, `/wallet/bind`, `/wallet/send`): Meteor, HOT, Intear, MyNearWallet on the configured network. Launches and over-limit sends are signed by the caller. The server holds one key, the phone wallet's agent key, which can only call the user's own limited contract.
+- **NEAR Intents 1Click** (`src/fund.ts`): optionally and on mainnet only, "fund this launch from another chain" (an `EXACT_OUTPUT` swap): exactly the launch cost delivered to your NEAR account as wNEAR.
+- **WhatsApp Cloud API calling** (`src/whatsapp.ts`): calls over WebRTC (werift + Opus), and text messages.
 
 ## Run it with keys
 
@@ -256,12 +250,10 @@ Production: `npm run build && npm start`, or on a VPS with Docker/systemd + Cadd
 | `AGENT_ACCOUNT_ID`, `AGENT_PRIVATE_KEY` | Phone wallet agent on `NETWORK`; without them the wallet desk is a dry run |
 | `NETWORK` | `testnet` (default) or `mainnet` for launches and the phone wallet |
 | `EVM_ENABLED` | Off by default. `1` turns on EVM sends through Chain Signatures (Base on mainnet, Sepolia on testnet); off, the wallet desk says "Only NEAR transfers for now" |
-| `PUBLIC_URL` | Public URL of this server, used in launch and deposit links |
+| `PUBLIC_URL` | Public URL of this server, used in launch and wallet links |
 | `PINATA_JWT` | Optional. Pins the coin's description and links to IPFS (the reference meme.cooking's app uses) |
-| `OWNER_NEAR_ACCOUNT` | Business desk (not offered to callers): mainnet account that receives USDC deposits |
-| `OWNER_WHATSAPP` | Business desk: the owner's number; on that number the agent also gets the owner settings tools |
-| `ONECLICK_JWT` | Optional 1Click partner JWT (without it 1Click adds a 0.2% fee) |
-| `DASHBOARD_PASSWORD` | Optional basic auth on `/dashboard`, `/api/state`, `/api/owner` |
+| `ONECLICK_JWT` | Optional 1Click partner JWT for launch funding (without it 1Click adds a 0.2% fee) |
+| `DASHBOARD_PASSWORD` | Optional basic auth on `/dashboard`, `/api/state` |
 | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | WhatsApp Cloud API |
 
 ### WhatsApp setup (Meta's free test number)
@@ -271,20 +263,18 @@ Production: `npm run build && npm start`, or on a VPS with Docker/systemd + Cadd
 3. Expose the server (`cloudflared tunnel --url http://localhost:8787`) and set `PUBLIC_URL`.
 4. Set the webhook to `<PUBLIC_URL>/webhooks/whatsapp`, subscribe to **messages** and **calls**.
 5. In WhatsApp Manager, your number, **Call settings**, allow voice calls.
-6. Call or message the number: "I want to launch a memecoin" or "my tap is leaking", or send a photo.
+6. Call or message the number: "I want to launch a memecoin" or "send 0.1 NEAR to alice.testnet".
 
 ## How it is built
 
 - `contracts/phone-wallet`: the NEAR contract that holds the wallet and enforces limits.
 - `src/desks/wallet.ts`, `src/wallet.ts`, `src/eth.ts`, `src/chains.ts`: the wallet desk, PIN handling, agent calls, EVM transaction building, address derivation, chain registry.
-- `src/agent.ts`: one agent, Ringfence. One system prompt; the AI decides every reply and action. Its tools are the wallet and launch tools (plus the owner's settings tools only on the owner's line) and `end_call`, each dispatched to the desk module that owns it (the desks are tool providers: PIN, limits, approvals, launch checks and the no-promised-returns filter stay in their code). Only the opening greeting is fixed text. The AI hangs up itself with `end_call` (WhatsApp terminates after the goodbye plays; the browser page gets a `hangup` event). Also: tool loop, output filter on every sentence, link hook.
+- `src/agent.ts`: one agent, Ringfence. One system prompt; the AI decides every reply and action. Its tools are the wallet and launch tools and `end_call`, each dispatched to the desk module that owns it (the desks are tool providers: PIN, limits, approvals, launch checks and the no-promised-returns filter stay in their code). Only the opening greeting is fixed text. The AI hangs up itself with `end_call` (WhatsApp terminates after the goodbye plays; the browser page gets a `hangup` event). Also: tool loop, output filter on every sentence, link hook.
 - `src/desks/launch.ts` + `launchpad.yaml`: launch rules (`checkTicker`, `checkName`, `checkAuction`, `checkTeam`, `filterClaims`), all re-checked at `prepare_launch`, kill switch.
-- `src/desks/business.ts` + `owner.yaml`: pricing (`priceFor`), refused work, kill switch.
-- `src/desks/owner.ts`: the settings line: `planChange` (hard bounds) → owner confirms → `applyDiff` rewrites `owner.yaml`, keeping comments and the `${OWNER_NEAR_ACCOUNT}` placeholder.
 - `src/justhoot.ts`: JustHoot's `launch_meme` args, cost from its views, the transaction, and the after-the-fact check.
 - `src/memecook.ts`: RPC views, `createMemeArgs`, `launchCost`, `buildTx`, `confirmTx`, and the meme.cooking indexer for existing tickers.
 - `src/ai.ts`: NEAR AI Cloud chat and STT, per-reply signature checks, the attestation verifier (Intel TDX + NVIDIA NRAS), and the `MOCK_LLM` script.
-- `app/`: TanStack Start UI: `/`, `/launch/$id`, `/pay/$jobId`, `/dashboard`, `/proof`, and the `/api/*` routes.
+- `app/`: TanStack Start UI: `/`, `/launch/$id`, `/wallet/*`, `/dashboard`, `/proof`, and the `/api/*` routes.
 - `scripts/demo-check.ts`, `scripts/attest.ts`: the headless no-key smoke test and the attestation report.
 - `server.ts`: one Node process on one port: Vite middleware in dev, the built handler in prod, the voice WebSocket and WhatsApp webhook on the same server.
 
@@ -304,7 +294,7 @@ To be filled after the team runs them; none of these has been done by this code'
 
 Verified here (2026-11-08): `npm test` 28 passed; `npm run typecheck` and `npm run build` pass; `npm run demo:check` all 9 steps pass with no `.env` (re-run 2026-11-08 after the NEAR-only, no-builder change); `npm run attest` verifies all four models (Intel TDX quote, TCB `UpToDate`, key+nonce binding, 8 NVIDIA H100 GPUs through NRAS); `create_meme_storage_cost` accepts our arguments on testnet and mainnet (`npm run test:meme`); the testnet contract whitelists `wrap.testnet`; the meme.cooking indexer is reachable; dry 1Click quotes return for Base USDC, Solana SOL and wNEAR (`npm run test:quote`).
 
-Not verified here: a real signed `create_meme` or `launch_meme` and a real 1Click deposit (they need a funded wallet and a person to sign; the launch and deposit paths never sign, see Evidence; the phone wallet's agent signs only calls to a user's own limited contract, and none has been sent yet); the token-id extraction from JustHoot's launch logs; and the exact response shape of NEAR AI's image endpoint (we send the OpenAI-compatible `/v1/images/generations` request and accept `b64_json` or `url`; on failure the desk draws a placeholder coin and says so). The storage-cost view does not validate everything `create_meme` checks, so the first real launch is the true test of an empty `reference`/`reference_hash` and of `team_allocation`. `demo:check` uses the mock model, so it proves the tools, rules and pages, not the real model's choices.
+Not verified here: a real signed `create_meme` or `launch_meme` and a real 1Click launch-funding swap (they need a funded wallet and a person to sign; the launch and funding paths never sign, see Evidence; the phone wallet's agent signs only calls to a user's own limited contract, and none has been sent yet); the token-id extraction from JustHoot's launch logs; and the exact response shape of NEAR AI's image endpoint (we send the OpenAI-compatible `/v1/images/generations` request and accept `b64_json` or `url`; on failure the desk draws a placeholder coin and says so). The storage-cost view does not validate everything `create_meme` checks, so the first real launch is the true test of an empty `reference`/`reference_hash` and of `team_allocation`. `demo:check` uses the mock model, so it proves the tools, rules and pages, not the real model's choices.
 
 ## Honest limitations
 
@@ -317,7 +307,7 @@ Not verified here: a real signed `create_meme` or `launch_meme` and a real 1Clic
 - No barge-in on WhatsApp calls. The browser call uses a simple energy voice detector.
 - Attestation does not compare TD measurements to a published NEAR AI build (see above). Logo generation and speech-to-text have no per-response signature check (NEAR AI signs chat completions).
 - Funding a launch from another chain arrives as wNEAR and needs unwrapping before signing; 1Click has no testnet.
-- Storage is one JSON file. Photos are stored in `data/photos/` on this server only.
+- Storage is one JSON file. Photos sent to the line are not read or stored.
 
 ## Hackathon disclosures
 
@@ -329,13 +319,6 @@ Not verified here: a real signed `create_meme` or `launch_meme` and a real 1Clic
 ## Credits
 
 Typefaces, SIL Open Font Licence, from `@fontsource`: **Archivo Black** and **Hanken Grotesk**. The coin on the landing page and the placeholder logos are drawn in code.
-
-Photographs (business desk):
-
-- "End of terrace house, Elwood Street, Highbury, London N5" by Jim Osley, CC BY-SA 2.0, Wikimedia Commons: https://commons.wikimedia.org/w/index.php?curid=105321989
-- "Black Claw Hammer on Brown Wooden Plank" by Homedust, CC BY 2.0, Flickr: https://www.flickr.com/photos/159630537@N08/28918563378
-- "GOC Hampstead 107 Kenwood House (scaffolded)" by Peter O'Connor, CC BY-SA 2.0, Wikimedia Commons: https://commons.wikimedia.org/w/index.php?curid=106415915
-- "Mozart Terrace, Ebury Road, London" by Oosoom, CC BY-SA 3.0, Wikimedia Commons: https://commons.wikimedia.org/w/index.php?curid=3581977
 
 ## Licence
 

@@ -13,14 +13,14 @@ function wav16(f32: Float32Array) {
   return b.buffer;
 }
 
-export type Desk = 'launch'; // the business (builder) desk is no longer offered
+export type Desk = 'launch';
 
 export function useCall(deskPick: Desk | 'auto' = 'auto') {
   const [lines, setLines] = useState<Line[]>([]);
   const [state, setState] = useState('Not connected');
   const [live, setLive] = useState(false);
   const [link, setLink] = useState<{ url: string; label: string } | null>(null);
-  const [desk, setDesk] = useState<Desk | 'wallet' | 'owner' | 'agent' | null>(null);
+  const [desk, setDesk] = useState<Desk | 'wallet' | 'agent' | null>(null);
   const r = useRef<{ ws?: WebSocket; ctx?: AudioContext; stream?: MediaStream; playing: boolean; srcs?: AudioBufferSourceNode[]; next?: number }>({ playing: false });
   const add = (who: Line['who'], text: string) => setLines((l) => [...l, { who, text }]);
 
@@ -125,7 +125,7 @@ export function useCall(deskPick: Desk | 'auto' = 'auto') {
     return true;
   }
 
-  // A photo of the job, downscaled in the browser before it is sent (the server keeps it locally only).
+  // A photo, downscaled in the browser before it is sent (the agent says it can't use photos; nothing is stored).
   async function sendPhoto(file: File) {
     const ws = r.current.ws;
     if (ws?.readyState !== 1) return false;

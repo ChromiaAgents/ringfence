@@ -371,7 +371,7 @@ function Evidence() {
       <h2 className="rise">What works today, and what’s pending</h2>
       <p className="sub rise">Tests and attestation run today, and you can run them with no keys. The mainnet runs are pending and get explorer links when they happen.</p>
       <div className="ev-list" onMouseLeave={() => setP('tee')}>
-        <a className="ev-row rise" href="/proof" {...on('tee')}><span className="what">Private AI attestation</span><span className="st ok">4 of 4 models verified</span><span className="detail">Intel TDX attestation report, key and nonce binding, NVIDIA GPUs through NRAS. /proof re-runs the check live, or run npm run attest.</span></a>
+        <a className="ev-row rise" href="/proof" {...on('tee')}><span className="what">Private AI attestation</span><span className="st ok">3 of 3 models verified</span><span className="detail">Intel TDX attestation report, key and nonce binding, NVIDIA GPUs through NRAS. /proof re-runs the check live, or run npm run attest.</span></a>
         <a className="ev-row rise" href={CODE_URL} {...on('room')}><span className="what">Contract and app tests</span><span className="st ok">Passing</span><span className="detail">npm test runs 43 app tests; cargo test runs 57 contract tests. npm run demo:check walks a send to a labelled dry run.</span></a>
         <div className="ev-row pending rise" tabIndex={0} {...on('meter')}><span className="what">Phone wallet deployed on mainnet</span><span className="st">Pending</span><span className="detail">The nearblocks link goes here once it runs.</span></div>
         <div className="ev-row pending rise" tabIndex={0} {...on('call')}><span className="what">A NEAR transfer by voice</span><span className="st">Pending</span><span className="detail">Nothing has been signed on chain yet.</span></div>
@@ -381,7 +381,7 @@ function Evidence() {
         <img className={p === 'room' ? 'on' : ''} src="/media/wac-telephone-switchboard-operators.jpg" width={1920} height={1476} alt="" loading="lazy" />
         <img className={p === 'exchange' ? 'on' : ''} src="/media/1940s-n935-telephone-exchange.jpg" width={1920} height={1801} alt="" loading="lazy" />
         <div className={`pane${p === 'tee' ? ' on' : ''}`}><div data-ui><div className="ui-head"><b>/proof</b><span className="muted">checked live</span></div><div className="ui-body">
-          {['Chat model', 'Speech to text', 'Photo reader', 'Logo', 'Intel TDX report', 'NVIDIA GPUs via NRAS'].map((k) => <div key={k} className="kv"><span>{k}</span><span>verified</span></div>)}
+          {['Chat model', 'Speech to text', 'Logo', 'Intel TDX report', 'NVIDIA GPUs via NRAS'].map((k) => <div key={k} className="kv"><span>{k}</span><span>verified</span></div>)}
         </div></div></div>
         <div className={`pane${p === 'meter' ? ' on' : ''}`}><div data-ui><div className="ui-head"><b>phone.you.near</b><span className="muted">pending</span></div><div className="ui-body">
           <div className="kv"><span>Owner</span><span>you.near</span></div>
@@ -402,7 +402,7 @@ const FAQ: [string, ReactNode][] = [
   ['What if you go rogue?', 'Inside the cap and only to saved recipients. See the worst case above.'],
   ['Can the AI be talked into more?', 'They can try. The AI has no authority of its own. It asks the contract, and the contract checks the limits and the recipient before anything moves.'],
   ['Who hears the PIN?', 'The speech and chat models hear it inside NEAR AI TEEs. It also passes through our app server, which isn’t attested. We store a salted hash and blank it from the transcript. Three wrong tries lock the line for 15 minutes.'],
-  ['Is the voice private?', 'All four models run on NEAR AI Cloud in Intel TDX and NVIDIA confidential GPUs, and /proof checks them live. Cartesia hears the reply text when it speaks it, and on WhatsApp Meta sees the call metadata.'],
+  ['Is the voice private?', 'All three models run on NEAR AI Cloud in Intel TDX and NVIDIA confidential GPUs, and /proof checks them live. Cartesia hears the reply text when it speaks it, and on WhatsApp Meta sees the call metadata.'],
   ['Has it moved real money yet?', 'Not yet. Nothing has been signed on mainnet, and the contract is unaudited, so keep amounts small. An audit comes before higher limits.'],
   ['Can Mum start with just a phone?', 'Not yet. Today you bind a number to a NEAR wallet you already have. Phone-only sign-up and the guardian setup are in progress. Phone-only will start custodial: we hold the owner key, with a small balance cap, until she claims it.'],
   ['What else works on the line?', 'Checking a balance, and launching a coin on JustHoot, which you sign in your own wallet.'],

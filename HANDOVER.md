@@ -9,8 +9,7 @@ Repo: https://github.com/ChromiaAgents/ringfence (private, branch `main`).
 A phone agent for the NEAR hackathon (deadline 14 Nov 2026, 23:59 UTC). People call or message one WhatsApp number, or call from the browser, and talk to one agent, Ringfence. The AI decides every reply and action; the "desks" below are now just the code behind its tools:
 - **Wallet tools.** Pay by voice from a phone wallet (PIN, limits, WhatsApp Approve), balance, "how much did I spend".
 - **Launch tools.** It talks them through a memecoin. At the end it sends a link where they sign the launch with their own NEAR wallet. The server never holds keys or funds.
-- **Business desk.** A sample builder (quotes, bookings, deposits). Its tools are no longer given to the agent; the AI declines building quotes.
-- **Owner tools.** On the owner's number (and the dashboard settings box) the agent also gets the tools to change the business rules, inside hard limits.
+- **Out of scope.** Building quotes, bookings and deposits were removed; the AI politely declines them.
 
 ## How it runs
 
@@ -25,17 +24,17 @@ Work runs in four places:
 
 | Job | Where |
 | --- | --- |
-| Chat model, speech-to-text, photo reading, logo drawing | NEAR AI Cloud (`cloud-api.near.ai`): Qwen3.6-35B, Whisper large v3, Qwen3-VL, FLUX.2 klein. Every reply's TEE signature is checked in the background. |
+| Chat model, speech-to-text, logo drawing | NEAR AI Cloud (`cloud-api.near.ai`): Qwen3.6-35B, Whisper large v3, FLUX.2 klein. Every reply's TEE signature is checked in the background. |
 | Text-to-speech | Local. Kokoro 82M runs in a worker thread (`src/tts-worker.ts`), voice `af_heart` at 1.15× speed. |
-| Deposits | NEAR Intents 1Click, mainnet only. It only quotes and returns a deposit address; no money moves unless a customer pays. |
+| Launch funding from another chain (optional) | NEAR Intents 1Click, mainnet only. It only quotes and returns a deposit address; no money moves unless the creator pays. |
 | Coin launches | meme.cooking contract `factory.v10.meme-cooking.testnet`. The user signs it in their own wallet. |
 
-State is one JSON file, `data/db.json`, plus customer photos in `data/photos/`. Keep `data/` on a persistent disk.
+State is one JSON file, `data/db.json`. Keep `data/` on a persistent disk.
 
 ## What the host needs
 
 - **Node 22 or newer.** `npm start` runs through `tsx`, so the source is TypeScript and there's no separate compile step.
-- **A public HTTPS URL** pointing at the port. Meta's webhook and the launch and deposit links use it. Set it as `PUBLIC_URL`.
+- **A public HTTPS URL** pointing at the port. Meta's webhook and the launch and wallet links use it. Set it as `PUBLIC_URL`.
 - **Inbound UDP for WhatsApp call audio.** werift uses random ports and finds its public address through Google's STUN server. It worked from Tan's Mac behind home NAT. On a cloud VM, either open the UDP range or give the box a public IP.
   - This is why **Vercel won't work**: it has no long-running process, no UDP, and Kokoro would cold-start every time.
   - Render-style hosts that only take HTTP are out for calls too. Messages and the browser call would still work there.
@@ -119,9 +118,7 @@ Tan's `.env` already has these filled in:
 | `NETWORK` | `testnet` or `mainnet`. Mainnet means real launches and a real-money phone wallet (Base). Don't switch without Tan. |
 | `PUBLIC_URL` | **Change this** to your host's URL. |
 | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | The token needs replacing (see above). The app secret checks webhook signatures; requests that don't match get 401. |
-| `OWNER_WHATSAPP` | Tan's number. On that number the agent also has the owner settings tools. |
-| `OWNER_NEAR_ACCOUNT` | The mainnet account that receives deposits. |
-| `DASHBOARD_PASSWORD` | Basic auth for `/dashboard`, `/api/state` and `/api/owner`. |
+| `DASHBOARD_PASSWORD` | Basic auth for `/dashboard`, and `/api/state`. |
 
 Phone wallet, empty until the deploy steps below are done:
 
@@ -144,8 +141,8 @@ Voice and hosting:
 These are optional and empty on purpose:
 
 - `PINATA_JWT`: skipped. Coin descriptions show on our launch page instead.
-- `ONECLICK_JWT`: without it, 1Click adds a 0.2% fee.
-- Tuning: `TTS_VOICE` (default `af_heart`), `TTS_SPEED` (`1.15`), `FILLER_MS`, and `LLM_MODEL` / `STT_MODEL` / `VISION_MODEL` / `IMAGE_MODEL`.
+- `ONECLICK_JWT` (launch funding): without it, 1Click adds a 0.2% fee.
+- Tuning: `TTS_VOICE` (default `af_heart`), `TTS_SPEED` (`1.15`), `FILLER_MS`, and `LLM_MODEL` / `STT_MODEL` / `IMAGE_MODEL`.
 - Offline timing without keys: `MOCK_LLM=1`.
 
 ## Where things are in the code
@@ -154,14 +151,14 @@ These are optional and empty on purpose:
 | --- | --- |
 | `server.ts` | HTTP server and warm-up. It loads Kokoro and the fillers and fetches the attestations at boot. |
 | `src/agent.ts` | One agent: one prompt, all tools (desks are tool providers), streamed tool loop, filler skip, `end_call`. |
-| `src/desks/{launch,business,owner,wallet}.ts` | Each desk's prompt and tools. The rules are enforced here in code. |
+| `src/desks/{launch,wallet}.ts` | Each desk's prompt and tools. The rules are enforced here in code. |
 | `src/memory.ts` | Caller memory by phone number: a recap of earlier calls, and an unfinished coin draft resumes. |
 | `src/whatsapp.ts` | Webhook, message handling, WebRTC calls, turn detection, interrupting, hang-up when the AI calls `end_call`. |
 | `src/voice.ts`, `app/call.ts` | The browser call. |
 | `src/ai.ts` | NEAR AI streaming chat, attestation and signature checks, speech-to-text. |
 | `src/tts.ts`, `src/tts-worker.ts` | Kokoro in a worker thread; strips emoji and markdown before speaking. |
-| `src/pay.ts`, `src/memecook.ts`, `src/justhoot.ts` | 1Click quotes and status; meme.cooking and JustHoot transaction building. |
-| `owner.yaml`, `launchpad.yaml` | Business rules and launch rules. They're re-read on every call, so no restart is needed. |
+| `src/fund.ts`, `src/memecook.ts`, `src/justhoot.ts` | 1Click launch-funding swaps; meme.cooking and JustHoot transaction building. |
+| `launchpad.yaml` | Launch rules. It's re-read on every call, so no restart is needed. |
 
 ## Phone wallet (mainnet, Base as the cross-chain demo)
 
@@ -304,7 +301,7 @@ The server logs to stdout:
 
 - **Delay:** about 3–5 s before the agent starts speaking on WhatsApp. Whisper on NEAR AI takes about 1.8 s of that; Kokoro on CPU takes most of the rest.
 - **Talking over the agent** hasn't been tuned on a real phone. Echo from a speakerphone can cut the agent off.
-- **Unfinished coin drafts** live in memory, so a restart forgets them. Finished launches and quotes are saved.
+- **Unfinished coin drafts** live in memory, so a restart forgets them. Finished launches are saved.
 - **The NEAR AI signature check on streamed replies** follows NEAR's docs but hasn't been checked against a live signature yet.
 - **Only the launch page's wallet button has been checked** in headless Chrome. No real testnet launch has been signed yet; Tan does that with their own testnet wallet.
 
@@ -328,9 +325,9 @@ Claude Code and Codex screen every entry first: they check the README reproduces
 | 3 | **README a machine can run with no keys**: offline tests, `npm run demo:check`, a "feature → code → how to verify" table. | Claude | in progress |
 | 4 | **Full TEE attestation check**, including Intel's signature on the security proof (and the GPU's if possible), shown on a public `/proof` page; `npm run attest`. | Claude | in progress |
 | 5 | **A memecoin mechanic: "the coin has a brain".** Each launched coin gets its own AI hotline, paid for by NEARON staking credit bound to the coin. Ask the NEARON team: can a meme.cooking or JustHoot coin be bound, and when is mainnet planned? | Tan + NEARON team | ask |
-| 6 | **Proof on chain**, with links in the README: one meme.cooking testnet launch (free), one JustHoot mainnet launch (about 0.1 NEAR), one real Intents deposit (about $1 USDC). Signed in our own wallets. | Tan | todo |
+| 6 | **Proof on chain**, with links in the README: one meme.cooking testnet launch (free), one JustHoot mainnet launch (about 0.1 NEAR). Signed in our own wallets. | Tan | todo |
 | 7 | **List the agent on NEAR's Agent Market** (market.near.ai/docs: list your agent). | Johnson or Tan | todo |
-| 8 | **Demo video, 60–90 s, one complete moment:** a phone call, the coin is live, the link arrives. Start with the user's problem; say concretely what NEAR does (private AI in TEEs, pay in any token through Intents, launch signed in your own wallet). | Tan | todo |
+| 8 | **Demo video, 60–90 s, one complete moment:** a phone call, the coin is live, the link arrives. Start with the user's problem; say concretely what NEAR does (private AI in TEEs, launch signed in your own wallet). | Tan | todo |
 | 9 | **X post** tagging @NEARProtocol and #NEARHackathon (optional @NearLegion @NearBuilders), with the video, repo and demo links. | Tan | todo |
 | 10 | **Make the repo public** and **submit once.** Needs: project name, lead name, email, team size, mainnet payout account, consent. The submission can't be resent; fixes go through nearhackathon.com/request-changes. | Tan | todo, by 14 Nov |
 
