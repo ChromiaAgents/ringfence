@@ -12,7 +12,7 @@ const getInfo = createServerFn({ method: 'GET' }).handler(async () => {
 
 export const Route = createFileRoute('/')({
   loader: () => getInfo(),
-  head: () => ({ meta: [{ title: 'Ringfence: pay by phone call, inside limits the family sets' }, { name: 'description', content: 'Mum can make a phone call. She doesn’t know how to use MetaMask. Ringfence lets her pay by voice, and a NEAR contract the family owns caps what the AI can spend.' }] }),
+  head: () => ({ meta: [{ title: 'Ringfence: pay by phone call, inside limits the family sets' }, { name: 'description', content: 'Mum can make a phone call. She doesn’t know how to use Meteor Wallet. Ringfence lets her pay by voice, and a NEAR contract the family owns caps what the AI can spend.' }] }),
   component: Landing,
 });
 
@@ -41,7 +41,7 @@ function Landing() {
 
         <div className="top">
           <div className="intro">
-            <h1 className="rise"><span>Mum can make a phone call.</span> <span>She doesn’t know how to use MetaMask.</span></h1>
+            <h1 className="rise"><span>Mum can make a phone call.</span> <span>She doesn’t know how to use Meteor Wallet.</span></h1>
             <p className="lead rise" style={i(1)}>Ringfence lets you pay by phone call. Your phone number is linked to a NEAR wallet, and a contract you own sets what the AI may spend.</p>
             <div className="acts rise" style={i(3)}>
               <a className="btn" href="#call" onClick={tryCall}>Try a call in your browser</a>

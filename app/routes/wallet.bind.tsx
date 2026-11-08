@@ -70,7 +70,7 @@ function Bind() {
       <h1>Your phone number is a wallet</h1>
       <p className="err" role="note"><b>Unaudited prototype: keep small amounts.</b> The phone-wallet contract has not been audited.{cfg.network === 'mainnet' ? ' This is NEAR mainnet: real money.' : ''}</p>
 
-      <p className="muted">Mum can make a phone call; she doesn't need to know MetaMask. Bind a NEAR wallet to a WhatsApp number, then on a call say “send 0.1 NEAR to liho.{sfx}”. Up to {cfg.small} NEAR is confirmed with a spoken PIN; more needs an Approve tap on WhatsApp. The contract checks the limits before anything moves, and the owner can withdraw or revoke at any time.</p>
+      <p className="muted">Mum can make a phone call; she doesn't need to know Meteor Wallet. Bind a NEAR wallet to a WhatsApp number, then on a call say “send 0.1 NEAR to liho.{sfx}”. Up to {cfg.small} NEAR is confirmed with a spoken PIN; more needs an Approve tap on WhatsApp. The contract checks the limits before anything moves, and the owner can withdraw or revoke at any time.</p>
 
       <section className="card">
         <h2>Who is it for?</h2>

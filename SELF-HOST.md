@@ -1,6 +1,6 @@
 # Self-host Ringfence in about 15 minutes
 
-Mum can make a phone call. She doesn't know how to use MetaMask. The family (the guardian) owns her phone wallet, and the contract caps what the AI agent can spend.
+Mum can make a phone call. She doesn't know how to use Meteor Wallet. The family (the guardian) owns her phone wallet, and the contract caps what the AI agent can spend.
 
 With the hosted Ringfence, our server holds the agent key. If you would rather trust your own server, run your own operator and point your wallet's agent at it. The contract rules stay the same: the agent spends only within your limits, and only the owner can withdraw, change limits or revoke the agent.
 
