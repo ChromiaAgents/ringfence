@@ -34,7 +34,11 @@ setOnLink((call, link) => {
   const text = call.desk === 'launch'
     ? `Your launch is ready to check and sign with your own NEAR wallet: ${link.url}\nNothing is launched until you sign. Memecoins are risky; most lose value.`
     : `${link.label}: ${link.url}`;
-  sendText(call.from, text).catch(console.error);
+  sendText(call.from, text).catch((e) => {
+    console.error('link message', String(e.message).slice(0, 160));
+    // Meta's test number only messages approved recipients (131030): say where to go instead.
+    for (const l of live.values()) if (l.callId === call.id) l.say?.("I can't text you on this line, so open ringfence dot evalengine dot ai to finish.");
+  });
 });
 
 /** Approve / Reject for larger sends: a Graph API interactive "button" message to the wallet's bound phone. */
@@ -107,7 +111,7 @@ async function media(mediaId: string): Promise<Buffer> {
 
 // ---------------- calls ----------------
 
-type Live = { pc: RTCPeerConnection; callId: string; stop: () => void };
+type Live = { pc: RTCPeerConnection; callId: string; stop: () => void; say?: (s: string) => void };
 const live = new Map<string, Live>();
 
 const BYE = /\b(bye|goodbye|see you|that's all|that is all|hang up|gotta go|talk later|cheers mate)\b/i;
@@ -149,7 +153,7 @@ async function onCallEvent(c: any) {
     onCallNews(call.id, null);
     live.delete(c.id);
   };
-  live.set(c.id, { pc, callId: call.id, stop });
+  live.set(c.id, { pc, callId: call.id, stop, say: (s: string) => line.say(s) });
   onCallNews(call.id, (s) => line.say(s)); // "Approved and sent" after a WhatsApp tap
 
   pc.connectionStateChange.subscribe(async (s) => {

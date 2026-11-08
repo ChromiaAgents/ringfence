@@ -141,6 +141,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
       const l = state?.limits.near;
       const left = l ? fmt('near', BigInt(l.per_day) - BigInt(state!.spent_today.near ?? 0) - t.base) : 'unknown (dry run)';
       const sent = await askApproval(b, call.id, t, left);
+      if (sent === false) return { ok: false, approvalSent: false, read_back: readBack(t) + tag, reason: 'WhatsApp could not deliver the Approve button to this number (on the test number Meta only allows approved recipients). Tell them to sign it in their own wallet at ringfence dot evalengine dot ai slash wallet slash send, or send 0.2 NEAR or less by PIN.' };
       return { ok: true, approvalSent: true, whatsapp: sent, read_back: readBack(t) + tag, next: 'PIN accepted. Tell them: an Approve button is on their WhatsApp, valid for two minutes.' };
     }
     const r = await execute(call.id, b, t);
@@ -209,10 +210,13 @@ async function askApproval(b: Binding, callId: string, t: Transfer, left: string
   if (!buttons) {
     // Only a dry-run server may print tokens: on a real one, log access would be spend access.
     if (devServer()) console.log(`[wallet] no WhatsApp token: approval for ${b.phone}: approve:${token} / reject:${token}`);
+    return 'dry' as const;
+  }
+  try { await buttons(b.phone, body, token); return true; } catch (e) {
+    console.error('approval buttons', (e as Error).message.slice(0, 160));
+    approvals.delete(token);
     return false;
   }
-  await buttons(b.phone, body, token).catch((e) => console.error('approval buttons', e));
-  return true;
 }
 
 /** A button tap (interactive.button_reply id "approve:<token>" / "reject:<token>"). Single use, 120 s, only from the bound phone. */
