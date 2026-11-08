@@ -20,7 +20,7 @@ const WA_URL = 'https://wa.me/15551444220?text=hi';
 const i = (n: number) => ({ '--i': n }) as CSSProperties;
 
 const TRY: Record<Desk | 'auto', string[]> = {
-  auto: ['Send 0.5 NEAR to liho.near.', 'What is my balance?', 'I want to launch a memecoin.'],
+  auto: ['Send 0.1 NEAR to liho.near.', 'What is my balance?', 'I want to launch a memecoin.'],
   launch: ['It’s a coin about a sleepy otter.', 'Call it Sleepy Otter, ticker ZZZ.', 'Make the ticker NEAR.', 'Yes, set it up.'],
 };
 const DESK_LABEL: Record<Desk | 'auto', string> = { auto: 'Let it ask', launch: 'Launch a coin' };
@@ -82,7 +82,7 @@ function Landing() {
         <section className="cta" aria-labelledby="cta-h">
           <div className="say">
             <h2 id="cta-h" className="rise">Try a call.</h2>
-            <p className="rise" style={i(1)}>Ask for 0.5 NEAR to liho.near and listen for the read-back and the limit check. Without a bound, funded wallet the call ends in a dry run, and it says so. Mainnet signing is pending.</p>
+            <p className="rise" style={i(1)}>Ask for 0.1 NEAR to liho.near and listen for the read-back and the limit check. Without a bound, funded wallet the call ends in a dry run, and it says so. Mainnet signing is pending.</p>
             <div className="acts rise" style={i(2)}>
               <a className="btn" href="#call" onClick={tryCall}>Try a call</a>
               <a href="/proof">Read the proof</a>
@@ -183,10 +183,10 @@ function LiveCall({ network }: { network: string }) {
 const at = (n: number) => ({ animationDelay: `${n * 600}ms` });
 const SampleCall = () => (
   <>
-    <div className="msg you" style={at(0)}><span className="who">You</span>Send 0.5 NEAR to liho.near.</div>
-    <div className="msg agent" style={at(1)}><span className="who">Ringfence</span>0.5 NEAR to liho dot near. Your PIN, please.</div>
+    <div className="msg you" style={at(0)}><span className="who">You</span>Send 0.1 NEAR to liho.near.</div>
+    <div className="msg agent" style={at(1)}><span className="who">Ringfence</span>0.1 NEAR to liho dot near. Your PIN, please.</div>
     <div className="msg you" style={at(2)}><span className="who">You</span><span className="pins"><i /><i /><i /><i /></span> <span className="muted">blanked from the transcript</span></div>
-    <div className="msg sys" style={at(3)}><span className="who">phone.you.near · contract</span><span className="ok">Approved · 0.5 of 3 NEAR today</span></div>
+    <div className="msg sys" style={at(3)}><span className="who">phone.you.near · contract</span><span className="ok">Approved · 0.1 of 3 NEAR today</span></div>
   </>
 );
 
@@ -196,13 +196,13 @@ const Msg = ({ who, children }: { who: 'you' | 'agent'; children: ReactNode }) =
 );
 const STAGES: { name: string; c: string; t: string; ui: ReactNode }[] = [
   { name: 'Call', c: 'She calls the line', t: 'From WhatsApp, or from the browser call on this page. Her number is bound to a NEAR wallet once, with one signature from the owner’s wallet.',
-    ui: <><div className="ui-head"><b><span className="live-dot lit" />Browser call</b><span className="muted">connected</span></div><div className="ui-body tx"><Msg who="agent">Hi, it’s Ringfence. What would you like to do?</Msg><Msg who="you">Send 0.5 NEAR to liho.near.</Msg></div></> },
+    ui: <><div className="ui-head"><b><span className="live-dot lit" />Browser call</b><span className="muted">connected</span></div><div className="ui-body tx"><Msg who="agent">Hi, it’s Ringfence. What would you like to do?</Msg><Msg who="you">Send 0.1 NEAR to liho.near.</Msg></div></> },
   { name: 'Read back', c: 'It reads the payment back', t: 'Amount and recipient, out loud. The server builds the read-back and the transaction from the same request, so what she hears is what gets sent.',
     ui: <><div className="ui-head"><b>Read back</b><span className="muted">wallet desk</span></div><div className="ui-body tx"><Msg who="agent">0.1 NEAR to liho.near, a saved recipient. Say your PIN.</Msg><div className="kv"><span>Amount</span><span>0.1 NEAR</span></div><div className="kv"><span>Recipient</span><span>liho.near, saved</span></div></div></> },
   { name: 'PIN', c: 'She says her PIN', t: 'Four digits. The speech and chat models hear them inside NEAR AI TEEs. Our app server sees them too and isn’t attested. We keep a salted hash and blank the PIN from the transcript.',
     ui: <><div className="ui-head"><b>Spoken PIN</b><span className="muted">try 1 of 3</span></div><div className="ui-body keypad"><div className="dots"><i className="f" /><i className="f" /><i className="f" /><i className="f" /></div><p className="pin-line">Stored as a salted hash, blanked from the transcript. 3 wrong tries lock it 15 min.</p></div></> },
   { name: 'Contract', c: 'The contract decides', t: 'The AI can only ask. The contract checks the limits and the recipient, and only then does the transfer land on NEAR. On this site the call stops at a labelled dry run while mainnet signing is pending.',
-    ui: <><div className="ui-head"><b>phone.you.near</b><span className="muted">transfer_near</span></div><div className="ui-body"><Meter label="This transfer" value="0.5 of 1 NEAR" w={50} /><Meter label="Today" value="0.5 of 3 NEAR" w={17} /><div className="kv"><span>Recipient</span><span>liho.near, saved</span></div><div className="kv"><span>Result</span><span className="ok">Approved</span></div></div></> },
+    ui: <><div className="ui-head"><b>phone.you.near</b><span className="muted">transfer_near</span></div><div className="ui-body"><Meter label="This transfer" value="0.1 of 1 NEAR" w={10} /><Meter label="Today" value="0.1 of 3 NEAR" w={3} /><div className="kv"><span>Recipient</span><span>liho.near, saved</span></div><div className="kv"><span>Result</span><span className="ok">Approved</span></div></div></> },
 ];
 
 function Stages() {
@@ -296,7 +296,7 @@ function Scam() {
       <div className="txt">
         <h2 id="scam-h" className="rise">A caller can talk Mum into a payment, and they can talk an AI into one too.</h2>
         <p className="rise" style={i(1)}>Say someone claiming to be her bank asks for 50 NEAR, and the AI falls for it and asks for the PIN.</p>
-        <p className="rise" style={i(2)}>The contract still refuses. 50 is over the 0.2 NEAR per-transfer limit, and safe-vault.near isn’t saved, so a smaller send would wait 10 minutes for the owner to cancel it.</p>
+        <p className="rise" style={i(2)}>The contract still refuses. 50 is over the 1 NEAR per-transfer limit, and safe-vault.near isn’t saved, so a smaller send would wait 10 minutes for the owner to cancel it.</p>
         <p className="worst rise" style={i(3)}>If we went rogue, a bound wallet would lose at most 3 NEAR a day.</p>
       </div>
     </section>
@@ -307,7 +307,7 @@ function Scam() {
 // Mirrors contracts/phone-wallet/src/lib.rs and src/desks/wallet.ts with the mainnet default limits. For a recipient
 // you haven't saved, the voice agent doesn't send at all: it texts you a link to sign it in your own wallet. The
 // contract's 10-minute queue is the backstop if the agent key ever asks for a new recipient directly. NEAR only on the site.
-const L = { tx: 0.2, day: 0.5, unit: 'NEAR', dp: 2 };
+const L = { tx: 1, day: 3, unit: 'NEAR', dp: 2 };
 
 function Seg<T extends string | number>({ label, value, set, opts }: { label: string; value: T; set: (v: T) => void; opts: [T, string][] }) {
   return (
@@ -355,16 +355,16 @@ function Fence() {
         <h2 id="fence-h" className="rise">What the AI can’t do</h2>
         <p className="demo-note rise">A model of the contract’s rules with the mainnet defaults. Nothing here touches a chain.</p>
         <div className="blk rise">
-          <h3>0.2 NEAR per transfer</h3>
+          <h3>1 NEAR per transfer</h3>
           <p>Ask for more and the agent tells you, then sends a link to sign it yourself.</p>
           <div className="ctl"><label htmlFor="amt">Amount: <output htmlFor="amt">{fmt(a)} {l.unit}</output></label>
             <div className="rng" style={{ '--p': `${((amt - 1) / 19) * 100}%` } as CSSProperties}><input type="range" id="amt" min={1} max={20} step={1} value={amt} onChange={(e) => setAmt(+e.target.value)} /></div>
           </div>
         </div>
         <div className="blk rise">
-          <h3>0.5 NEAR a day</h3>
+          <h3>3 NEAR a day</h3>
           <p>Per asset. It is the most that can move in a day, whoever runs the operator.</p>
-          <Seg label="Already sent today" value={spent} set={setSpent} opts={[[0, 'Nothing'], [0.4, '0.2 NEAR'], [0.9, '0.45 NEAR']]} />
+          <Seg label="Already sent today" value={spent} set={setSpent} opts={[[0, 'Nothing'], [0.4, '1.2 NEAR'], [0.9, '2.7 NEAR']]} />
         </div>
         <div className="blk rise">
           <h3>New recipients wait 10 minutes</h3>
@@ -408,7 +408,7 @@ function Evidence() {
           <div className="kv"><span>Explorer</span><span>link pending</span></div>
         </div></div></div>
         <div className={`pane${p === 'call' ? ' on' : ''}`}><div data-ui><div className="ui-head"><b>Browser call</b><span className="muted">dry run</span></div><div className="ui-body tx">
-          <div className="msg you" style={{ animation: 'none' }}><span className="who">You</span>Send 0.5 NEAR to liho.near.</div>
+          <div className="msg you" style={{ animation: 'none' }}><span className="who">You</span>Send 0.1 NEAR to liho.near.</div>
           <div className="msg sys" style={{ animation: 'none' }}><span className="who">Result</span>Stopped before signing: DRY RUN.</div>
         </div></div></div>
       </div>

@@ -139,7 +139,7 @@ pub struct State {
 
 #[near]
 impl PhoneWallet {
-    /// Defaults (mainnet-safe): 0.2 NEAR per transfer, 0.5 NEAR per day; on each EVM chain in `evm_chain_ids` (default
+    /// Defaults (mainnet-safe): 1 NEAR per transfer, 3 NEAR per day; on each EVM chain in `evm_chain_ids` (default
     /// [8453] = Base) 0.0005 per transfer, 0.002 per day in that chain's native units; new recipients wait 600 s.
     /// Every default can be overridden here at bind time, and later by the owner.
     /// Without the "evm" feature, `evm_chain_ids` and `evm_limit` are accepted but ignored: no chain, no EVM limit.
@@ -150,7 +150,7 @@ impl PhoneWallet {
         require!(agent != owner, "the agent can't be the owner");
         const E24: u128 = 10u128.pow(24); // compile-time constants: no u128 division in the wasm
         let mut limits = Map::default();
-        limits.insert("near".into(), near_limit.unwrap_or(Limit { per_tx: U128(E24 / 5), per_day: U128(E24 / 2) }));
+        limits.insert("near".into(), near_limit.unwrap_or(Limit { per_tx: U128(E24), per_day: U128(3 * E24) }));
         #[cfg(feature = "evm")]
         let chains = {
             const E18: u128 = 10u128.pow(18);
@@ -563,7 +563,7 @@ mod tests {
         let w = mainnet_wallet();
         let s = w.get_state();
         assert_eq!(s.signer.as_str(), "v1.signer");
-        assert_eq!(s.limits["near"], Limit { per_tx: U128(NEAR / 5), per_day: U128(NEAR / 2) });
+        assert_eq!(s.limits["near"], Limit { per_tx: U128(NEAR), per_day: U128(3 * NEAR) });
         #[cfg(feature = "evm")]
         {
             assert_eq!(s.chains, vec![8453]);

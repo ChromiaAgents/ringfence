@@ -325,7 +325,7 @@ await t('wallet: claim (code to the bound phone, refusals, dry run) and bind via
   assert.equal(tx.wallet, undefined, 'no guessed address shown before signing');
   assert.equal(tx.receiverId, env.factoryAccountId); assert.equal(tx.method, 'create_wallet'); assert.equal(tx.deposit, '13000000000000000000000');
   assert.equal(tx.args.owner, 'mum-guardian.testnet'); assert.match(tx.args.phone_hash, /^[0-9a-f]{64}$/);
-  assert.equal(tx.args.near_limit.per_tx, (2n * 10n ** 23n).toString());
+  assert.equal(tx.args.near_limit.per_tx, (10n ** 24n).toString());
 });
 await t('wallet: "how much did I spend?" lists the last 5 transfers (dry run: no chain total)', async () => {
   const { startCall } = await import('../src/agent.ts');

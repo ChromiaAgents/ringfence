@@ -164,7 +164,7 @@ These are optional and empty on purpose:
 
 **Unaudited prototype: keep small amounts.** "Your phone number is a wallet": bind on `/wallet/bind`, then on a call "send 1 NEAR to bob.near" or "send 0.0001 ETH on Base to 0x…" + spoken PIN. Contract `contracts/phone-wallet` (limits per asset, EVM chain allowlist, recipient allowlist, delay queue, Chain Signatures), desk `src/desks/wallet.ts`, logic `src/wallet.ts`, EVM `src/eth.ts`, chain registry `src/chains.ts`. README "Phone wallet" has the trust model. `NETWORK` picks the network: mainnet = `v1.signer` + Base (8453); testnet = `v1.signer-prod.testnet` + Sepolia. Nothing has been deployed yet.
 
-Mainnet defaults (proposed on the bind page, editable before signing; env `WALLET_*` changes the proposal): 0.2 NEAR per transfer, 0.5 per day; 0.0005 ETH per transfer, 0.002 per day on Base; new recipients wait 600 s. Other EVM chains (Ethereum, Arbitrum, Optimism, Polygon, BNB, Avalanche) are in the server's registry but each owner must `allow_chain` them first. The EVM address is the same on every chain.
+Mainnet defaults (proposed on the bind page, editable before signing; env `WALLET_*` changes the proposal): 1 NEAR per transfer, 3 per day; 0.0005 ETH per transfer, 0.002 per day on Base; new recipients wait 600 s. Other EVM chains (Ethereum, Arbitrum, Optimism, Polygon, BNB, Avalanche) are in the server's registry but each owner must `allow_chain` them first. The EVM address is the same on every chain.
 
 ### Wallet factory (ringfence-wallet.near)
 
