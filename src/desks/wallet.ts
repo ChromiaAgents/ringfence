@@ -5,7 +5,7 @@ import { parseUnits, formatUnits } from 'ethers';
 import { env } from '../config.ts';
 import { log, type Call } from '../store.ts';
 import { nearToYocto, yoctoToNear } from '../memecook.ts';
-import { bindingOf, checkPin, live, sendEvm, sendNear, walletState, ethAddressOf } from '../wallet.ts';
+import { bindingOf, checkPin, normalizePin, live, sendEvm, sendNear, walletState, ethAddressOf } from '../wallet.ts';
 import { CHAINS, chainById, findChain, defaultChainIds } from '../chains.ts';
 import { GasShortError, prepareTransfer } from '../eth.ts';
 import type { DeskDef } from './types.ts';
@@ -57,6 +57,7 @@ If a tool refuses, say why in plain words. If a link was sent, say it's on Whats
 async function run(call: Call, name: string, a: any): Promise<unknown> {
   const b = bindingOf(call.from);
   const refuse = (reason: string, extra: object = {}) => { log({ kind: 'refused', desk: 'wallet', callId: call.id, detail: `${name}: ${reason}` }); return { ok: false, reason, ...extra }; };
+  if (!b && call.channel === 'web') return browserDemo(call, name, a);
   if (!b) {
     links.set(call.id, { url: `${env.publicUrl}/wallet/bind`, label: 'Bind your NEAR wallet to this number' });
     return refuse('This number is not bound to a wallet yet. Bind it first: the link is on WhatsApp.', { linkSent: true });
@@ -120,6 +121,38 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     log({ kind: 'wallet', desk: 'wallet', callId: call.id, detail: `${readBack(t)} from ${b.contract}: ${r.url}${r.queuedId != null ? ` (queued #${r.queuedId})` : ''}` });
     links.set(call.id, { url: r.url, label: r.queuedId != null ? 'Queued transfer' : 'Your transaction' });
     return { ok: true, txHash: r.txHash, linkSent: true, queued: r.queuedId != null };
+  }
+  return { error: 'unknown tool' };
+}
+
+// A browser call has no phone number, so no wallet is bound to it. It walks the same steps (read back, spoken PIN,
+// the contract's mainnet default limits) and always stops at a labelled dry run: nothing is read from or sent to a chain.
+const DEMO_LIMIT = { per_tx: 1, unit: 'NEAR' };
+function browserDemo(call: Call, name: string, a: any): unknown {
+  const note = 'BROWSER DEMO: a browser call has no phone number, so no wallet is bound and nothing is sent. Say so plainly.';
+  if (name === 'get_balance') return { ok: true, dryRun: true, demo: true, note };
+  if (name === 'prepare_transfer') {
+    const asset = parseAsset(a.asset);
+    if (asset !== 'near') return { ok: false, reason: 'The browser demo walks a NEAR transfer. Try "send 0.5 NEAR to alice.near".' };
+    const to = String(a.to ?? '').trim().toLowerCase().replace(/\s+dot\s+/g, '.').replace(/\s+/g, '');
+    if (!/^([a-z0-9_-]+\.)*[a-z0-9_-]+\.(near|testnet)$/.test(to)) return { ok: false, reason: 'I need a NEAR account, like alice dot near.' };
+    const amount = String(a.amount ?? '').trim();
+    if (!/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0) return { ok: false, reason: 'How much? Say a number.' };
+    if (Number(amount) > DEMO_LIMIT.per_tx) return { ok: false, demo: true, reason: `That is over the ${DEMO_LIMIT.per_tx} ${DEMO_LIMIT.unit} per-transfer default, so the contract would refuse it. Try 0.5 NEAR.` };
+    const t: Transfer = { to, amount, asset, base: nearToYocto(Number(amount)) };
+    pending.set(call.id, t);
+    return { ok: true, read_back: readBack(t), next: 'Ask for their 4-digit PIN.', note };
+  }
+  if (name === 'confirm_transfer') {
+    const t = pending.get(call.id);
+    if (!t) return { ok: false, reason: 'Nothing to confirm: prepare a transfer first.' };
+    const turn = [...call.turns].reverse().find((x) => x.who === 'caller');
+    const pin = normalizePin(String(a.pin ?? turn?.text ?? ''));
+    if (turn) turn.text = '[PIN]';
+    if (!pin) return { ok: false, reason: 'Say four digits.' };
+    pending.delete(call.id);
+    log({ kind: 'wallet', desk: 'wallet', callId: call.id, detail: `BROWSER DEMO: would ask the contract to send ${readBack(t)}` });
+    return { ok: true, dryRun: true, demo: true, txHash: `demo-${call.id}`, note };
   }
   return { error: 'unknown tool' };
 }

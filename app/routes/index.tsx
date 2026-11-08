@@ -17,19 +17,28 @@ export const Route = createFileRoute('/')({
 });
 
 const WA_URL = 'https://wa.me/15551444220?text=hi';
-const WA_NOTE = 'WhatsApp runs on Meta’s test number for now: ask us to add your number. The browser call works for everyone.';
+const WA_SHORT = '(test number: ask us to add yours).';
 const i = (n: number) => ({ '--i': n }) as CSSProperties;
 
 const TRY: Record<Desk | 'auto', string[]> = {
   auto: ['Send 0.5 NEAR to alice.near.', 'What is my balance?', 'I want to launch a memecoin.', 'I need a new kitchen.'],
   launch: ['It’s a coin about a sleepy otter.', 'Call it Sleepy Otter, ticker ZZZ.', 'Make the ticker NEAR.', 'Yes, set it up.'],
-  business: ['Hi, I need a new kitchen.', 'Medium size, white units.', 'Can you do 30% off?', 'OK, book it for Tuesday.'],
+  business: ['Hi, I need a new kitchen.', 'My name is Sam Lee, postcode E1 6AN.', 'Can you do 30% off?', 'OK, book it for Tuesday.'],
 };
 const DESK_LABEL: Record<Desk | 'auto', string> = { auto: 'Let it ask', launch: 'Launch a coin', business: 'Builder' };
 
 function Landing() {
   const d = Route.useLoaderData();
   useReveal();
+  // The dial loops only when motion is welcome; under reduced motion it stays on its poster.
+  const vidRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const v = vidRef.current, mq = matchMedia('(prefers-reduced-motion: reduce)');
+    if (!v) return;
+    const sync = () => { if (mq.matches) v.pause(); else v.play().catch(() => {}); };
+    sync(); mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
   return (
     <div className="dr">
       <header className="hero">
@@ -45,12 +54,12 @@ function Landing() {
           <h1 className="rise">Call to pay. Your contract caps the AI.</h1>
           <div className="lede">
             <p className="rise" style={i(1)}>Say “send 0.5 NEAR to alice.near” on a call. An AI reads it back and takes your spoken PIN, and a NEAR contract you own decides what it may spend, on NEAR and Base.</p>
-            <p className="worst rise" style={i(2)}><b>Worst case, even if we misbehave:</b> your daily limit, to saved recipients; a new one waits 600 s and you can cancel it. One <code>revoke_agent</code> ends it.</p>
+            <p className="worst rise" style={i(2)}><b>Worst case, even if we misbehave:</b> your daily limit, to saved recipients only. One <code>revoke_agent</code> ends it.</p>
             <div className="acts rise" style={i(3)}>
               <a className="btn" href="#call" onClick={tryCall}>Try a call in your browser</a>
-              <a className="btn ghost" href={WA_URL} target="_blank" rel="noopener">Message on WhatsApp</a>
+              <span>Built at the NEAR hackathon</span>
             </div>
-            <p className="wa-note rise" style={i(4)}>{WA_NOTE}</p>
+            <p className="wa-note rise" style={i(4)}><a href={WA_URL} target="_blank" rel="noopener">Message on WhatsApp</a> {WA_SHORT}</p>
           </div>
         </div>
 
@@ -95,7 +104,7 @@ function Landing() {
       <main>
         <section className="say-sec" id="say" aria-labelledby="say-h">
           <figure className="rise">
-            <video autoPlay muted loop playsInline poster="/media/rotary-dial-dialing-back-with-leds-poster.jpg" width={1280} height={720} aria-label="A rotary dial turning back after a digit">
+            <video ref={vidRef} muted loop playsInline poster="/media/rotary-dial-dialing-back-with-leds-poster.jpg" width={1280} height={720} aria-label="A rotary dial turning back after a digit">
               <source src="/media/rotary-dial-dialing-back-with-leds.webm" type="video/webm" />
             </video>
             <figcaption>A rotary dial returning after each digit.</figcaption>
@@ -131,10 +140,10 @@ function Landing() {
             <h2 id="cta-h" className="rise">Open the line in your browser and ask it to send 0.5 NEAR.</h2>
             <div className="acts rise" style={i(1)}>
               <a className="btn" href="#call" onClick={tryCall}>Try a call</a>
-              <a className="btn ghost" href={WA_URL} target="_blank" rel="noopener">Message on WhatsApp</a>
               <a href="/proof">Read the proof</a>
+              <a href={WA_URL} target="_blank" rel="noopener">Message on WhatsApp</a>
             </div>
-            <p className="wa-note rise" style={i(2)}>{WA_NOTE}</p>
+            <p className="wa-note rise" style={i(2)}>WhatsApp is on a test number for now: ask us to add yours.</p>
           </div>
           <figure className="rise" style={i(2)}><img src="/media/concourse.jpg" width={1600} height={1000} alt="A dark concourse with escalators rising toward lit glass" loading="lazy" /></figure>
         </section>
@@ -191,17 +200,10 @@ function LiveCall({ network, business }: { network: string; business: string }) 
     <div data-ui className="callui" id="call" ref={cardRef} aria-label="Browser call to Ringfence">
       <div className="ui-head">
         <b><span className={`live-dot${call.live ? ' on' : ''}`} />Browser call</b>
-        <span className="st" aria-live="polite">{call.live ? `${call.state} · ${clock}` : call.state}</span>
-      </div>
-      <div className="desks" role="radiogroup" aria-label="Which desk">
-        {(['auto', 'launch', 'business'] as const).map((k) => (
-          <button key={k} type="button" role="radio" aria-checked={pick === k} disabled={call.live} onClick={() => setPick(k)}>{k === 'business' ? business : DESK_LABEL[k]}</button>
-        ))}
+        <span className="st" aria-live="polite">{call.live ? `${call.state} · ${clock}` : call.lines.length ? call.state : 'Sample call · 00:02'}</span>
       </div>
       <div className="ui-body tx" ref={logRef} aria-live="polite">
-        {call.lines.length === 0 && (
-          <p className="empty">Press Call and say “send 0.5 NEAR to alice.near”, or type it below. The greeting arrives in a second or two. This server is on NEAR {network}; without an agent key, sends stop at a labelled dry run.</p>
-        )}
+        {call.lines.length === 0 && !call.live && <SampleCall />}
         {call.lines.map((l, n) => (
           <div key={n} className={`msg ${l.who === 'caller' ? 'you' : l.who === 'agent' ? 'agent' : 'sys'}`}>
             <span className="who">{l.who === 'caller' ? 'You' : l.who === 'agent' ? 'Ringfence' : 'Line'}</span>{l.text}
@@ -212,8 +214,15 @@ function LiveCall({ network, business }: { network: string; business: string }) 
         <div className="signlink"><span>{linkNote}</span><a href={call.link.url} target="_blank" rel="noreferrer">{call.link.label}</a></div>
       )}
       <div className="dial">
-        <button type="button" className={`btn${call.live ? ' end' : ''}`} onClick={call.live ? call.stop : call.start}><Phone />{call.live ? 'Hang up' : 'Call'}</button>
+        <button type="button" className={`call-btn${call.live ? ' end' : ''}`} onClick={call.live ? call.stop : call.start}><Phone />{call.live ? 'Hang up' : 'Call'}</button>
+        <div className="desks" role="radiogroup" aria-label="Which desk">
+          {(['auto', 'launch', 'business'] as const).map((k) => (
+            <button key={k} type="button" role="radio" aria-checked={pick === k} disabled={call.live} onClick={() => setPick(k)}>{k === 'business' ? business : DESK_LABEL[k]}</button>
+          ))}
+        </div>
       </div>
+      {!call.live && !call.lines.length && <p className="help">Press Call, then speak or type. NEAR {network}; sends stop at a labelled dry run.</p>}
+      {(call.live || call.lines.length > 0) && <>
       <div className="tries" role="group" aria-label="Things to say">
         {TRY[active].map((t) => <button key={t} type="button" onClick={() => (call.live ? call.say(t) : setTyped(t))}>{t}</button>)}
       </div>
@@ -228,13 +237,24 @@ function LiveCall({ network, business }: { network: string; business: string }) 
         )}
         <button className="mini go" disabled={!call.live}>Send</button>
       </form>
+      </>}
     </div>
   );
 }
 
+// What the card shows before the first call: the call it will make, played out (as in the approved design).
+const SampleCall = () => (
+  <>
+    <div className="msg you" style={{ animation: 'none' }}><span className="who">You</span>Send 0.5 NEAR to alice.near.</div>
+    <div className="msg agent" style={{ animation: 'none' }}><span className="who">Ringfence</span>0.5 NEAR to alice.near, a saved recipient. Say your PIN to confirm.</div>
+    <div className="msg you" style={{ animation: 'none' }}><span className="who">You</span><span className="pins"><i /><i /><i /><i /></span> <span className="muted">PIN blanked from the transcript</span></div>
+    <div className="msg sys" style={{ animation: 'none' }}><span className="who">phone.you.near</span>Within 1 NEAR per transfer and 3 per day. <code>transfer_near</code> sends; the explorer link follows.</div>
+  </>
+);
+
 // The PIN pad: an illustration of the spoken PIN (keys light in a loop; nothing here is typed or sent).
 function Keypad() {
-  const [lit, setLit] = useState<{ n: number; key: string | null }>({ n: 4, key: null });
+  const [lit, setLit] = useState<{ n: number; key: string | null }>({ n: 0, key: null });
   useEffect(() => {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const pin = ['7', '3', '9', '1'];
@@ -367,10 +387,10 @@ function Fence() {
             <div className="kv"><span>Signed by</span><span>{sign}</span></div>
           </div>
         </div>
-        <p className="demo-note">A demo of the contract’s rules with mainnet defaults, not your wallet. Nothing here touches a chain.</p>
       </div>
       <div className="col">
         <h2 id="fence-h" className="rise">Set your own fence.</h2>
+        <p className="demo-note rise">A demo of the contract’s rules with mainnet defaults. Nothing here touches a chain.</p>
         <div className="blk rise">
           <h3>Every transfer has a ceiling.</h3>
           <p>The mainnet default is 1 NEAR per transfer. Over it, the agent says so and texts you a link to sign it yourself.</p>
@@ -385,7 +405,7 @@ function Fence() {
         </div>
         <div className="blk rise">
           <h3>Strangers need your signature.</h3>
-          <p>Saved recipients go instantly. For a new one the AI doesn’t send: it texts you a link to sign in your own wallet. Behind that, the contract holds any agent transfer to a new recipient for 600 seconds, and you can cancel it.</p>
+          <p>Saved recipients go instantly. For a new one the AI texts you a link to sign in your own wallet; the contract would hold it 600 seconds anyway.</p>
           <Seg label="Recipient" value={rec} set={setRec} opts={[['saved', `${chain === 'near' ? 'alice.near' : '0x1111…2222'} (saved)`], ['new', `${chain === 'near' ? 'bob.near' : '0x9999…0001'} (new)`]]} />
         </div>
         <div className="blk rise">
@@ -441,7 +461,7 @@ function Evidence() {
 
 const Qa = ({ q, a }: { q: string; a: ReactNode }) => (<><dt className="rise">{q}</dt><dd className="rise" style={i(1)}>{a}</dd></>);
 const FAQ: [string, ReactNode][] = [
-  ['What’s the worst case if you misbehave?', <>We hold the agent key, so we could spend without your PIN, but only up to your daily limit, to recipients you saved; anything to a new recipient waits 600 s in the contract, where you can cancel it. One <code>revoke_agent</code> ends it, and <code>withdraw</code> always works.</>],
+  ['What’s the worst case if you misbehave?', <>We hold the agent key, so we could spend without your PIN, but only up to your daily limit, to recipients you saved. The AI won’t send to a new recipient: you sign that in your own wallet, and the contract holds any agent attempt for 600 s so you can cancel it. One <code>revoke_agent</code> ends it, and <code>withdraw</code> always works.</>],
   ['Can the AI be talked into more?', 'It can only ask. The contract checks the limits, the chain and the recipient, and for Base it reads the transaction bytes itself before anything is signed.'],
   ['Who hears my PIN?', 'Speech-to-text and the model, inside NEAR AI TEEs. It is stored only as a salted hash and blanked from the transcript. Three wrong tries lock it for 15 minutes. Our app server itself is not attested.'],
   ['Is my voice private?', 'Chat, speech-to-text, vision and image models run on NEAR AI Cloud in Intel TDX and NVIDIA confidential GPUs; /proof checks all four live. The reply text leaves the TEE when Cartesia is the voice, and on WhatsApp Meta sees call metadata.'],

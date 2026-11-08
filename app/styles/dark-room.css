@@ -135,26 +135,29 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); letter
 /* ---------- the real call ---------- */
 .dr .callui { scroll-margin-top: 24px; }
 .dr .callui .ui-head .st { color: var(--muted); font-variant-numeric: tabular-nums; }
-.dr .desks { display: flex; gap: 4px; padding: 10px 14px 0; flex-wrap: wrap; }
-.dr .desks button { all: unset; cursor: pointer; padding: 0 10px; height: 32px; display: inline-flex; align-items: center; font-size: 14px; color: var(--muted); border-radius: 4px; transition: background-color 180ms ease, color 180ms ease; }
-.dr .desks button[aria-checked=true] { background: var(--fg); color: var(--bg); }
+.dr .desks { display: flex; gap: 2px; flex-wrap: wrap; }
+.dr .desks button { all: unset; cursor: pointer; padding: 0 8px; height: 32px; display: inline-flex; align-items: center; font-size: 14px; color: var(--muted); border-radius: 2px; transition: background-color 180ms ease, color 180ms ease; }
+.dr .desks button[aria-checked=true] { color: var(--fg); box-shadow: inset 0 -1px 0 var(--fg); }
 .dr .desks button:hover:not(:disabled) { color: var(--fg); }
-.dr .desks button[aria-checked=true]:hover { color: var(--bg); }
 .dr .desks button:disabled { cursor: not-allowed; }
 .dr .desks button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 .dr .callui .tx { height: 300px; overflow-y: auto; overscroll-behavior: contain; }
 .dr .callui .empty { margin: auto 0; color: var(--muted); font-size: 15px; text-align: left; max-width: none; }
-.dr .dial { display: flex; gap: 8px; padding: 0 14px 12px; }
-.dr .dial .btn { flex: 1; height: 44px; justify-content: center; font-size: 15px; gap: 8px; }
-.dr .dial .btn svg { width: 16px; height: 16px; }
-.dr .dial .btn.end { background: #3a342e; color: var(--fg); }
-.dr .callui form { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 14px 14px; border-top: 1px solid var(--ui-line); } /* taste-skill-ignore: inside data-ui fragments */
+.dr .dial { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 12px 14px; border-top: 1px solid var(--ui-line); } /* taste-skill-ignore: inside data-ui fragments */
+.dr .call-btn { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border: 1px solid #5a524a; border-radius: 4px; font-size: 15px; color: var(--fg); transition: background-color 160ms ease, transform 140ms ease; } /* taste-skill-ignore: inside data-ui fragments */
+.dr .call-btn:hover { background: #241f1a; }
+.dr .call-btn:active { transform: scale(.97); }
+.dr .call-btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.dr .call-btn svg { width: 15px; height: 15px; }
+.dr .call-btn.end { border-color: var(--ui-line); color: var(--muted); }
+.dr .callui .help { padding: 0 14px 14px; font-size: 14px; color: var(--muted); }
+.dr .callui form { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 14px; } /* taste-skill-ignore: inside data-ui fragments */
 .dr .callui input[type=text] { flex: 1 1 100%; min-width: 0; height: 40px; padding: 0 12px; background: var(--field); border: 1px solid var(--ui-line); border-radius: 6px; color: var(--fg); font: inherit; font-size: 15px; } /* taste-skill-ignore: inside data-ui fragments */
 .dr .callui input[type=text]:focus-visible { outline: 2px solid var(--fg); outline-offset: 0; }
-.dr .mini { all: unset; cursor: pointer; flex: 1; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #221d18; font-size: 14px; transition: background-color 140ms ease, transform 140ms ease; }
-.dr .mini:hover:not(:disabled) { background: #2e2822; }
+.dr .mini { all: unset; cursor: pointer; flex: 1; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; background: transparent; border: 1px solid var(--ui-line); font-size: 14px; transition: background-color 140ms ease, transform 140ms ease; }
+.dr .mini:hover:not(:disabled) { background: #241f1a; }
 .dr .mini:active:not(:disabled) { transform: scale(.97); }
-.dr .mini.go { background: var(--fg); color: var(--bg); }
+.dr .mini.go { border-color: #5a524a; }
 .dr .mini:disabled { opacity: .45; cursor: not-allowed; }
 .dr .mini:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 .dr .tries { padding: 0 14px 14px; display: flex; flex-wrap: wrap; gap: 6px; }
@@ -209,7 +212,7 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); letter
 .dr .fence { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--gap); margin-top: 200px; }
 .dr .fence .out { grid-column: 1 / span 6; position: sticky; top: 0; height: 100svh; background: var(--surface); display: grid; place-items: center; align-content: center; gap: 12px; padding: 24px; }
 .dr .verdict { width: min(420px, 100%); background: var(--bg); }
-.dr .demo-note { width: min(420px, 100%); font-size: var(--step-small); color: var(--muted); }
+.dr .demo-note { font-size: var(--step-small); color: var(--muted); margin-top: 12px; max-width: 44ch; }
 .dr .verdict .big { font-size: 26px; letter-spacing: -0.02em; margin: 2px 0 4px; }
 .dr .verdict .why { font-size: 15px; color: var(--muted); min-height: 4.2em; }
 .dr .verdict .big.no { text-decoration: line-through; text-decoration-thickness: 2px; }
@@ -291,7 +294,8 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); letter
 .js .dr .rise.in { opacity: 1; transform: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .dr .cta figure img, .dr .live-dot.on, .dr .msg, .bubble { animation: none; }
+  .dr .cta figure img, .dr .live-dot.on, .dr .msg, .dr .pulse, .bubble { animation: none; }
+  .dr .meter i, .dr .rng::after, .dr .keys span { transition: none; }
   .js .dr .rise { transform: none; transition: opacity 300ms ease; }
 }
 
@@ -324,7 +328,7 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); letter
   .dr .blk { padding: 0 var(--m); margin-top: 72px; } .dr .blk:first-of-type { margin-top: 40px; }
   .dr .blk:last-child { padding-bottom: 80px; }
   .dr .fence .out { position: sticky; top: 0; height: auto; min-height: 42svh; z-index: 2; padding: 12px var(--m); gap: 6px; }
-  .dr .demo-note { font-size: 14px; }
+  .dr .demo-note { order: -1; padding: 0 var(--m) 24px; margin-top: -20px; font-size: 15px; }
   .dr .verdict .why { min-height: 0; }
   .dr .blk h3 { font-size: 22px; }
   .dr .clause { font-size: 9.4vw; } .dr .blk p { font-size: 16px; }
@@ -346,3 +350,27 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font); letter
   .site-foot .r { text-align: left; }
   .site-credits { padding: 0 16px 40px; }
 }
+
+/* ---------- app screens: square corners, smaller type, gold kept for limits ---------- */
+.app { font-size: 14px; line-height: 1.45; }
+.app .card { border-radius: 4px; }
+.app .control, .typed input, .app .btn { border-radius: 2px; }
+.pill { border-radius: 2px; height: auto; min-height: 22px; padding: 2px 8px; font-size: 13px; white-space: normal; background: transparent; border: 1px solid var(--ui-line); color: var(--muted); }
+.pill.ok { color: var(--fg); border-color: #5a524a; } .pill.warn { color: #e8b4b4; border-color: #4a3434; } .pill.wait { color: var(--muted); }
+.seg { border-radius: 2px; } .seg button { border-radius: 2px; }
+.seg button:hover, .side nav a:hover, .calls button:hover { background: #241f1a; }
+.side nav a { border-radius: 2px; }
+.calls button.on { background: #241f1a; color: var(--fg); }
+.bubble { border-radius: 4px; font-size: 14px; }
+.bubble.tool { background: transparent; border: 1px solid var(--ui-line); }
+.kpis .v { font-weight: 500; }
+.qr { border: 8px solid var(--surface); outline: 1px solid var(--ui-line); border-radius: 2px; } /* taste-skill-ignore: dark frame around the white QR */
+.app code { overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .side { flex-wrap: wrap; }
+  .side nav { flex-wrap: wrap; overflow-x: visible; width: 100%; }
+  .side nav a { padding: 0 8px; }
+}
+.dash .canvas, .dash .grid > *, .dash .stack, .dash .card { min-width: 0; }
+.dash table.ledger td, .dash td .sub { overflow-wrap: anywhere; }
+.bubble { overflow-wrap: anywhere; }

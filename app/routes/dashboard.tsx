@@ -42,6 +42,9 @@ function Dashboard() {
   if (!s) return <main className="app canvas"><Wordmark /><h1>Dashboard</h1><p className="muted">{err || 'Loading…'}</p></main>;
 
   const o = s.owner, lr = s.launchpad.rules;
+  // Old test launches whose name or ticker the desk would now refuse stay in the DB but are not shown.
+  const blocked = (l: Launch) => s.launchpad.blocked_tickers.includes(l.params.symbol.toUpperCase()) || s.launchpad.blocked_names.some((n) => `${l.params.name} ${l.params.symbol}`.toLowerCase().includes(n));
+  const launches = s.launches.filter((l) => !blocked(l));
   const calls = s.calls.filter((c) => desk === 'all' || c.desk === desk);
   const ledger = s.ledger.filter((l) => desk === 'all' || l.desk === desk);
   const paid = s.jobs.filter((j) => j.payment?.status === 'SUCCESS');
@@ -53,7 +56,7 @@ function Dashboard() {
   return (
     <div className="app dash">
       <aside className="side">
-        <div className="ws"><Wordmark /><div>Two desks on one engine<br />Launches on NEAR {s.network}</div></div>
+        <div className="ws"><Wordmark /><div>Wallet, launch and builder desks<br />NEAR {s.network}</div></div>
         <nav aria-label="Sections">
           <a className="on" href="#overview">Overview</a>
           <a href="#launches">Launches</a>
@@ -68,8 +71,8 @@ function Dashboard() {
       <main className="canvas" id="overview">
         <div className="titlerow">
           <div>
-            <h1>Calls and launches</h1>
-            <p className="muted">The last {s.calls.length} calls across both desks{err ? ` · ${err}` : ''}</p>
+            <h1>Calls</h1>
+            <p className="muted">The last {s.calls.length} calls across the desks{err ? ` · ${err}` : ''}</p>
           </div>
           <div className="seg" role="radiogroup" aria-label="Filter by desk">
             {(['all', 'launch', 'business', 'owner'] as const).map((k) => <button key={k} role="radio" aria-checked={desk === k} className={desk === k ? 'on' : ''} onClick={() => setDesk(k)}>{k === 'all' ? 'All desks' : k[0].toUpperCase() + k.slice(1)}</button>)}
@@ -80,15 +83,15 @@ function Dashboard() {
           <div className="stack">
             <section className="card kpis" aria-label="Totals">
               <div><div className="l">Calls</div><div className="v">{s.calls.length}</div><div className="c">{s.calls.filter((c) => !c.endedAt).length} live now</div></div>
-              <div><div className="l">Launches</div><div className="v">{s.launches.length}</div><div className="c">{s.launches.filter((l) => l.status === 'live').length} live on meme.cooking</div></div>
-              <div><div className="l">Deposits paid</div><div className="v">{usd(paid.reduce((n, j) => n + j.depositUsd, 0))}</div><div className="c">{paid.length} of {s.jobs.length} jobs, in {o.payout.asset_symbol}</div></div>
+              <div><div className="l">Launches</div><div className="v">{launches.length}</div><div className="c">{launches.filter((l) => l.status === 'live').length} live on meme.cooking</div></div>
+              <div><div className="l">Deposits paid</div><div className="v">{s.jobs.length ? usd(paid.reduce((n, j) => n + j.depositUsd, 0)) : '–'}</div><div className="c">{s.jobs.length ? `${paid.length} of ${s.jobs.length} jobs, in ${o.payout.asset_symbol}` : 'No jobs booked yet'}</div></div>
               <div><div className="l">Refused or filtered</div><div className="v">{refused.length}</div><div className="c">in the last {s.ledger.length} ledger lines</div></div>
             </section>
 
             <section className="card" aria-labelledby="tr">
               <div className="panelhead">
                 <h2 id="tr">{call ? `Call at ${time(call.startedAt)}` : 'Calls'}{call?.desk ? ` · ${call.desk} desk` : ''}</h2>
-                {call && <span className="muted" style={{ fontSize: 13 }}>{call.channel === 'whatsapp' ? `WhatsApp ${call.from ?? ''}` : call.channel === 'dashboard' ? 'Dashboard' : 'Browser'} · {signed} of {agentTurns} replies TEE-signed {call.endedAt ? '' : '· live'}</span>}
+                {call && <span className="muted" style={{ fontSize: 13 }}>{call.channel === 'whatsapp' ? `WhatsApp ${call.from ?? ''}` : call.channel === 'dashboard' ? 'Dashboard' : 'Browser'}{agentTurns ? ` · ${signed} of ${agentTurns} replies TEE-signed` : ''}{call.endedAt ? '' : ' · live'}</span>}
               </div>
               {call ? (
                 <div className="transcript">
@@ -101,10 +104,10 @@ function Dashboard() {
 
             <section className="card" id="launches" aria-labelledby="lch">
               <div className="panelhead"><h2 id="lch">Launches</h2><span className="muted" style={{ fontSize: 13 }}>Prepared by the desk, signed by the caller</span></div>
-              {s.launches.length ? (
+              {launches.length ? (
                 <div className="scroll"><table>
                   <thead><tr><th>Coin</th><th>Auction</th><th>Logo</th><th>Status</th></tr></thead>
-                  <tbody>{s.launches.map((l) => (
+                  <tbody>{launches.map((l) => (
                     <tr key={l.id}>
                       <td><a href={`/launch/${l.id}`}>${l.params.symbol}</a><span className="sub">{l.params.name} · {time(l.createdAt)}</span></td>
                       <td>{l.params.durationMinutes} min, {l.params.softCapNear} NEAR soft cap<span className="sub">{l.params.team ? `${l.params.team.pct}% team` : 'no team share'} · {l.network}</span></td>

@@ -2,7 +2,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
-import walletCss from '@near-wallet-selector/modal-ui/styles.css?url';
+import walletCss from '../styles/wallet-modal.css?url';
 import { Wordmark } from '../ui';
 import { useNearWallet } from '../near-wallet';
 

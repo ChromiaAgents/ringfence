@@ -154,6 +154,12 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     if (a.caller_confirmed !== true) return { ok: false, reason: 'Read the summary back and get a clear yes first.' };
     if (!padEnabled(pad, lp)) return refuse('That launchpad is switched off by the desk operator today.');
     const jh = pad === 'justhoot';
+    // No logo asked for yet: make one from the description rather than stall the call on "missing icon".
+    if (d.icon == null && d.name && d.symbol) {
+      const g = await generateLogo(d.description || d.name, d.name).catch(() => drawLogo(d.symbol!));
+      Object.assign(d, { icon: g.icon, logoModel: g.model, logoBytes: g.bytes });
+      log({ kind: 'logo', desk: 'launch', callId: call.id, detail: `${d.symbol}: ${g.model}, ${g.bytes} bytes (auto)` });
+    }
     const missing = (jh ? (['name', 'symbol', 'icon'] as const) : (['name', 'symbol', 'icon', 'durationMinutes', 'softCapNear'] as const)).filter((k) => d[k] == null);
     if (missing.length) return { ok: false, reason: `Still missing: ${missing.join(', ')}` };
     // Re-check everything at the last step: drafts can be edited between tools.

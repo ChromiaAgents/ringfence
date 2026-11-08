@@ -238,13 +238,18 @@ export function mockStep(messages: Msg[], tools: unknown[]): { name: string; arg
   return null;
 }
 
-function mockText(messages: Msg[]): string {
+function mockText(messages: Msg[], tools: unknown[] = []): string {
   const lastMsg = messages.at(-1);
+  const names = new Set((tools as any[]).map((t) => t.function?.name));
+  if (lastMsg?.role !== 'tool' && names.has('quote_job')) return 'Happy to help. What size is the job, and can I take your name and postcode?';
+  if (lastMsg?.role !== 'tool' && names.has('confirm_transfer')) return 'Who do you want to pay, and how much?';
   if (lastMsg?.role !== 'tool') return MOCK_REPLIES[mockTurn++ % MOCK_REPLIES.length];
   let out: any = {};
   try { out = JSON.parse(lastMsg.content); } catch {}
   if (out.ok === false || out.error) return `Sorry, I can't do that: ${out.reason ?? out.error}`;
   if (out.read_back) return `That's ${out.read_back}. What's your four digit PIN?`;
+  if (out.demo && out.txHash) return 'Four digits heard. This was a browser demo: no wallet is bound to a browser call, so nothing was sent. On WhatsApp, your bound wallet contract would check the limits and send.';
+  if (out.demo) return 'This is a browser demo: no wallet is bound to a browser call, so there is no balance to read.';
   if (out.dryRun && out.txHash) return 'PIN accepted. This was a dry run: the server has no agent key, so nothing was sent.';
   if (out.txHash) return 'Sent. The transaction link is on WhatsApp.';
   if (out.linkSent) return 'Done. Open the link on your screen, check the details, and sign with your own NEAR wallet.';
@@ -262,7 +267,7 @@ async function mockChat(messages: Msg[], tools: unknown[], o: ChatOpts): Promise
   await wait(Number(process.env.MOCK_TTFT_MS ?? 450)); // time to first token seen on hosted 30B-class models
   const step = messages.at(-1)?.role === 'tool' ? null : mockStep(messages, tools);
   if (step) return { msg: { role: 'assistant', content: null, tool_calls: [{ id: `mock-${++mockSeq}`, type: 'function', function: { name: step.name, arguments: JSON.stringify(step.args) } }] }, proof };
-  const text = mockText(messages);
+  const text = mockText(messages, tools);
   for (const tok of text.match(/\S+\s*/g) ?? []) { o.onText?.(tok); await wait(Number(process.env.MOCK_TOKEN_MS ?? 25)); }
   return { msg: { role: 'assistant', content: text }, proof };
 }

@@ -87,7 +87,8 @@ export function useCall(deskPick: Desk | 'auto' = 'auto') {
       if (typeof m.data !== 'string') {
         if (!s.ctx) return;
         // Clips (one per sentence) arrive while earlier ones play: schedule them back to back.
-        const buf = await s.ctx.decodeAudioData((m.data as ArrayBuffer).slice(0));
+        let buf: AudioBuffer;
+        try { buf = await s.ctx.decodeAudioData((m.data as ArrayBuffer).slice(0)); } catch { return; } // empty/undecodable clip (TTS off or failed)
         const src = s.ctx.createBufferSource(); src.buffer = buf; src.connect(s.ctx.destination);
         const at = Math.max(s.ctx.currentTime + 0.02, s.next ?? 0);
         s.next = at + buf.duration;
@@ -101,6 +102,7 @@ export function useCall(deskPick: Desk | 'auto' = 'auto') {
         return;
       }
       const d = JSON.parse(m.data);
+      if (d.type === 'agent' && !s.playing) setState('Your turn'); // text-only reply (no audio) must not leave "Thinking…"
       if (d.type === 'agent') // sentences of one reply stream in: keep them in one bubble
         setLines((l) => (l.at(-1)?.who === 'agent' ? [...l.slice(0, -1), { who: 'agent', text: l.at(-1)!.text + ' ' + d.text }] : [...l, { who: 'agent', text: d.text }]));
       if (d.type === 'caller') add('caller', d.text);
