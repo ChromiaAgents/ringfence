@@ -59,7 +59,7 @@ function Landing() {
         <Scam />
         <div className="how-intro" id="how-h">
           <h2 className="rise">What happens on the call</h2>
-          <p className="rise" style={i(1)}>The agent passes every payment to the contract for approval. Drag through one call.</p>
+          <p className="rise" style={i(1)}>The agent passes every payment to the contract for approval. Scroll through one call.</p>
         </div>
         <Stages />
         <Fence />
@@ -213,26 +213,45 @@ function Stages() {
     const t = setTimeout(() => setShown(cur), 200);
     return () => clearTimeout(t);
   }, [cur, shown]);
+  // Scroll drives the stage: the section sticks while the tall wrapper scrolls past (desktop only).
+  const wrap = useRef<HTMLDivElement>(null);
+  const span = () => { const w = wrap.current; return w && w.offsetHeight > innerHeight * 1.5 ? w.offsetHeight - innerHeight : 0; };
+  useEffect(() => {
+    const on = () => {
+      const h = span(); if (!h) return;
+      const p = Math.min(1, Math.max(0, -wrap.current!.getBoundingClientRect().top / h));
+      setCur(Math.min(3, Math.floor(p * 4)));
+    };
+    addEventListener('scroll', on, { passive: true }); on();
+    return () => removeEventListener('scroll', on);
+  }, []);
+  const go = (n: number) => {
+    setCur(n);
+    const h = span(); if (!h) return;
+    scrollTo({ top: wrap.current!.getBoundingClientRect().top + scrollY + ((n + 0.5) / 4) * h, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  };
   const s = STAGES[shown];
   const f = cur !== shown ? ' fade' : '';
   return (
+    <div className="stages-wrap" ref={wrap}>
     <section className="stages" id="how" aria-label="What happens on the call">
       <div className="left">
-        <h2 className={`clause rise${f}`}>{s.c}</h2>
-        <p className={`rise${f}`} style={i(1)}>{s.t}</p>
+        <h2 className={`clause${f}`}>{s.c}</h2>
+        <p className={f.trim()}>{s.t}</p>
       </div>
       <div className="right">
         <div data-ui className={`stage-ui${f}`}>{s.ui}</div>
       </div>
       <div className="slider">
         <div className="rng" style={{ '--p': `${(cur / 3) * 100}%` } as CSSProperties}>
-          <input type="range" min={0} max={3} step={1} value={cur} onChange={(e) => setCur(+e.target.value)} aria-label="Stage of the call" aria-valuetext={STAGES[cur].name} />
+          <input type="range" min={0} max={3} step={1} value={cur} onChange={(e) => go(+e.target.value)} aria-label="Stage of the call" aria-valuetext={STAGES[cur].name} />
         </div>
         <div className="stage-names">
-          {STAGES.map((x, n) => <button key={x.name} type="button" className={n === cur ? 'on' : ''} onClick={() => setCur(n)}><b>{n + 1}</b> {x.name}</button>)}
+          {STAGES.map((x, n) => <button key={x.name} type="button" className={n === cur ? 'on' : ''} onClick={() => go(n)}><b>{n + 1}</b> {x.name}</button>)}
         </div>
       </div>
     </section>
+    </div>
   );
 }
 

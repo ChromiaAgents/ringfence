@@ -173,7 +173,8 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .dr .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* ---------- how it works: drag through the stages ---------- */
-.dr .stages { position: relative; display: grid; grid-template-columns: 1fr 1fr; min-height: 88svh; }
+.dr .stages-wrap { height: 340svh; }
+.dr .stages { position: sticky; top: 0; height: 100svh; display: grid; grid-template-columns: 1fr 1fr; min-height: 88svh; }
 .dr .how-intro { padding: 0 var(--m) 48px; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px 32px; }
 .dr .how-intro h2 { font-size: var(--step-h2); }
 .dr .how-intro p { color: var(--muted); max-width: 44ch; }
@@ -309,7 +310,8 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
   .dr .bar .btn { height: 44px; padding: 0 16px; }
   .dr .top { padding-top: 32px; row-gap: 40px; }
   .dr .hero { padding-bottom: 72px; }
-  .dr .stages { grid-template-columns: 1fr; }
+  .dr .stages-wrap { height: auto; }
+  .dr .stages { grid-template-columns: 1fr; position: relative; height: auto; }
   .dr .how-intro { padding-bottom: 32px; }
   .dr .stages .right { order: -1; min-height: 46svh; padding: 24px var(--m) 100px; overflow: hidden; }
   .dr .stages .left { padding: 40px var(--m); }
