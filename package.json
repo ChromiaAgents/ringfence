@@ -9,6 +9,9 @@
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
     "test": "DB_FILE=data/test-db.json tsx test/run.ts",
+    "demo:check": "vite build --logLevel error && tsx scripts/demo-check.ts",
+    "attest": "tsx scripts/attest.ts",
+    "test:quote": "tsx test/quote.ts",
     "test:justhoot": "tsx test/justhoot-cost.ts",
     "test:meme": "tsx test/meme-cost.ts",
     "test:latency": "MOCK_LLM=1 DB_FILE=data/latency-db.json tsx test/latency.ts"
@@ -27,6 +30,7 @@
     "@near-wallet-selector/meteor-wallet": "^10.1.4",
     "@near-wallet-selector/modal-ui": "^10.1.4",
     "@near-wallet-selector/my-near-wallet": "^10.1.4",
+    "@phala/dcap-qvl": "^0.7.1",
     "@tanstack/react-router": "^1.170.46",
     "@tanstack/react-start": "^1.169.4",
     "ethers": "^6.17.0",

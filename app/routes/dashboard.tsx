@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useState } from 'react';
-import { Signed, Wordmark, time, usd, type Proof } from '../ui';
+import { AttRow, Signed, Wordmark, time, usd, type Att, type Proof } from '../ui';
 
 // First paint comes with data; the page then polls /api/state every 3 s.
 const getState = createServerFn({ method: 'GET' }).handler(async () => (await import('../backend.ts')).snapshot(false));
@@ -19,7 +19,6 @@ type Call = { id: string; channel: 'web' | 'whatsapp' | 'dashboard'; desk?: stri
 type Job = { id: string; serviceName: string; quotedUsd: number; discountPct: number; depositUsd: number; preferredDate?: string; notes?: string; caller: Record<string, string>; createdAt: number; payment?: { status: string; originSymbol: string; chain: string } };
 type Launch = { id: string; createdAt: number; network: string; status: string; params: { name: string; symbol: string; durationMinutes: number; softCapNear: number; team?: { pct: number } }; logoModel?: string; signer?: string; memeId?: number; txHash?: string; reason?: string };
 type Ledger = { at: number; kind: string; desk?: string; detail: string };
-type Att = { model: string; signingAddress: string; quoteBindsKey: boolean } | { model: string; error: string };
 type State = {
   owner: { business: { name: string; owner: string; area: string }; rules: Record<string, any>; payout: { asset_symbol: string; recipient: string } };
   launchpad: { rules: Record<string, any>; blocked_tickers: string[]; blocked_names: string[] };
@@ -29,7 +28,6 @@ type State = {
 const PAYLABEL: Record<string, string> = { SUCCESS: 'Paid', PENDING_DEPOSIT: 'Waiting on the customer', KNOWN_DEPOSIT_TX: 'Deposit seen', PROCESSING: 'Swapping', REFUNDED: 'Refunded', FAILED: 'Failed', INCOMPLETE_DEPOSIT: 'Short deposit' };
 const KIND: Record<string, string> = { quote: 'Quote', refused: 'Refused', booking: 'Booking', deposit_link: 'Link sent', payment: 'Payment', message: 'Message', launch_prepared: 'Launch ready', launch_signed: 'Signed', logo: 'Logo', photo: 'Photo', rules_proposed: 'Rules proposed', rules_changed: 'Rules changed', filtered: 'Reply filtered' };
 const LSTATUS: Record<string, string> = { prepared: 'Waiting for signature', signed: 'Signed', live: 'Live', failed: 'Failed' };
-const ROLE: Record<string, string> = { 'Qwen/Qwen3.6-35B-A3B-FP8': 'Chat', 'openai/whisper-large-v3': 'Speech to text', 'Qwen/Qwen3-VL-30B-A3B-Instruct': 'Photo reader', 'black-forest-labs/FLUX.2-klein-4B': 'Logo' };
 
 function Dashboard() {
   const [s, setS] = useState<State | null>(Route.useLoaderData());
@@ -186,15 +184,8 @@ function Dashboard() {
             <section className="railsec" aria-labelledby="ah">
               <h2 id="ah">Private inference</h2>
               <div className="card att">
-                {s.attestation.map((a) => (
-                  <div key={a.model} className="attrow">
-                    <p><b>{ROLE[a.model] ?? 'Model'}</b> · {a.model}</p>
-                    {'error' in a ? (a.error === 'pending' ? <p><span className="pill wait">Fetching attestation</span></p> : <p><span className="pill warn">Attestation unavailable</span> {a.error}</p>) : (
-                      <p>{a.quoteBindsKey ? <span className="pill ok">Key bound in the TDX quote</span> : <span className="pill warn">Not bound</span>} <span className="mono" title={a.signingAddress}>{a.signingAddress.slice(0, 10)}…</span></p>
-                    )}
-                  </div>
-                ))}
-                <p className="muted" style={{ margin: 0 }}>Chat and photo replies are checked against these keys. Intel’s signature on the quote is not checked here; use the <a href="https://docs.near.ai/cloud/verification/verification-center">NEAR Verification Center</a> for that.</p>
+                {s.attestation.map((a) => <AttRow key={a.model} a={a} />)}
+                <p className="muted" style={{ margin: 0 }}>Checked by this server with a fresh nonce: Intel’s signature on the TDX quote (collateral from Intel PCS), the key and nonce in report_data, and the GPUs through NVIDIA NRAS. Chat and photo replies are checked against these keys. Details on the public <a href="/proof">proof page</a>; verify independently with <code>npm run attest</code> or the <a href="https://docs.near.ai/cloud/verification/">NEAR AI verification docs</a>.</p>
               </div>
             </section>
           </div>

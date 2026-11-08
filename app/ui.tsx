@@ -37,3 +37,37 @@ export const Coin = ({ label, className }: { label: string; className?: string }
     <text x="116" y="116" dy=".35em" textAnchor="middle" fontFamily="var(--display)" fontSize={label.length > 4 ? 32 : 44} fill="var(--ink)">${label}</text>
   </svg>
 );
+
+// ---- TEE attestation, as verified by this server (src/ai.ts attest) ----
+export type Att =
+  | { model: string; signingAddress: string; nonce: string; quoteBindsKey: boolean; reportDataHex: string; fetchedAt: number;
+      intel: { verified: boolean; tcbStatus?: string; advisoryIds?: string[]; error?: string };
+      gpu: { verified: boolean; gpus?: number; arch?: string; nonceMatch?: boolean; error?: string } }
+  | { model: string; error: string };
+export const ROLE: Record<string, string> = { 'Qwen/Qwen3.6-35B-A3B-FP8': 'Chat', 'openai/whisper-large-v3': 'Speech to text', 'Qwen/Qwen3-VL-30B-A3B-Instruct': 'Photo reader', 'black-forest-labs/FLUX.2-klein-4B': 'Logo' };
+const ok = (b: boolean, yes: string, no: string, title?: string) => <span className={`pill ${b ? 'ok' : 'warn'}`} title={title}>{b ? yes : no}</span>;
+
+export function AttRow({ a, full }: { a: Att; full?: boolean }) {
+  return (
+    <div className="attrow">
+      <p><b>{ROLE[a.model] ?? 'Model'}</b> · {a.model}</p>
+      {'error' in a ? (a.error === 'pending' ? <p><span className="pill wait">Fetching attestation</span></p> : <p><span className="pill warn">Attestation unavailable</span> {a.error}</p>) : (
+        <>
+          <p style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {ok(a.intel.verified, `Intel TDX quote valid · ${a.intel.tcbStatus}`, 'Intel TDX quote not verified', a.intel.error)}
+            {ok(a.quoteBindsKey, 'Key + nonce bound', 'Key not bound')}
+            {ok(a.gpu.verified, `NVIDIA GPU attested · ${a.gpu.gpus} × ${a.gpu.arch}`, 'GPU not verified', a.gpu.error)}
+          </p>
+          <p className="mono" style={{ wordBreak: 'break-all' }} title={a.signingAddress}>{full ? a.signingAddress : `${a.signingAddress.slice(0, 10)}…`}</p>
+          {full && (
+            <>
+              {a.intel.error && <p className="muted">Intel: {a.intel.error}</p>}
+              {a.gpu.error && <p className="muted">GPU: {a.gpu.error}</p>}
+              <p className="muted mono" style={{ wordBreak: 'break-all' }}>nonce {a.nonce}<br />report_data {a.reportDataHex}<br />checked {new Date(a.fetchedAt).toISOString()}</p>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

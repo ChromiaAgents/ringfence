@@ -28,11 +28,16 @@ export type PublicLaunch = ReturnType<typeof publicLaunch>;
 export const findLaunch = (id: string) => db.launches.find((l) => l.id === id);
 
 // Everything the dashboard shows. Icons are dropped from the list (the launch page has them).
-export async function snapshot(withAttestation = true) {
+export async function attestationAll(fresh = false) {
   const { attest } = await import('../src/ai.ts');
   const models = [env.llmModel, env.sttModel, env.visionModel, env.imageModel];
+  return Promise.all(models.map((m) => attest(m, fresh).catch((e: any) => ({ model: m, error: String(e.message) }))));
+}
+
+export async function snapshot(withAttestation = true) {
+  const models = [env.llmModel, env.sttModel, env.visionModel, env.imageModel];
   const attestation = withAttestation
-    ? await Promise.all(models.map((m) => attest(m).catch((e: any) => ({ model: m, error: String(e.message) }))))
+    ? await attestationAll()
     : models.map((m) => ({ model: m, error: 'pending' })); // first paint doesn't wait on the attestation service
   return JSON.parse(JSON.stringify({
     owner: owner(), launchpad: launchpad(), network: env.network, attestation, model: env.llmModel,

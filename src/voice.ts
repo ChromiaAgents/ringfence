@@ -42,15 +42,16 @@ export function attachVoice(server: Server) {
     const line = voiceLine((pcm, rate) => { if (ws.readyState === 1) ws.send(wav(pcm, rate)); });
     const sendLink = () => {
       const l = call.desk ? DESKS[call.desk].link?.(call) : null;
-      ws.send(JSON.stringify({ type: 'desk', desk: call.desk ?? null }));
       if (l) ws.send(JSON.stringify({ type: 'link', ...l }));
+      ws.send(JSON.stringify({ type: 'desk', desk: call.desk ?? null })); // last: marks the end of the turn
     };
     const hooks = (signal: AbortSignal, timing: any) => ({
       signal, timing,
       onSentence: (s: string) => { ws.send(JSON.stringify({ type: 'agent', text: s })); line.say(s); },
       onSlowTool: (name: string) => line.filler(name === 'photo' ? 'photo' : 'draw'),
     });
-    warmUp().then(() => { ws.send(JSON.stringify({ type: 'agent', text: greeting })); return line.say(greeting); }).catch(console.error);
+    ws.send(JSON.stringify({ type: 'agent', text: greeting })); // text first: the call works even if TTS is still loading
+    warmUp().then(() => line.say(greeting)).catch(console.error);
     let busy = false;
     ws.on('message', async (data, isBinary) => {
       if (!isBinary) {

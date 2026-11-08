@@ -11,8 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ProofRouteImport } from './routes/proof'
 import { Route as ApiOwnerRouteImport } from './routes/api/owner'
 import { Route as ApiPriceRouteImport } from './routes/api/price'
+import { Route as ApiProofRouteImport } from './routes/api/proof'
 import { Route as ApiQrRouteImport } from './routes/api/qr'
 import { Route as ApiStateRouteImport } from './routes/api/state'
 import { Route as ApiTickerRouteImport } from './routes/api/ticker'
@@ -37,6 +39,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProofRoute = ProofRouteImport.update({
+  id: '/proof',
+  path: '/proof',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiOwnerRoute = ApiOwnerRouteImport.update({
   id: '/api/owner',
   path: '/api/owner',
@@ -45,6 +52,11 @@ const ApiOwnerRoute = ApiOwnerRouteImport.update({
 const ApiPriceRoute = ApiPriceRouteImport.update({
   id: '/api/price',
   path: '/api/price',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProofRoute = ApiProofRouteImport.update({
+  id: '/api/proof',
+  path: '/api/proof',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiQrRoute = ApiQrRouteImport.update({
@@ -116,8 +128,10 @@ const ApiPayJobIdStatusRoute = ApiPayJobIdStatusRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/proof': typeof ProofRoute
   '/api/owner': typeof ApiOwnerRoute
   '/api/price': typeof ApiPriceRoute
+  '/api/proof': typeof ApiProofRoute
   '/api/qr': typeof ApiQrRoute
   '/api/state': typeof ApiStateRoute
   '/api/ticker': typeof ApiTickerRoute
@@ -135,8 +149,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/proof': typeof ProofRoute
   '/api/owner': typeof ApiOwnerRoute
   '/api/price': typeof ApiPriceRoute
+  '/api/proof': typeof ApiProofRoute
   '/api/qr': typeof ApiQrRoute
   '/api/state': typeof ApiStateRoute
   '/api/ticker': typeof ApiTickerRoute
@@ -155,8 +171,10 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/proof': typeof ProofRoute
   '/api/owner': typeof ApiOwnerRoute
   '/api/price': typeof ApiPriceRoute
+  '/api/proof': typeof ApiProofRoute
   '/api/qr': typeof ApiQrRoute
   '/api/state': typeof ApiStateRoute
   '/api/ticker': typeof ApiTickerRoute
@@ -176,8 +194,10 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/proof'
     | '/api/owner'
     | '/api/price'
+    | '/api/proof'
     | '/api/qr'
     | '/api/state'
     | '/api/ticker'
@@ -195,8 +215,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
+    | '/proof'
     | '/api/owner'
     | '/api/price'
+    | '/api/proof'
     | '/api/qr'
     | '/api/state'
     | '/api/ticker'
@@ -214,8 +236,10 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/proof'
     | '/api/owner'
     | '/api/price'
+    | '/api/proof'
     | '/api/qr'
     | '/api/state'
     | '/api/ticker'
@@ -234,8 +258,10 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
+  ProofRoute: typeof ProofRoute
   ApiOwnerRoute: typeof ApiOwnerRoute
   ApiPriceRoute: typeof ApiPriceRoute
+  ApiProofRoute: typeof ApiProofRoute
   ApiQrRoute: typeof ApiQrRoute
   ApiStateRoute: typeof ApiStateRoute
   ApiTickerRoute: typeof ApiTickerRoute
@@ -263,6 +289,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/proof': {
+      id: '/proof'
+      path: '/proof'
+      fullPath: '/proof'
+      preLoaderRoute: typeof ProofRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/owner': {
       id: '/api/owner'
       path: '/api/owner'
@@ -275,6 +308,13 @@ declare module '@tanstack/react-router' {
       path: '/api/price'
       fullPath: '/api/price'
       preLoaderRoute: typeof ApiPriceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/proof': {
+      id: '/api/proof'
+      path: '/api/proof'
+      fullPath: '/api/proof'
+      preLoaderRoute: typeof ApiProofRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/qr': {
@@ -402,8 +442,10 @@ const ApiPayJobIdRouteWithChildren = ApiPayJobIdRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
+  ProofRoute: ProofRoute,
   ApiOwnerRoute: ApiOwnerRoute,
   ApiPriceRoute: ApiPriceRoute,
+  ApiProofRoute: ApiProofRoute,
   ApiQrRoute: ApiQrRoute,
   ApiStateRoute: ApiStateRoute,
   ApiTickerRoute: ApiTickerRoute,

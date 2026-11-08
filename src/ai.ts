@@ -13,9 +13,26 @@ export type Msg =
   | { role: 'tool'; tool_call_id: string; content: string };
 export type ToolCall = { id: string; type: 'function'; function: { name: string; arguments: string } };
 
-// ---- attestation (preflight): which key signs for this model inside a TEE ----
+// ---- attestation (preflight): which key signs for this model inside a TEE, and whether that TEE is genuine ----
+//
+// For each model we fetch NEAR AI's attestation report with a fresh nonce and check, in this process:
+//  1. Intel TDX: the quote's ECDSA signature chain up to Intel's root, against collateral fetched from Intel PCS
+//     (@phala/dcap-qvl, pure JS), and the TCB status Intel reports for that platform.
+//  2. report_data inside the (now verified) quote binds the model's signing address and our nonce.
+//  3. NVIDIA GPUs: the report's GPU evidence is sent to NVIDIA NRAS; we check the returned JWT's ES384 signature
+//     against NVIDIA's JWKS, the overall result, each GPU's nonce match, and that the evidence carries our nonce.
+// Not checked here: that the TDX measurements (MRTD, RTMRs) match a published NEAR AI build. See README.
 
-export type Attested = { model: string; signingAddress: string; nonce: string; quoteBindsKey: boolean; fetchedAt: number };
+export type IntelCheck = { verified: boolean; tcbStatus?: string; advisoryIds?: string[]; error?: string };
+export type GpuCheck = { verified: boolean; gpus?: number; arch?: string; nonceMatch?: boolean; error?: string };
+export type Attested = {
+  model: string; signingAddress: string; nonce: string; fetchedAt: number;
+  /** report_data binds signing address + our nonce (read from the verified quote when Intel's check passed). */
+  quoteBindsKey: boolean;
+  intel: IntelCheck;
+  gpu: GpuCheck;
+  reportDataHex: string;
+};
 const attested = new Map<string, Attested>(); // per model
 
 // TDX quote v4: 48-byte header + TD report; report_data is the last 64 bytes of the 584-byte TD report.
@@ -24,28 +41,81 @@ function quoteReportData(quoteHex: string) {
   return q.subarray(48 + 520, 48 + 584).toString('hex');
 }
 
-export async function attest(model = env.llmModel): Promise<Attested> {
+const INTEL_PCS = 'https://api.trustedservices.intel.com';
+export async function verifyIntelQuote(quoteHex: string): Promise<IntelCheck & { reportDataHex?: string }> {
+  try {
+    const qvl = (await import('@phala/dcap-qvl')).default as typeof import('@phala/dcap-qvl');
+    const quote = Buffer.from(quoteHex, 'hex');
+    const collateral = await qvl.getCollateral(INTEL_PCS, quote);
+    const r: any = qvl.verify(quote, collateral, Math.floor(Date.now() / 1000)); // throws on a bad signature or chain
+    const rd = r.report?.data?.reportData;
+    return { verified: true, tcbStatus: r.status, advisoryIds: r.advisory_ids ?? [], reportDataHex: rd ? Buffer.from(rd).toString('hex') : undefined };
+  } catch (e: any) {
+    return { verified: false, error: String(e?.message ?? e).slice(0, 200) };
+  }
+}
+
+const NRAS = 'https://nras.attestation.nvidia.com';
+const jwtPart = (s: string) => JSON.parse(Buffer.from(s, 'base64url').toString());
+async function verifyJwt(token: string, keys: any[]) {
+  const [h, p, sig] = token.split('.');
+  const head = jwtPart(h);
+  const jwk = keys.find((k) => k.kid === head.kid);
+  if (!jwk || head.alg !== 'ES384') throw new Error(`NRAS key ${head.kid} not in NVIDIA JWKS`);
+  const { createPublicKey, verify } = await import('node:crypto');
+  const ok = verify('sha384', Buffer.from(`${h}.${p}`), { key: createPublicKey({ key: { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y }, format: 'jwk' }), dsaEncoding: 'ieee-p1363' }, Buffer.from(sig, 'base64url'));
+  if (!ok) throw new Error('NRAS token signature invalid');
+  const claims = jwtPart(p);
+  if (claims.iss !== NRAS) throw new Error('NRAS token issuer ' + claims.iss);
+  if (claims.exp && claims.exp * 1000 < Date.now()) throw new Error('NRAS token expired');
+  return claims;
+}
+
+export async function verifyGpu(nvidiaPayload: string | undefined, nonce: string): Promise<GpuCheck> {
+  if (!nvidiaPayload) return { verified: false, error: 'no GPU evidence in the report' };
+  try {
+    const ev = JSON.parse(nvidiaPayload);
+    const nonceMatch = ev.nonce === nonce;
+    const [res, jwks] = await Promise.all([
+      fetch(`${NRAS}/v3/attest/gpu`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: nvidiaPayload, signal: AbortSignal.timeout(20_000) }),
+      fetch(`${NRAS}/.well-known/jwks.json`, { signal: AbortSignal.timeout(10_000) }).then((r) => r.json() as any),
+    ]);
+    if (!res.ok) throw new Error(`NRAS ${res.status}: ${(await res.text()).slice(0, 120)}`);
+    const out: any = await res.json(); // [["JWT", platformToken], { "GPU-0": token, ... }]
+    const overall = await verifyJwt(out[0][1], jwks.keys);
+    const per = await Promise.all(Object.values(out[1] ?? {}).map((t) => verifyJwt(String(t), jwks.keys)));
+    const gpusOk = per.length > 0 && per.every((c) => c['x-nvidia-gpu-attestation-report-nonce-match'] === true && c.measres === 'success');
+    return { verified: overall['x-nvidia-overall-att-result'] === true && gpusOk && nonceMatch, gpus: per.length, arch: ev.arch, nonceMatch };
+  } catch (e: any) {
+    return { verified: false, error: String(e?.message ?? e).slice(0, 200) };
+  }
+}
+
+export async function attest(model = env.llmModel, fresh = false): Promise<Attested> {
   const hit = attested.get(model);
-  if (hit && Date.now() - hit.fetchedAt < 10 * 60_000) return hit;
+  if (!fresh && hit && Date.now() - hit.fetchedAt < 10 * 60_000) return hit;
   const nonce = randomBytes(32).toString('hex');
   const u = new URL(`${BASE}/attestation/report`);
   for (const [k, v] of Object.entries({ model, provider: 'near', include_tls_fingerprint: 'false', signing_algo: 'ecdsa', nonce }))
     u.searchParams.set(k, v);
-  const r = await fetch(u, { headers: { accept: 'application/json', 'x-no-aliasing': 'true' }, signal: AbortSignal.timeout(10_000) });
+  const r = await fetch(u, { headers: { accept: 'application/json', 'x-no-aliasing': 'true' }, signal: AbortSignal.timeout(15_000) });
   if (!r.ok) throw new Error(`attestation ${r.status}`);
   const d: any = await r.json();
   const reports = (d.model_attestations ?? []).filter((m: any) => m.signing_algo === 'ecdsa' && m.request_nonce === nonce);
   if (reports.length === 0) throw new Error('no NEAR model attestation for ' + model);
   const m = reports[0];
-  // ponytail: checks the quote's report_data binds this key + our nonce; Intel's signature on the
-  // quote itself is not checked here (use dcap-qvl or the NEAR Verification Center for that).
-  const rd = quoteReportData(m.intel_quote);
+  const [intel, gpu] = await Promise.all([verifyIntelQuote(m.intel_quote), verifyGpu(m.nvidia_payload, nonce)]);
+  const rd = intel.reportDataHex ?? quoteReportData(m.intel_quote);
   const addr = m.signing_address.toLowerCase().replace(/^0x/, '');
+  // report_data = signing address (20 bytes, zero-padded to 32) || our nonce (32 bytes)
   const a: Attested = {
     model,
     signingAddress: m.signing_address.toLowerCase(),
     nonce,
-    quoteBindsKey: rd.includes(addr) && rd.includes(nonce),
+    quoteBindsKey: rd.startsWith(addr) && rd.endsWith(nonce),
+    intel: { verified: intel.verified, tcbStatus: intel.tcbStatus, advisoryIds: intel.advisoryIds, error: intel.error },
+    gpu,
+    reportDataHex: rd,
     fetchedAt: Date.now(),
   };
   attested.set(model, a);
@@ -65,7 +135,7 @@ export type ChatOpts = { onText?: (delta: string) => void; signal?: AbortSignal;
  * So we hash every raw byte we read, before any SSE parsing.
  */
 export async function chat(messages: Msg[], tools: unknown[], model = env.llmModel, o: ChatOpts = {}): Promise<{ msg: Extract<Msg, { role: 'assistant' }>; proof: Proof }> {
-  if (env.mockLlm) return mockChat(messages, o);
+  if (env.mockLlm) return mockChat(messages, tools, o);
   const pre = await attest(model).catch(() => null);
   const body = JSON.stringify({
     model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}), temperature: 0.3, max_tokens: o.maxTokens ?? 400,
@@ -120,24 +190,72 @@ export async function chat(messages: Msg[], tools: unknown[], model = env.llmMod
   return { msg: { role: 'assistant', content: content || null, ...(tool_calls.length ? { tool_calls } : {}) }, proof };
 }
 
-// ---- mock mode (MOCK_LLM=1): no key needed; streams a scripted reply token by token with model-like timing ----
+// ---- mock mode (MOCK_LLM=1): no key needed. A tiny keyword script stands in for the model, including the tool
+// calls a real model would make, so both desks can be walked end to end offline. The tools, rules, pages and
+// ledger are the real ones; only the model's choices are scripted. Replies stream token by token with model-like timing.
 
 const MOCK_REPLIES = [
   'Sure, I can help with that. What is the coin about, in a few words?',
   'Love it. What would you like to call it, and what ticker should it have?',
   'Got it. How long should the auction run, and what soft cap in NEAR?',
 ];
-let mockTurn = 0;
-async function mockChat(messages: Msg[], o: ChatOpts): Promise<{ msg: Extract<Msg, { role: 'assistant' }>; proof: Proof }> {
+let mockTurn = 0, mockSeq = 0;
+const SERVICES = ['kitchen', 'bathroom', 'extension', 'repair'];
+const textOf = (m: Msg) => (typeof m.content === 'string' ? m.content : Array.isArray(m.content) ? m.content.map((c: any) => c.text ?? '').join(' ') : '') ?? '';
+
+/** The scripted "model": which tool to call for the caller's last line, or null for a plain reply. */
+export function mockStep(messages: Msg[], tools: unknown[]): { name: string; args: unknown } | null {
+  const names = new Set((tools as any[]).map((t) => t.function?.name));
+  const last = [...messages].reverse().find((m) => m.role === 'user');
+  const u = last ? textOf(last) : '';
+  if (names.has('set_coin')) {
+    if (/justhoot/i.test(u)) return { name: 'set_launchpad', args: { launchpad: 'justhoot' } };
+    const c = u.match(/call it ([^,.]+?),?\s+ticker\s+\$?([A-Za-z0-9]+)/i);
+    if (c) return { name: 'set_coin', args: { name: c[1].trim(), ticker: c[2], description: 'a meme coin made on a phone call' } };
+    if (/\blogo\b|\bvibe\b/i.test(u)) return { name: 'make_logo', args: { vibe: u } };
+    const h = u.match(/(\d+|one|two)\s*(hour|minute)/i), cap = u.match(/soft cap\s*(\d+)/i);
+    if (h && cap) { const n = /one/i.test(h[1]) ? 1 : /two/i.test(h[1]) ? 2 : Number(h[1]); return { name: 'set_auction', args: { duration_minutes: /hour/i.test(h[2]) ? n * 60 : n, soft_cap_near: Number(cap[1]) } }; }
+    const team = u.match(/(\d+)\s*%.*team|team.*?(\d+)\s*%/i);
+    if (team) return { name: 'set_team_allocation', args: { pct: Number(team[1] ?? team[2]), cliff_days: 30, vesting_days: 90 } };
+    if (/^\s*(yes|yeah|yep|do it|go ahead|set it up)\b/i.test(u)) return { name: 'prepare_launch', args: { caller_confirmed: true } };
+  }
+  if (names.has('quote_job')) {
+    const said = messages.filter((m) => m.role === 'user').map(textOf).join(' ').toLowerCase();
+    const service = [...SERVICES].reverse().find((x) => said.includes(x)) ?? 'repair';
+    const who = u.match(/name is ([A-Za-z]+(?: [A-Za-z]+)?).*postcode ([A-Za-z0-9 ]+)/i);
+    if (who) return { name: 'save_caller', args: { name: who[1], postcode: who[2].trim() } };
+    if (/\bbook\b/i.test(u)) return { name: 'book_visit', args: { service_id: service, size: 'medium', preferred_date: (u.match(/for (\w+)/i) ?? [])[1] } };
+    const off = u.match(/(\d+)\s*%\s*off/i);
+    if (off || SERVICES.some((x) => u.toLowerCase().includes(x)) || /\bquote\b|no discount/i.test(u))
+      return { name: 'quote_job', args: { service_id: service, size: 'medium', discount_pct: off ? Number(off[1]) : 0 } };
+  }
+  return null;
+}
+
+function mockText(messages: Msg[]): string {
+  const lastMsg = messages.at(-1);
+  if (lastMsg?.role !== 'tool') return MOCK_REPLIES[mockTurn++ % MOCK_REPLIES.length];
+  let out: any = {};
+  try { out = JSON.parse(lastMsg.content); } catch {}
+  if (out.ok === false || out.error) return `Sorry, I can't do that: ${out.reason ?? out.error}`;
+  if (out.linkSent) return 'Done. Open the link on your screen, check the details, and sign with your own NEAR wallet.';
+  if (out.depositLinkSent) return `You're booked. The deposit is ${out.depositUsd} dollars; the link is on your screen.`;
+  if (out.priceUsd != null) return `That comes to ${out.priceUsd} dollars, with a ${out.depositUsd} dollar deposit. Shall I book it?`;
+  return 'Got it. What next?';
+}
+
+async function mockChat(messages: Msg[], tools: unknown[], o: ChatOpts): Promise<{ msg: Extract<Msg, { role: 'assistant' }>; proof: Proof }> {
   const wait = (ms: number) => new Promise<void>((ok, bad) => {
     const t = setTimeout(ok, ms);
     o.signal?.addEventListener('abort', () => { clearTimeout(t); bad(new Error('aborted')); }, { once: true });
   });
-  const text = MOCK_REPLIES[mockTurn++ % MOCK_REPLIES.length];
+  const proof: Proof = { chatId: 'mock', model: 'mock', requestHash: '', responseHash: '', status: 'unverified', kind: 'mock' };
   await wait(Number(process.env.MOCK_TTFT_MS ?? 450)); // time to first token seen on hosted 30B-class models
+  const step = messages.at(-1)?.role === 'tool' ? null : mockStep(messages, tools);
+  if (step) return { msg: { role: 'assistant', content: null, tool_calls: [{ id: `mock-${++mockSeq}`, type: 'function', function: { name: step.name, arguments: JSON.stringify(step.args) } }] }, proof };
+  const text = mockText(messages);
   for (const tok of text.match(/\S+\s*/g) ?? []) { o.onText?.(tok); await wait(Number(process.env.MOCK_TOKEN_MS ?? 25)); }
-  void messages;
-  return { msg: { role: 'assistant', content: text }, proof: { chatId: 'mock', model: 'mock', requestHash: '', responseHash: '', status: 'unverified', kind: 'mock' } };
+  return { msg: { role: 'assistant', content: text }, proof };
 }
 
 async function verifyLater(p: Proof, pre: Attested | null) {
@@ -155,7 +273,7 @@ async function verifyLater(p: Proof, pre: Attested | null) {
     p.kind = s.signature_kind;
     p.status =
       s.text === expected && signer === String(s.signing_address).toLowerCase() &&
-      (s.signature_kind !== 'provider_tee' || (pre?.quoteBindsKey && pre.signingAddress === signer))
+      (s.signature_kind !== 'provider_tee' || (pre?.quoteBindsKey && pre.intel.verified && pre.signingAddress === signer))
         ? 'verified'
         : 'unverified';
     return;
