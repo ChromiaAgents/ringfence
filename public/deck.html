@@ -9,10 +9,16 @@
 @font-face { font-family: Geist; src: url(/fonts/geist-latin.woff2); font-weight: 100 900; font-display: swap; }
 :root { --bg: #0c0a08; --surface: #181512; --fg: #f4f3f1; --muted: #b8b2a8; --accent: #00ec97; --on: #0c0a08; }
 * { margin: 0; box-sizing: border-box; }
-html { scroll-snap-type: y mandatory; background: var(--bg); }
-body { overflow-x: clip; color: var(--fg); font: 400 clamp(17px, 1.5vw, 24px)/1.45 Geist, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+html { background: var(--bg); }
+.deck { display: flex; height: 100svh; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.deck::-webkit-scrollbar { display: none; }
+.ctl { position: fixed; right: 20px; bottom: 16px; display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ctl button { width: 44px; height: 44px; border: 0; background: var(--surface); color: var(--fg); font: inherit; font-size: 20px; cursor: pointer; }
+.ctl button:disabled { opacity: .35; cursor: default; }
+.ctl button:focus-visible { outline: 2px solid var(--accent); }
+body { overflow: hidden; color: var(--fg); font: 400 clamp(17px, 1.5vw, 24px)/1.45 Geist, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
 a { color: var(--fg); text-underline-offset: 3px; }
-.slide { min-height: 100svh; scroll-snap-align: start; padding: clamp(28px, 5vw, 80px) clamp(20px, 6vw, 96px); display: flex; flex-direction: column; justify-content: center; gap: clamp(18px, 2.4vw, 36px); }
+.slide { flex: 0 0 100vw; height: 100svh; overflow-y: auto; overflow-x: clip; scroll-snap-align: start; scroll-snap-stop: always; padding: clamp(28px, 5vw, 80px) clamp(20px, 6vw, 96px) 76px; display: flex; flex-direction: column; justify-content: safe center; gap: clamp(18px, 2.4vw, 36px); }
 h1, h2 { font: 400 clamp(36px, 5.2vw, 84px)/1.02 Battlefin, Geist, sans-serif; letter-spacing: -0.01em; max-width: 20ch; }
 h2 { font-size: clamp(30px, 4vw, 64px); max-width: 24ch; }
 h1 span, h2 span { color: var(--muted); }
@@ -45,9 +51,10 @@ img.wide { width: 100%; height: auto; display: block; }
 .nums p.big { font-size: clamp(36px, 4.6vw, 72px); }
 .cta { display: inline-block; padding: 14px 26px; background: var(--fg); color: var(--bg); font-weight: 600; text-decoration: none; }
 @media (max-width: 800px) { .two { grid-template-columns: minmax(0, 1fr); } .row { grid-template-columns: minmax(0, 1fr); gap: 4px; } .nums { grid-template-columns: minmax(0, 1fr); } }
-@media print { @page { size: 1600px 900px; margin: 0; } html { scroll-snap-type: none; } body { font-size: 22px; } .slide { height: 900px; min-height: 0; padding: 64px 88px; page-break-after: always; break-after: page; } h1 { font-size: 80px; } h2 { font-size: 58px; } .big { font-size: 110px; } .nums p.big { font-size: 64px; } }
+@media print { @page { size: 1600px 900px; margin: 0; } body { font-size: 22px; overflow: visible; } .deck { display: block; height: auto; overflow: visible; } .ctl { display: none; } .slide { height: 900px; overflow: hidden; padding: 64px 88px; page-break-after: always; break-after: page; } h1 { font-size: 80px; } h2 { font-size: 58px; } .big { font-size: 110px; } .nums p.big { font-size: 64px; } }
 </style>
 
+<main class="deck" id="deck" tabindex="-1">
 <section class="slide">
   <div class="makers"><span class="brand" style="color:#f4f3f1;margin-right:auto">Ringfence</span><img src="/brand/chromia-logo-dark.svg" alt="Chromia"><span>×</span><img src="/brand/evalengine-wordmark-light.svg" alt="evalengine"><span>×</span><img src="/brand/near-mark-light.svg" alt="NEAR"></div>
   <h1>Mum sends a money gift by phone call. <span>You open it by saying the magic words.</span></h1>
@@ -127,8 +134,19 @@ img.wide { width: 100%; height: auto; display: block; }
   <p><a href="https://ringfence.evalengine.ai">ringfence.evalengine.ai</a> · <a href="https://github.com/ChromiaAgents/ringfence">github.com/ChromiaAgents/ringfence</a> · <a href="/stats">live numbers</a> · <a href="/proof">attestation</a></p>
   <p class="muted">Tracks: Social Money, Real-World Money, AI Security &amp; Defense, Privacy &amp; Private AI, Open Innovation. Made by Chromia x evalengine x NEAR.</p>
 </section>
+</main>
+<div class="ctl"><button id="prev" aria-label="Previous slide">←</button><span id="n" aria-live="polite">1 / 9</span><button id="next" aria-label="Next slide">→</button></div>
 <script>
-// Arrow keys and space move one slide.
-addEventListener('keydown', (e) => { const d = { ArrowDown: 1, ArrowRight: 1, PageDown: 1, ' ': 1, ArrowUp: -1, ArrowLeft: -1, PageUp: -1 }[e.key]; if (!d) return; e.preventDefault(); scrollBy({ top: d * innerHeight, behavior: 'smooth' }); });
+// A slider: arrows on screen, arrow keys, space, swipe, and #3 in the address opens slide 3.
+const deck = document.getElementById('deck'), total = deck.children.length;
+const at = () => Math.round(deck.scrollLeft / deck.clientWidth);
+const go = (i, smooth = true) => deck.scrollTo({ left: Math.max(0, Math.min(total - 1, i)) * deck.clientWidth, behavior: smooth ? 'smooth' : 'auto' });
+const show = () => { const i = at(); n.textContent = `${i + 1} / ${total}`; prev.disabled = i === 0; next.disabled = i === total - 1; history.replaceState(null, '', `#${i + 1}`); };
+prev.onclick = () => go(at() - 1); next.onclick = () => go(at() + 1);
+deck.addEventListener('scroll', show, { passive: true });
+addEventListener('keydown', (e) => { const d = { ArrowRight: 1, ArrowDown: 1, PageDown: 1, ' ': 1, ArrowLeft: -1, ArrowUp: -1, PageUp: -1 }[e.key]; if (!d) return; e.preventDefault(); go(at() + d); });
+addEventListener('resize', () => go(at(), false));
+addEventListener('hashchange', () => go((parseInt(location.hash.slice(1)) || 1) - 1));
+go((parseInt(location.hash.slice(1)) || 1) - 1, false); show();
 </script>
 </html>

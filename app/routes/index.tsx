@@ -39,6 +39,9 @@ function Landing() {
           <Wordmark />
           <Makers />
           <span className="sp" />
+          <a className="code" href="/deck.html">Deck</a>
+          <a className="code" href="/stats">Stats</a>
+          <a className="code" href="/proof">Proof</a>
           <a className="code" href={CODE_URL}>Code</a>
           <a className="btn" href="#call" onClick={tryCall}>Try a call</a>
         </nav>
@@ -61,6 +64,9 @@ function Landing() {
       </header>
 
       <main>
+        <a className="info rise" href="/deck.html" aria-label="Open the deck">
+          <img src="/infographic.png" width={1600} height={900} loading="lazy" alt="Three steps: Mum calls and asks for a money packet with the words merry christmas; her contract checks the limits and locks the money; each grandchild says the words on a call and gets a share." />
+        </a>
         <Scam />
         <div className="how-intro" id="how-h">
           <h2 className="rise">What happens on the call</h2>
