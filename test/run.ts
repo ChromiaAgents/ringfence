@@ -208,6 +208,16 @@ t('red packets: a browser caller gives an account after the words; expiry sends 
   assert.equal(findPacket(p.id)!.refunded, true);
   assert.match(((await openPacket(p.id, 'bob.testnet', ['恭喜发财'])) as any).reason, /expired/);
 });
+t('security: owner data (call transcripts, ledger) is never loaded through a server function', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  // A server function gets its own public address, outside the owner-password check in server.ts.
+  for (const f of readdirSync('app/routes').filter((x) => x.endsWith('.tsx'))) {
+    const src = readFileSync(`app/routes/${f}`, 'utf8');
+    if (!src.includes('createServerFn')) continue;
+    assert.ok(!/snapshot\(|db\.calls|db\.ledger|db\.wallets/.test(src), `${f} reads owner data inside a server function`);
+  }
+  assert.ok(!readFileSync('app/routes/dashboard.tsx', 'utf8').includes('createServerFn('), 'the dashboard loads its data from /api/state only');
+});
 t('chain: a failed cross-contract step is read from the receipts; sends from one account run in order', async () => {
   const { receiptFailure } = await import('../src/wallet.ts');
   assert.equal(receiptFailure({ receipts_outcome: [{ outcome: { status: { SuccessValue: '' } } }] }), null);

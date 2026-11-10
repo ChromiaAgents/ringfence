@@ -1,13 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useState } from 'react';
 import { AttRow, Makers, Signed, SiteFooter, Wordmark, time, type Att, type Proof } from '../ui';
 
-// First paint comes with data; the page then polls /api/state every 3 s.
-const getState = createServerFn({ method: 'GET' }).handler(async () => (await import('../backend.ts')).snapshot(false));
+// The data comes only from /api/state, which the server puts behind the owner's password. It used to be loaded by a
+// server function too, and a server function has its own public address that the password check never saw: anyone
+// could read the last 30 call transcripts. Never load owner data through a server function.
 
 export const Route = createFileRoute('/dashboard')({
-  loader: () => getState() as Promise<State>,
   head: () => ({ meta: [{ title: 'Dashboard · Ringfence' }] }),
   component: Dashboard,
 });
@@ -27,7 +26,7 @@ const KIND: Record<string, string> = { refused: 'Refused', launch_prepared: 'Lau
 const LSTATUS: Record<string, string> = { prepared: 'Waiting for signature', signed: 'Signed', live: 'Live', failed: 'Failed' };
 
 function Dashboard() {
-  const [s, setS] = useState<State | null>(Route.useLoaderData());
+  const [s, setS] = useState<State | null>(null);
   const [err, setErr] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   const [desk, setDesk] = useState<'all' | 'launch' | 'wallet'>('all');
