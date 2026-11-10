@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ProofRouteImport } from './routes/proof'
+import { Route as StatsRouteImport } from './routes/stats'
 import { Route as ApiProofRouteImport } from './routes/api/proof'
 import { Route as ApiQrRouteImport } from './routes/api/qr'
 import { Route as ApiStateRouteImport } from './routes/api/state'
@@ -43,6 +44,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const ProofRoute = ProofRouteImport.update({
   id: '/proof',
   path: '/proof',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StatsRoute = StatsRouteImport.update({
+  id: '/stats',
+  path: '/stats',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiProofRoute = ApiProofRouteImport.update({
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/proof': typeof ProofRoute
+  '/stats': typeof StatsRoute
   '/api/proof': typeof ApiProofRoute
   '/api/qr': typeof ApiQrRoute
   '/api/state': typeof ApiStateRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/proof': typeof ProofRoute
+  '/stats': typeof StatsRoute
   '/api/proof': typeof ApiProofRoute
   '/api/qr': typeof ApiQrRoute
   '/api/state': typeof ApiStateRoute
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/proof': typeof ProofRoute
+  '/stats': typeof StatsRoute
   '/api/proof': typeof ApiProofRoute
   '/api/qr': typeof ApiQrRoute
   '/api/state': typeof ApiStateRoute
@@ -204,6 +213,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/proof'
+    | '/stats'
     | '/api/proof'
     | '/api/qr'
     | '/api/state'
@@ -226,6 +236,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/proof'
+    | '/stats'
     | '/api/proof'
     | '/api/qr'
     | '/api/state'
@@ -248,6 +259,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/proof'
+    | '/stats'
     | '/api/proof'
     | '/api/qr'
     | '/api/state'
@@ -271,6 +283,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
   ProofRoute: typeof ProofRoute
+  StatsRoute: typeof StatsRoute
   ApiProofRoute: typeof ApiProofRoute
   ApiQrRoute: typeof ApiQrRoute
   ApiStateRoute: typeof ApiStateRoute
@@ -309,6 +322,13 @@ declare module '@tanstack/react-router' {
       path: '/proof'
       fullPath: '/proof'
       preLoaderRoute: typeof ProofRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stats': {
+      id: '/stats'
+      path: '/stats'
+      fullPath: '/stats'
+      preLoaderRoute: typeof StatsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/proof': {
@@ -451,6 +471,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
   ProofRoute: ProofRoute,
+  StatsRoute: StatsRoute,
   ApiProofRoute: ApiProofRoute,
   ApiQrRoute: ApiQrRoute,
   ApiStateRoute: ApiStateRoute,

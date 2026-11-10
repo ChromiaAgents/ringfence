@@ -283,6 +283,22 @@ await t('first payment to a new recipient: held until its wait is over, then sen
     assert.match(told.at(-1)!, /did not go through/); assert.equal(db.held.filter((h) => h.phone === phone).length, 0);
   } finally { setNotifier(undefined); db.wallets = db.wallets.filter((w) => w.phone !== phone); }
 });
+await t('security: public stats are numbers only (nothing anyone said, no phone numbers, no packet words)', async () => {
+  const { publicStats } = await import('../src/stats.ts');
+  const { startCall } = await import('../src/agent.ts');
+  const { createPacket } = await import('../src/packets.ts');
+  const { env } = await import('../src/config.ts');
+  const c = startCall('whatsapp', '15559998877').call;
+  c.turns.push({ at: Date.now(), who: 'caller', text: 'my secret sentence zzqqxx' });
+  await createPacket({ from: 'x.testnet', yocto: 10n ** 22n, count: 1, lucky: false, words: 'zzwordszz' });
+  const s = publicStats();
+  const leaves: unknown[] = []; const walk = (o: any) => (o && typeof o === 'object' ? Object.values(o).forEach(walk) : leaves.push(o)); walk(s);
+  const allowed = new Set<unknown>([env.network, env.llmModel, env.sttModel]);
+  for (const v of leaves) assert.ok(v === null || typeof v === 'number' || typeof v === 'boolean' || allowed.has(v), `unexpected value in public stats: ${String(v)}`);
+  const text = JSON.stringify(s);
+  assert.ok(!/zzqqxx|zzwordszz|15559998877/.test(text));
+  assert.ok(s.calls.total >= 1 && s.packets.made >= 1);
+});
 await t('chain: a failed cross-contract step is read from the receipts; sends from one account run in order', async () => {
   const { receiptFailure } = await import('../src/wallet.ts');
   assert.equal(receiptFailure({ receipts_outcome: [{ outcome: { status: { SuccessValue: '' } } }] }), null);

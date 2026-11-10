@@ -77,6 +77,13 @@ function Landing() {
           <Evidence />
         </section>
 
+        <section className="faq" id="money" aria-labelledby="money-h">
+          <h2 id="money-h" className="rise">Who pays for this</h2>
+          <dl>
+            {MONEY.map(([q, a]) => <Qa key={q} q={q} a={a} />)}
+          </dl>
+        </section>
+
         <section className="faq" id="faq" aria-labelledby="faq-h">
           <h2 id="faq-h" className="rise">Fair questions</h2>
           <dl>
@@ -414,8 +421,9 @@ function Evidence() {
       <p className="sub rise">Tests and attestation run today, and you can run them with no keys. The mainnet runs are pending and get explorer links when they happen.</p>
       <div className="ev-list" onMouseLeave={() => setP('tee')}>
         <a className="ev-row rise" href="/proof" {...on('tee')}><span className="what">Private AI attestation</span><span className="st ok">3 of 3 models verified</span><span className="detail">Intel TDX attestation report, key and nonce binding, NVIDIA GPUs through NRAS. /proof re-runs the check live, or run npm run attest.</span></a>
-        <a className="ev-row rise" href={CODE_URL} {...on('room')}><span className="what">Contract and app tests</span><span className="st ok">Passing</span><span className="detail">npm test runs 43 app tests; cargo test runs 57 contract tests. npm run demo:check walks a send to a labelled dry run.</span></a>
-        <div className="ev-row pending rise" tabIndex={0} {...on('meter')}><span className="what">Phone wallet deployed on mainnet</span><span className="st">Pending</span><span className="detail">The nearblocks link goes here once it runs.</span></div>
+        <a className="ev-row rise" href={CODE_URL} {...on('room')}><span className="what">Contract and app tests</span><span className="st ok">Passing</span><span className="detail">npm test runs 51 app checks; cargo test runs 60 contract unit tests and 6 on a local NEAR sandbox. npm run demo:check walks a send and a money packet to a labelled dry run.</span></a>
+        <a className="ev-row rise" href="/packet/demo" {...on('call')}><span className="what">Money packets by voice</span><span className="st ok">Working, dry run</span><span className="detail">Fund one on a call, open a share by saying the words. Play money until the contracts are on mainnet. Live counts are on /stats.</span></a>
+        <div className="ev-row pending rise" tabIndex={0} {...on('meter')}><span className="what">Contracts deployed on mainnet</span><span className="st">Pending</span><span className="detail">The nearblocks link goes here once it runs.</span></div>
         <div className="ev-row pending rise" tabIndex={0} {...on('call')}><span className="what">A NEAR transfer by voice</span><span className="st">Pending</span><span className="detail">Nothing has been signed on chain yet.</span></div>
         <div className="ev-row pending rise" tabIndex={0} {...on('exchange')}><span className="what">An over-limit send, refused on chain</span><span className="st">Pending</span><span className="detail">The contract test covers it. The mainnet transaction is still to come.</span></div>
       </div>
@@ -440,6 +448,14 @@ function Evidence() {
 }
 
 const Qa = ({ q, a }: { q: string; a: ReactNode }) => (<><dt className="rise">{q}</dt><dd className="rise" style={i(1)}>{a}</dd></>);
+// How the line earns. What is built is said to be built; what is not is said to be next.
+const MONEY: [string, ReactNode][] = [
+  ['Brands pay to hand out packets (built into the contract)', 'A shop or a community funds a packet as a promotion: “say our slogan, get paid”. The packets contract takes 5% plus the cost of each new wallet when the packet is funded, and sends it to the Ringfence treasury on chain. Family packets are free.'],
+  ['Every packet makes new wallets', 'Someone who opens a share gets a wallet tied to their phone number, with money already in it. That is how WeChat Pay got onto phones in 2015. A new wallet costs us 0.013 NEAR, about five cents.'],
+  ['Packets that grow: staking and yield (next, not built)', 'A packet that is staked until it is opened: a gift for a birthday three months away earns NEAR staking yield in the meantime, the opener gets the gift plus the yield, and Ringfence keeps a share of the yield. It is designed, and it only changes the packets contract. It is not in this build.'],
+  ['Cash-out and swap fees (later)', 'A small fee when someone moves their money out to a bank or another chain through NEAR Intents.'],
+];
+
 const FAQ: [string, ReactNode][] = [
   ['Why can anyone try a real wallet here?', 'Because the limits aren’t ours to bend. The demo wallet is a NEAR contract that only pays one saved account and caps every send and every day, so the PIN on this page can’t move more than the contract allows. Approve cards show on the page instead of WhatsApp, and Not me locks only your session, so one visitor can’t block the demo for the rest.'],
   ['What if you go rogue?', 'Inside the cap and only to saved recipients. See the worst case above.'],

@@ -539,3 +539,19 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
   .pk-side h1 { font-size: 40px; } .pk-blank { margin-top: 20px; } .pk-acts { margin-top: 16px; } .pk-lead { margin-top: 24px; }
   .pk-slip { margin-top: 40px; padding: 24px 20px 40px; }
 }
+
+/* ---------- /stats: the line in numbers. Filled tiles, one step lighter than the ground; no outlines. ---------- */
+.st { max-width: 1120px; margin: 0 auto; padding: 32px 24px 96px; font-size: 17px; line-height: 1.5; }
+.st .brandrow { display: flex; align-items: center; margin-bottom: 56px; font-size: 16px; }
+.st h1 { font-size: clamp(40px, 4.4vw, 64px); line-height: 1; margin: 0; }
+.st-lead { margin: 20px 0 0; max-width: 62ch; color: var(--fg); }
+.st-lead a { color: var(--fg); }
+.st-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 40px 0 8px; }
+.st-tile { padding: 24px 20px 22px; background: var(--surface); }
+.st-tile p { margin: 0; }
+.st-big { font: 400 clamp(40px, 4.4vw, 64px)/1 var(--head); font-variant-numeric: tabular-nums; }
+.st-label { margin-top: 10px !important; font-weight: 600; }
+.st-note { margin-top: 6px !important; font-size: 16px; color: var(--muted); }
+.st + .site-foot { max-width: 1120px; margin-inline: auto; padding-inline: 24px; }
+@media (max-width: 900px) { .st-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .st { padding: 24px 20px 72px; } .st .brandrow { margin-bottom: 28px; } .st-grid { grid-template-columns: minmax(0, 1fr); } .st + .site-foot { padding-inline: 20px; } }
