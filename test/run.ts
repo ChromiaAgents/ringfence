@@ -118,6 +118,12 @@ t('website demo wallet: browser calls use it, Approve card on the page, no share
     assert.equal(((await walletDesk.run(c2, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' })) as any).ok, true, 'another visitor can still use it');
   } finally { Object.assign(env, { demoPhone: '', demoPin: '' }); db.wallets = db.wallets.filter((w: any) => w.phone !== '19990000001'); }
 });
+t('chain: a failed cross-contract step is read from the receipts; sends from one account run in order', async () => {
+  const { receiptFailure } = await import('../src/wallet.ts');
+  assert.equal(receiptFailure({ receipts_outcome: [{ outcome: { status: { SuccessValue: '' } } }] }), null);
+  const out = { receipts_outcome: [{ outcome: { status: { SuccessValue: '' } } }, { outcome: { status: { Failure: { ActionError: { kind: { FunctionCallError: { ExecutionError: 'Smart contract panicked: not enough balance' } } } } } } }] };
+  assert.match(receiptFailure(out)!, /not enough balance/);
+});
 t('usdc: read back, tiers, fallback limit, approval card unit', async () => {
   const { startCall } = await import('../src/agent.ts');
   const { walletDesk, parseAsset, readBack } = await import('../src/desks/wallet.ts');

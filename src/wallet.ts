@@ -160,8 +160,25 @@ export async function walletState(b: Binding): Promise<WalletState> {
 const account = (id: string, key: string) => new Account(id, new JsonRpcProvider({ url: net(env.network).rpc }), key as KeyPairString);
 const agent = () => account(env.agentAccountId, env.agentKey);
 const custody = () => account(env.custodyAccountId, env.custodyKey);
+/** A cross-contract step that failed after our call returned (ft_transfer with too little balance, a transfer to an
+ *  account that doesn't exist): the transaction itself still reports success, so the receipts are read here. */
+export function receiptFailure(out: any): string | null {
+  const f = (out?.receipts_outcome ?? []).map((r: any) => r?.outcome?.status?.Failure).find(Boolean);
+  if (!f) return null;
+  const text = JSON.stringify(f);
+  return (text.match(/ExecutionError":"([^"]+)"/)?.[1] ?? text).slice(0, 160);
+}
+// ponytail: one send at a time per signing account (nonces collide otherwise); more keys per account if throughput matters.
+const queues = new Map<string, Promise<unknown>>();
+function inOrder<T>(key: string, f: () => Promise<T>): Promise<T> {
+  const p = (queues.get(key) ?? Promise.resolve()).then(f, f);
+  queues.set(key, p.catch(() => {}));
+  return p;
+}
 async function callContract(contract: string, method: string, args: object, deposit = 0n, signer = agent()) {
-  const out: any = await signer.signAndSendTransaction({ receiverId: contract, actions: [actions.functionCall(method, args, 300_000_000_000_000n, deposit)] });
+  const out: any = await inOrder(signer.accountId, () => signer.signAndSendTransaction({ receiverId: contract, actions: [actions.functionCall(method, args, 300_000_000_000_000n, deposit)] }));
+  const failed = receiptFailure(out);
+  if (failed) throw new Error(`it failed on chain, so nothing moved and nothing was counted (${failed})`);
   return { hash: out.transaction.hash as string, result: getTransactionLastResult(out) };
 }
 

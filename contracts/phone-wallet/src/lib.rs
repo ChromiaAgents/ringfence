@@ -41,6 +41,12 @@ fn ft_send(token: AccountId, to: AccountId, amount: U128) -> Promise {
         .then(Promise::new(token).function_call("ft_transfer".to_string(), send, NearToken::from_yoctonear(1), Gas::from_tgas(15)))
 }
 
+/// Every agent send ends in on_sent, so a send that failed on the other side is not counted as spent.
+fn settle(send: Promise, asset: &str, amount: u128) {
+    let args = near_sdk::serde_json::to_vec(&near_sdk::serde_json::json!({ "asset": asset, "amount": U128(amount) })).unwrap();
+    let _ = send.then(Promise::new(env::current_account_id()).function_call("on_sent".to_string(), args, NearToken::from_yoctonear(0), Gas::from_tgas(5)));
+}
+
 /// String-keyed map kept as a short Vec (a wallet has a handful of assets): much less wasm than a HashMap.
 /// The view (get_state) still returns JSON objects.
 #[derive(near_sdk::borsh::BorshSerialize, near_sdk::borsh::BorshDeserialize, Clone)]
@@ -302,7 +308,7 @@ impl PhoneWallet {
         self.check_tx("near", amount.0);
         if !self.allowed("near", to.as_str()) { return Some(self.queue("near", to.to_string(), amount, None)); }
         self.spend("near", amount.0);
-        let _ = Promise::new(to).transfer(NearToken::from_yoctonear(amount.0));
+        settle(Promise::new(to).transfer(NearToken::from_yoctonear(amount.0)), "near", amount.0);
         None
     }
 
@@ -314,7 +320,7 @@ impl PhoneWallet {
         self.check_tx(&asset, amount.0);
         if !self.allowed(&asset, to.as_str()) { return Some(self.queue(&asset, to.to_string(), amount, None)); }
         self.spend(&asset, amount.0);
-        let _ = ft_send(token, to, amount);
+        settle(ft_send(token, to, amount), &asset, amount.0);
         None
     }
 
@@ -349,8 +355,8 @@ impl PhoneWallet {
             None => {
                 let to: AccountId = p.to.parse().unwrap();
                 match p.asset.strip_prefix("ft:") {
-                    Some(token) => { let _ = ft_send(token.parse().unwrap(), to, p.amount); }
-                    None => { let _ = Promise::new(to).transfer(NearToken::from_yoctonear(p.amount.0)); }
+                    Some(token) => settle(ft_send(token.parse().unwrap(), to, p.amount), &p.asset, p.amount.0),
+                    None => settle(Promise::new(to).transfer(NearToken::from_yoctonear(p.amount.0)), &p.asset, p.amount.0),
                 }
                 PromiseOrValue::Value(U64(p.id))
             }
@@ -364,6 +370,18 @@ impl PhoneWallet {
             #[cfg(not(feature = "evm"))]
             Some(_) => env::panic_str("evm is off"),
         }
+    }
+
+    /// Callback after an agent send. If the send failed on the other side (the wallet holds too little of the token,
+    /// the recipient account doesn't exist), no money moved, so it is taken back out of today's spend.
+    #[private]
+    pub fn on_sent(&mut self, asset: String, amount: U128) -> bool {
+        let ok = near_sdk::is_promise_success();
+        if !ok && self.day == env::block_timestamp() / DAY_NS {
+            let left = self.spent.get(&asset).copied().unwrap_or(0).saturating_sub(amount.0);
+            self.spent.insert(asset, left);
+        }
+        ok
     }
 
     // ---- view ----
