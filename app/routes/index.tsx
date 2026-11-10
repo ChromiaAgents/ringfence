@@ -434,13 +434,14 @@ function Evidence() {
 
 const Qa = ({ q, a }: { q: string; a: ReactNode }) => (<><dt className="rise">{q}</dt><dd className="rise" style={i(1)}>{a}</dd></>);
 const FAQ: [string, ReactNode][] = [
+  ['Why can anyone try a real wallet here?', 'Because the limits aren’t ours to bend. The demo wallet is a NEAR contract that only pays one saved account and caps every send and every day, so the PIN on this page can’t move more than the contract allows. Approve cards show on the page instead of WhatsApp, and Not me locks only your session, so one visitor can’t block the demo for the rest.'],
   ['What if you go rogue?', 'Inside the cap and only to saved recipients. See the worst case above.'],
   ['Can the AI be talked into more?', 'They can try. The AI has no authority of its own. It asks the contract, and the contract checks the limits and the recipient before anything moves.'],
   ['Who hears the PIN?', 'The speech and chat models hear it inside NEAR AI TEEs. It also passes through our app server, which isn’t attested. We store a salted hash and blank it from the transcript. Three wrong tries lock the line for 15 minutes.'],
   ['Is the voice private?', 'All three models run on NEAR AI Cloud in Intel TDX and NVIDIA confidential GPUs, and /proof checks them live. Cartesia hears the reply text when it speaks it, and on WhatsApp Meta sees the call metadata.'],
   ['Has it moved real money yet?', 'Not yet. Nothing has been signed on mainnet, and the contract is unaudited, so keep amounts small. An audit comes before higher limits.'],
-  ['Can Mum start with just a phone?', 'Not yet. Today you bind a number to a NEAR wallet you already have. Phone-only sign-up and the guardian setup are in progress. Phone-only will start custodial: we hold the owner key, with a small balance cap, until she claims it.'],
-  ['What else works on the line?', 'Checking a balance, and launching a coin on JustHoot, which you sign in your own wallet.'],
+  ['Can Mum start with just a phone?', 'Yes. She texts “create a wallet” on WhatsApp and picks a PIN. It starts custodial: we hold the owner key, with a small balance cap, until the family claims it to their own NEAR wallet.'],
+  ['What else works on the line?', 'Checking a balance, NEAR in ringgit, checking an account before paying it (new or unknown accounts get a warning), what’s trending, and launching a coin on JustHoot, which you sign in your own wallet. English and Chinese.'],
   ['Which chains?', 'NEAR only, for now.'],
 ];
 
