@@ -17,7 +17,7 @@ const getInfo = createServerFn({ method: 'GET' }).handler(async () => {
 
 export const Route = createFileRoute('/')({
   loader: () => getInfo(),
-  head: () => ({ meta: [{ title: 'Ringfence: pay by phone call, inside limits the family sets' }, { name: 'description', content: 'Mum can make a phone call. She doesn’t know how to use Meteor Wallet. Ringfence lets her pay by voice, and a NEAR contract the family owns caps what the AI can spend.' }] }),
+  head: () => ({ meta: [{ title: 'Ringfence: money packets by phone call, on NEAR' }, { name: 'description', content: 'Mum sends a money gift by phone call. You open it by saying the magic words. Money packets and payments on NEAR; a contract the family owns caps what the AI may spend.' }] }),
   component: Landing,
 });
 

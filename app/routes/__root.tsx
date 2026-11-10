@@ -7,10 +7,10 @@ import skin from '../styles/dark-room.css?url';
 export const Route = createRootRoute({
   head: () => ({
     meta: [{ charSet: 'utf-8' }, { name: 'viewport', content: 'width=device-width, initial-scale=1' }, { title: 'Ringfence' }, { name: 'theme-color', content: '#0c0a08' },
-      { name: 'description', content: 'Mum can make a phone call. She doesn’t know how to use Meteor Wallet. Ringfence lets her pay by phone call; a NEAR contract the family owns sets what the AI may spend.' },
+      { name: 'description', content: 'Mum sends a money gift by phone call. You open it by saying the magic words. Money packets and payments on NEAR; a contract the family owns caps what the AI may spend.' },
       { property: 'og:type', content: 'website' }, { property: 'og:site_name', content: 'Ringfence' },
       { property: 'og:title', content: 'Ringfence: pay by phone call, inside limits your family sets' },
-      { property: 'og:description', content: 'Mum can make a phone call. She doesn’t know how to use Meteor Wallet. A NEAR contract the family owns caps what the AI can spend.' },
+      { property: 'og:description', content: 'Mum sends a money gift by phone call. You open it by saying the magic words. Money packets and payments on NEAR; a contract the family owns caps what the AI may spend.' },
       { property: 'og:url', content: 'https://ringfence.evalengine.ai/' },
       { property: 'og:image', content: 'https://ringfence.evalengine.ai/og.png' }, { property: 'og:image:width', content: '1200' }, { property: 'og:image:height', content: '630' },
       { property: 'og:image:alt', content: 'Ringfence: Mum sends a money gift by phone call. You open it by saying the magic words.' },
