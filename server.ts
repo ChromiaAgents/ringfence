@@ -66,6 +66,8 @@ server.on('request', async (req, res) => {
   if ((p === '/dashboard' || p === '/api/state') && !ownerOnly(req)) return res.writeHead(401, { 'www-authenticate': 'Basic realm="owner"' }).end();
   app(req, res);
 });
+// A failed send to WhatsApp (Meta refusing a message) must never take the whole line down.
+process.on('unhandledRejection', (e) => console.error('unhandled:', (e as Error)?.message ?? e));
 attachVoice(server);
 startHeldLoop(); // first payments to new recipients go out when their wait is over
 // The website's demo wallet: made once on chain when the custody key is set and the demo number has no real wallet yet.
