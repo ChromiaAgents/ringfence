@@ -24,10 +24,14 @@ const spokenPins = new Map<string, string>();
 /** The call ended: drop its waiting transfer and any PIN taken for it. */
 export function clearPending(callId: string) { pending.delete(callId); spokenPins.delete(callId); }
 export function takePin(callId: string, text: string): boolean {
-  const pin = normalizePin(text);
-  // A PIN-shaped answer with nothing waiting (the model skipped prepare_transfer) is still masked, never stored.
-  if (pin && pending.has(callId)) spokenPins.set(callId, pin);
-  return !!pin;
+  if (pending.has(callId)) {
+    const pin = normalizePin(text);
+    if (pin) spokenPins.set(callId, pin);
+    return !!pin;
+  }
+  // Nothing waiting (the model skipped prepare_transfer): a reply that is only a PIN is still masked, never kept.
+  // Only digits / number words / "my pin is": "send 0.10 NEAR to user0" has four digits but is not a PIN.
+  return /^(\s*(my|pin|is|it's|its|the|um|uh|ok|\d+|zero|oh|one|two|three|four|five|six|seven|eight|nine)\b[\s,.]*)+$/i.test(text) && !!normalizePin(text);
 }
 /** Exact decimal amounts (no float rounding): what is read back is what is sent. */
 const AMOUNT = /^\d+(\.\d{1,18})?$/;

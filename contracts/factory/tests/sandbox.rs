@@ -61,8 +61,8 @@ async fn factory_in_sandbox() -> anyhow::Result<()> {
     let st: serde_json::Value = worker.view(&w1.parse()?, "get_state").await?.json()?;
     assert_eq!(st["owner"], custody.id().to_string());
     assert_eq!(st["agent"], agent.id().to_string());
-    assert_eq!(st["limits"]["near"]["per_tx"], (Y / 5).to_string());
-    assert_eq!(st["limits"]["near"]["per_day"], (Y / 2).to_string());
+    assert_eq!(st["limits"]["near"]["per_tx"], Y.to_string());
+    assert_eq!(st["limits"]["near"]["per_day"], (3 * Y).to_string());
     assert_eq!(st["chains"], json!([]));
     assert!(format!("{:?}", wv.contract_state).starts_with("GlobalHash"), "no own code: it uses the global one");
 
@@ -89,7 +89,7 @@ async fn factory_in_sandbox() -> anyhow::Result<()> {
     custody.call(&w1id, "allow").args_json(json!({ "recipient": liho.id() })).deposit(one).transact().await?.into_result()?;
     let send = |amt: u128| agent.call(&w1id, "transfer_near").args_json(json!({ "to": liho.id(), "amount": amt.to_string() })).transact();
     send(Y / 10).await?.into_result()?;
-    assert!(err(send(Y / 4).await?).contains("over the per-transfer limit"));
+    assert!(err(send(Y + Y / 4).await?).contains("over the per-transfer limit"));
 
     // freeze (Reject button): agent blocked, owner withdraw still works
     custody.call(&w1id, "freeze").args_json(json!({ "until_ts": "99999999999" })).deposit(one).transact().await?.into_result()?;
