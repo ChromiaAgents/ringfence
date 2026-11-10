@@ -10,7 +10,9 @@ const getInfo = createServerFn({ method: 'GET' }).handler(async () => {
   const { bindingOf } = await import('../../src/wallet.ts');
   // The website demo wallet's PIN is public on purpose: the contract's limits and saved recipient are the protection.
   const demo = env.demoPhone && env.demoPin && bindingOf(env.demoPhone) ? { pin: env.demoPin, to: env.demoRecipient, max: env.smallLimitNear, wallet: bindingOf(env.demoPhone)!.contract } : null;
-  return { network: env.network, demo };
+  // WHATSAPP_NUMBER switches the site to the real number once Meta verifies it; the test number until then.
+  const wa = env.waNumber || '15551444220';
+  return { network: env.network, demo, waUrl: `https://wa.me/${wa}?text=hi`, waTest: !env.waNumber || wa === '15551444220' };
 });
 
 export const Route = createFileRoute('/')({
@@ -19,7 +21,6 @@ export const Route = createFileRoute('/')({
   component: Landing,
 });
 
-const WA_URL = 'https://wa.me/15551444220?text=hi';
 const i = (n: number) => ({ '--i': n }) as CSSProperties;
 
 const TRY: Record<Desk | 'auto', string[]> = {
@@ -48,7 +49,7 @@ function Landing() {
             <p className="lead rise" style={i(1)}>Ringfence lets you pay by phone call. Your phone number is linked to a NEAR wallet, and a contract you own sets what the AI may spend.</p>
             <div className="acts rise" style={i(3)}>
               <a className="btn" href="#call" onClick={tryCall}>Try a call in your browser</a>
-              <a href={WA_URL} target="_blank" rel="noopener">Message on WhatsApp</a>
+              <a href={d.waUrl} target="_blank" rel="noopener">Message on WhatsApp</a>
             </div>
             <p className="note rise" style={i(4)}>WhatsApp runs on a test number, so ask us to add yours. The contract is unaudited: keep amounts small.</p>
           </div>
@@ -89,7 +90,7 @@ function Landing() {
             <div className="acts rise" style={i(2)}>
               <a className="btn" href="#call" onClick={tryCall}>Try a call</a>
               <a href="/proof">Read the proof</a>
-              <a href={WA_URL} target="_blank" rel="noopener">Message on WhatsApp</a> <span className="muted">(test number)</span>
+              <a href={d.waUrl} target="_blank" rel="noopener">Message on WhatsApp</a>{d.waTest && <span className="muted"> (test number)</span>}
             </div>
           </div>
         </section>
