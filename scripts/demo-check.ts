@@ -156,11 +156,11 @@ try {
     must(r.said.some((s) => /bye/i.test(s)), 'no goodbye: ' + r.said.join(' | '));
     return r.said.at(-1);
   });
-  // Red packets, end to end over the call socket: fund one by voice, read its page, open two shares by saying the words.
+  // Money packets, end to end over the call socket: fund one by voice, read its page, open two shares by saying the words.
   let packetId = '';
-  await step('red packet: funded by voice (read back with the words, PIN), a link to share comes back', async () => {
-    const r = await call('wallet&from=15550001234', ['send a red packet of 0.02 NEAR for 2 people, the words are huat ah lucky', 'one two three four']);
-    must(/red packet of 0\.02 NEAR for 2 people, lucky split\. The words to open it are "huat ah lucky"/.test(r.said.join(' ')), 'no read-back: ' + r.said.join(' | ')); // sentences arrive one by one
+  await step('money packet: funded by voice (read back with the words, PIN), a link to share comes back', async () => {
+    const r = await call('wallet&from=15550001234', ['send a money packet of 0.02 NEAR for 2 people, the words are huat ah lucky', 'one two three four']);
+    must(/money packet of 0\.02 NEAR for 2 people, lucky split\. The words to open it are "huat ah lucky"/.test(r.said.join(' ')), 'no read-back: ' + r.said.join(' | ')); // sentences arrive one by one
     must(r.link?.url.includes('/packet/'), 'no packet link: ' + r.said.join(' | '));
     packetId = r.link!.url.split('/packet/')[1];
     return `${r.link!.url} (dry run: no keys)`;
@@ -174,16 +174,16 @@ try {
     ws.close();
     return said;
   };
-  await step('red packet page renders without the words; a wrong phrase opens nothing', async () => {
+  await step('money packet page renders without the words; a wrong phrase opens nothing', async () => {
     must(packetId, 'no packet from the previous step');
     const page = await get(`/packet/${packetId}`);
-    must(page.status === 200 && /red packet from/i.test(page.text), `status ${page.status}`);
+    must(page.status === 200 && /money packet from/i.test(page.text), `status ${page.status}`);
     must(!/huat ah lucky/i.test(page.text), 'the words are on the page');
     const said = await openCall(['happy new year']);
     must(/Say the words/i.test(said.join(' ')), 'no ask for the words: ' + said.join(' | '));
     must(/waiting for you/i.test(said[0]), 'no packet greeting: ' + said[0]);
   });
-  await step('red packet: two callers say the words and name an account; the shares add up; a third finds it empty', async () => {
+  await step('money packet: two callers say the words and name an account; the shares add up; a third finds it empty', async () => {
     const a = await openCall(['huat ah lucky', 'send it to alice.testnet']);
     const b = await openCall(['the words are huat ah lucky, send it to bob.testnet']);
     const got = [a, b].map((x) => x.join(' ').match(/You opened ([\d.]+) NEAR/)?.[1]).filter(Boolean).map(Number);
@@ -195,8 +195,8 @@ try {
     must(/alice\.testnet/.test(page.text) && /bob\.testnet/.test(page.text), 'the openers are not on the page');
     return `${got[0]} + ${got[1]} NEAR (dry run)`;
   });
-  await step('red packet: an account typed on the page means the caller only says the words', async () => {
-    const r = await call('wallet&from=15550001234', ['send a red packet of 0.01 NEAR for 1 people, the words are open sesame', 'one two three four']);
+  await step('money packet: an account typed on the page means the caller only says the words', async () => {
+    const r = await call('wallet&from=15550001234', ['send a money packet of 0.01 NEAR for 1 people, the words are open sesame', 'one two three four']);
     const id = r.link!.url.split('/packet/')[1];
     const ws = new WebSocket(`ws://localhost:${PORT}/ws/call?packet=${id}&to=dana.testnet`);
     const said: string[] = []; let done: (() => void) | null = null;
@@ -209,7 +209,7 @@ try {
   });
   await step('demo packet page (/packet/demo) opens a tiny packet with its words shown', async () => {
     const page = await get('/packet/demo');
-    must(page.status === 200 && /open sesame/i.test(page.text), `status ${page.status}`);
+    must(page.status === 200 && /merry christmas/i.test(page.text), `status ${page.status}`);
   });
   await step('/wallet/claim page renders', async () => { const r = await get('/wallet/claim'); must(r.status === 200 && /Claim your phone wallet/i.test(r.text), `status ${r.status}`); });
   await step('/wallet/bind page renders', async () => { const r = await get('/wallet/bind'); must(r.status === 200 && /phone number is a wallet/i.test(r.text), `status ${r.status}`); });

@@ -80,7 +80,7 @@ export async function whatsappWebhook(req: IncomingMessage, res: ServerResponse,
 async function onMessage(m: any) {
   // A tap on [Approve] / [Reject]: handled here, never by the model.
   if (m.type === 'interactive' && m.interactive?.type === 'button_reply') return sendText(m.from, await onButton(m.from, m.interactive.button_reply.id));
-  // A voice note is heard like a call turn: it can say the words of a red packet, or ask for a send.
+  // A voice note is heard like a call turn: it can say the words of a money packet, or ask for a send.
   if (m.type === 'audio') {
     const heard = await transcribe(new Uint8Array(await media(m.audio.id)), String(m.audio.mime_type ?? 'audio/ogg').split(';')[0]).catch(() => '');
     if (!heard) return sendText(m.from, "I couldn't hear that voice note. Try again, or type it.");

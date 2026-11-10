@@ -224,9 +224,9 @@ export function mockStep(messages: Msg[], tools: unknown[]): { name: string; arg
     if (/\blogo\b|\bvibe\b/i.test(u)) return { name: 'make_logo', args: { vibe: u } };
     if (/^\s*(yes|yeah|yep|do it|go ahead|set it up)\b/i.test(u) && messages.some((m) => m.role === 'assistant' && /shall I set it up/i.test(textOf(m)))) return { name: 'prepare_launch', args: { caller_confirmed: true } };
   }
-  // Red packets: fund one ("send a red packet of 0.02 NEAR for 5 people, the words are ..."), or open one. On a call
+  // Money packets: fund one ("send a money packet of 0.02 NEAR for 5 people, the words are ..."), or open one. On a call
   // started from a packet's page the system prompt names the packet, so anything that isn't a PIN or a send is an attempt.
-  if (names.has('prepare_packet') && /red packet|hongbao|angpao|红包/i.test(u)) {
+  if (names.has('prepare_packet') && /money packet|red packet|red envelope|hongbao|angpao|红包/i.test(u)) {
     const m = u.match(/([\d.]+)\s*near/i), n = u.match(/(\d+)\s*(?:people|persons?|kids|shares)/i), w = u.match(/words?\s+(?:are|is)\s+["“]?([^"”.!?]+)/i);
     if (m && /\b(send|make|give|create)\b/i.test(u)) return { name: 'prepare_packet', args: { amount: m[1], count: Number(n?.[1] ?? 5), split: /equal/i.test(u) ? 'equal' : 'lucky', words: (w?.[1] ?? '').trim() } };
   }
@@ -265,10 +265,10 @@ function mockText(messages: Msg[], tools: unknown[] = []): string {
   const tool = prev?.tool_calls?.[0]?.function?.name;
   if (tool === 'end_call') return 'Thanks for calling, take care. Bye!';
   if (tool === 'set_coin' && out.ok !== false && !out.error) return 'Got it. Shall I set it up? Say yes and I’ll put the launch on your screen to check and sign.';
-  if (out.need === 'words') return 'Say the words that came with the red packet to open it.';
+  if (out.need === 'words') return 'Say the words that came with the money packet to open it.';
   if (out.need === 'account') return 'Those are the words. Which NEAR account should I send your share to?';
   if (tool === 'open_packet' && out.ok) return `You opened ${out.near} NEAR${out.dryRun ? ' (a dry run: no real money moved)' : ''}. ${out.left ? `${out.left} left for the others.` : 'That was the last share.'}`;
-  if (out.packet) return `Your red packet is ready${out.dryRun ? ' (a dry run: no real money is in it)' : ''}. Share the link on your screen, and tell them the words.`;
+  if (out.packet) return `Your money packet is ready${out.dryRun ? ' (a dry run: no real money is in it)' : ''}. Share the link on your screen, and tell them the words.`;
   if (out.ok === false && /^I still need/.test(out.reason ?? '')) return out.reason;
   if (out.ok === false || out.error) return `Sorry, I can't do that: ${out.reason ?? out.error}`;
   if (out.approvalDemo) return `That's ${out.read_back}. On a bound wallet that amount needs your PIN and then an Approve tap on WhatsApp. This browser demo stops here: nothing was sent.`;

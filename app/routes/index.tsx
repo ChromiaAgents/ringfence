@@ -24,7 +24,7 @@ export const Route = createFileRoute('/')({
 const i = (n: number) => ({ '--i': n }) as CSSProperties;
 
 const TRY: Record<Desk | 'auto', string[]> = {
-  auto: ['Send a red packet of 0.02 NEAR for 5 people, the words are open sesame.', 'Send 0.1 NEAR to liho00.near.', 'Send 0.3 NEAR to liho00.near.', 'How much is that in dollars?', 'Send 5 NEAR to stranger.near.', 'What is my balance?', 'I want to launch a memecoin.'],
+  auto: ['Send a money packet of 0.02 NEAR for 5 people, the words are merry christmas.', 'Send 0.1 NEAR to liho00.near.', 'Send 0.3 NEAR to liho00.near.', 'How much is that in dollars?', 'Send 5 NEAR to stranger.near.', 'What is my balance?', 'I want to launch a memecoin.'],
   launch: ['It’s a coin about a sleepy otter.', 'Call it Sleepy Otter, ticker ZZZ.', 'Make the ticker NEAR.', 'Yes, set it up.'],
 };
 const DESK_LABEL: Record<Desk | 'auto', string> = { auto: 'Let it ask', launch: 'Launch a coin' };
@@ -46,9 +46,9 @@ function Landing() {
         <div className="top">
           <div className="intro">
             <h1 className="rise"><span>Mum sends a money gift by phone call.</span> <span>You open it by saying the magic words.</span></h1>
-            <p className="lead rise" style={i(1)}>It’s a red packet: one gift, split between the family, each share opened with a spoken phrase. Mum’s phone number is her NEAR wallet, and a contract the family owns caps what the AI may spend.</p>
+            <p className="lead rise" style={i(1)}>It’s a money packet, the Chinese red packet made digital: one gift, split between the family, each share opened with a spoken phrase. Mum’s phone number is her NEAR wallet, and a contract the family owns caps what the AI may spend.</p>
             <div className="acts rise" style={i(3)}>
-              <a className="btn" href="/packet/demo">Open a red packet</a>
+              <a className="btn" href="/packet/demo">Open a money packet</a>
               <a href="#call" onClick={tryCall}>Send one by call</a>
               <a href={d.waUrl} target="_blank" rel="noopener">Message on WhatsApp</a>
             </div>
@@ -118,7 +118,7 @@ const Meter = ({ label, value, w, lim }: { label: string; value: string; w: numb
 // ---------- the real browser call (app/call.ts), in the dark-room card ----------
 function LiveCall({ network, demo }: { network: string; demo: { pin: string; to: string; max: string; wallet: string } | null }) {
   const [pick, setPick] = useState<Desk | 'auto'>('auto');
-  // Arriving from a red packet's page (/?packet=<id>&say=<hint>#call): this call opens that packet.
+  // Arriving from a money packet's page (/?packet=<id>&say=<hint>#call): this call opens that packet.
   const [packet, setPacket] = useState<{ id: string; say: string; to: string } | null>(null);
   useEffect(() => { const q = new URLSearchParams(location.search), id = q.get('packet'); if (id) setPacket({ id, say: q.get('say') ?? '', to: q.get('to') ?? '' }); }, []);
   const call = useCall(pick, packet?.id, packet?.to || undefined);
@@ -146,7 +146,7 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
   const active = call.desk === 'launch' ? call.desk : pick;
   const clock = `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
   // What the link is, in the caller's words: a packet to share, a share that was paid, a launch or send to sign themselves.
-  const linkNote = call.desk === 'launch' ? 'Your launch is ready to check and sign.' : /\/packet\//.test(call.link?.url ?? '') ? (packet ? 'The packet you opened.' : 'Your red packet is ready.') : /nearblocks/.test(call.link?.url ?? '') ? 'On chain.' : 'Sign this one in your own wallet.';
+  const linkNote = call.desk === 'launch' ? 'Your launch is ready to check and sign.' : /\/packet\//.test(call.link?.url ?? '') ? (packet ? 'The packet you opened.' : 'Your money packet is ready.') : /nearblocks/.test(call.link?.url ?? '') ? 'On chain.' : 'Sign this one in your own wallet.';
 
   return (
     <div data-ui className="callui" id="call" ref={cardRef} aria-label="Browser call to Ringfence">
@@ -184,7 +184,7 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
           ))}
         </div>}
       </div>
-      {packet && <p className="help">You’re opening <a href={`/packet/${packet.id}`}>red packet {packet.id}</a>. Press Call, then say the words{packet.say ? <>: <b>“{packet.say}”</b></> : ' the sender gave you'}. {packet.to ? <>Your share goes to <b>{packet.to}</b>.</> : 'Then say which NEAR account gets your share.'}</p>}
+      {packet && <p className="help">You’re opening <a href={`/packet/${packet.id}`}>money packet {packet.id}</a>. Press Call, then say the words{packet.say ? <>: <b>“{packet.say}”</b></> : ' the sender gave you'}. {packet.to ? <>Your share goes to <b>{packet.to}</b>.</> : 'Then say which NEAR account gets your share.'}</p>}
       {packet ? null : demo
         ? <p className="help">Real NEAR {network}. No phone needed. Say <b>“send 0.1 NEAR to {demo.to}”</b>, then the demo PIN <b>{demo.pin}</b>. Try <b>0.3</b> and an Approve card appears here (it would go to WhatsApp). Try <b>5 NEAR</b>, or a stranger, and the <a href={`https://nearblocks.io/address/${demo.wallet}`} target="_blank" rel="noreferrer">demo wallet</a> contract refuses.</p>
         : !call.live && !call.lines.length && <p className="help">Press Call, then speak or type. NEAR {network}. Sends stop at a labelled dry run.</p>}
@@ -206,8 +206,8 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
 const at = (n: number) => ({ animationDelay: `${n * 600}ms` });
 const SampleCall = () => (
   <>
-    <div className="msg you" style={at(0)}><span className="who">Mum</span>A red packet, 1 NEAR, five grandkids. Words: happy birthday.</div>
-    <div className="msg agent" style={at(1)}><span className="who">Ringfence</span>A red packet of 1 NEAR for 5 people, lucky split. Your PIN, please.</div>
+    <div className="msg you" style={at(0)}><span className="who">Mum</span>A money packet, 1 NEAR, five grandkids. Words: merry christmas.</div>
+    <div className="msg agent" style={at(1)}><span className="who">Ringfence</span>A money packet of 1 NEAR for 5 people, lucky split. Your PIN, please.</div>
     <div className="msg you" style={at(2)}><span className="who">Mum</span><span className="pins"><i /><i /><i /><i /></span> <span className="muted">blanked from the transcript</span></div>
     <div className="msg sys" style={at(3)}><span className="who">phone.you.near · contract</span><span className="ok">Approved · 1 of 3 NEAR today · packet ready to share</span></div>
   </>

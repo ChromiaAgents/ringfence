@@ -13,7 +13,7 @@ import { packetDesk, autoOpen } from './desks/packet.ts';
 export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, wallet: walletDesk, market: marketDesk, packet: packetDesk };
 
 /** The only fixed line: said the moment the call picks up. Everything after it is the AI's. */
-export const GREETING = 'Hi, this is Ringfence on NEAR. I can send NEAR or a red packet for you, or launch a coin on JustHoot. What do you need?';
+export const GREETING = 'Hi, this is Ringfence on NEAR. I can send NEAR or a money packet for you, or launch a coin on JustHoot. What do you need?';
 
 /** The AI ends the call itself, after saying goodbye. The channel hangs up once the goodbye has played. */
 const END_CALL = { type: 'function', function: { name: 'end_call', description: 'Hang up. Call it only after you have said a short goodbye and the caller is done.', parameters: { type: 'object', properties: {} } } };
@@ -48,7 +48,7 @@ Keep the conversation moving: remember everything they've said and never ask for
 export function system(call: Call): string {
   return `You are Ringfence, a voice agent on NEAR. You can:
 - pay by voice from the caller's phone wallet, check their balance, and answer "how much did I spend";
-- send a red packet: money for a group, each person opens a share by saying the packet's words; and open a share of a packet someone sent them;
+- send a money packet: money for a group, each person opens a share by saying the packet's words; and open a share of a packet someone sent them;
 - launch a memecoin they sign with their own wallet;
 - look up live data: NEAR price in US dollars (or another currency if asked), whether an account is safe to pay, and what is trending;
 - help them get a wallet: on WhatsApp they text "create a wallet" for a custodial demo wallet with a PIN; with their own NEAR wallet they bind their number on our wallet page: say you'll send them the link.
@@ -63,7 +63,7 @@ ${walletDesk.system(call)}
 Launching a coin:
 ${launchDesk.system(call)}
 
-Red packets:
+Money packets:
 ${packetDesk.system(call)}
 
 Live data:
@@ -124,7 +124,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   call.turns.push({ at: Date.now(), who: 'caller', text });
   h[0] = { role: 'system', content: sys(call) }; // pick up config changes mid-call
   h.push({ role: 'user', content: text });
-  // A call about one red packet: the words are checked in code on every line, whatever the model makes of it.
+  // A call about one money packet: the words are checked in code on every line, whatever the model makes of it.
   const auto = await autoOpen(call).catch(() => null);
   if (auto) {
     call.turns.push({ at: Date.now(), who: 'tool', text: `open_packet(auto) → ${JSON.stringify(auto)}` });

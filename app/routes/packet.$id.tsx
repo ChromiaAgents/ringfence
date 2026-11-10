@@ -1,4 +1,4 @@
-// A red packet's page: who sent it, how many shares are open, who got what. It never shows the words (a demo packet's
+// A money packet's page: who sent it, how many shares are open, who got what. It never shows the words (a demo packet's
 // hint is its words, on purpose). Opening happens on a call: the button starts one with this packet attached.
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
@@ -21,7 +21,7 @@ const getPacket = createServerFn({ method: 'GET' }).validator((id: string) => id
 
 export const Route = createFileRoute('/packet/$id')({
   loader: ({ params }) => getPacket({ data: params.id }),
-  head: ({ loaderData }) => ({ meta: [{ title: loaderData?.packet ? `A red packet from ${loaderData.packet.from} · Ringfence` : 'Red packet · Ringfence' }] }),
+  head: ({ loaderData }) => ({ meta: [{ title: loaderData?.packet ? `A money packet from ${loaderData.packet.from} · Ringfence` : 'Money packet · Ringfence' }] }),
   component: PacketPage,
 });
 
@@ -44,7 +44,7 @@ function PacketPage() {
     <>
       <main className="app pay">
         <div className="brandrow"><Wordmark /><Makers /></div>
-        <h1>{id === 'demo' ? 'Today’s demo packets have all been opened' : 'No red packet here'}</h1>
+        <h1>{id === 'demo' ? 'Today’s demo packets have all been opened' : 'No money packet here'}</h1>
         <p className="muted">{id === 'demo' ? 'The demo wallet’s daily limit is used up. Come back tomorrow, or make your own packet by calling.' : 'Check the link. Packets expire a day after they are sent.'}</p>
         <a className="btn ink" href="/#call">Make one by phone call</a>
       </main>
@@ -59,9 +59,9 @@ function PacketPage() {
       <main className="app pay hb-page">
         <div className="brandrow"><Wordmark /><Makers /><span className="pill wait">NEAR {p.network}</span></div>
         {p.dryRun && <p className="err" role="note"><b>Dry run.</b> This server has no keys, so no real money is in this packet. The split rule is the contract’s.</p>}
-        <section className={`hb${open ? '' : ' shut'}`} aria-label="Red packet">
+        <section className={`hb${open ? '' : ' shut'}`} aria-label="Money packet">
           <div className="hb-seal" aria-hidden="true">✦</div>
-          <p className="hb-from">A red packet from <b>{short(p.from)}</b></p>
+          <p className="hb-from">A money packet from <b>{short(p.from)}</b></p>
           <p className="hb-amt">{near(p.near)} <span>NEAR</span></p>
           <p className="hb-meta">{p.count} {p.count === 1 ? 'share' : 'shares'} · {p.lucky ? 'lucky split' : 'equal split'}</p>
           <div className="hb-dots" role="img" aria-label={`${p.claims.length} of ${p.count} opened`}>
@@ -72,13 +72,13 @@ function PacketPage() {
 
         {open && <>
           <h1>Say the magic words to open it</h1>
-          <p className="muted">{p.hint ? <>The words are <b>“{p.hint}”</b>. </> : 'The sender told you the words. '}A red packet is a money gift for a group: each person opens one share. Type the NEAR account that should get yours, press Call, and say the words out loud (or type them). An AI in a NEAR AI enclave checks what you said; the contract pays.</p>
+          <p className="muted">{p.hint ? <>The words are <b>“{p.hint}”</b>. </> : 'The sender told you the words. '}A money packet is a gift of money for a group, like a Chinese red packet: each person opens one share. Type the NEAR account that should get yours, press Call, and say the words out loud (or type them). An AI in a NEAR AI enclave checks what you said; the contract pays.</p>
           <label className="hb-acct">Your NEAR account
             <input type="text" value={acct} onChange={(e) => setAcct(e.target.value)} placeholder={p.network === 'mainnet' ? 'alice.near' : 'alice.testnet'} autoComplete="off" autoCapitalize="none" spellCheck={false} />
           </label>
           <div className="hb-cta">
             <a className="btn" href={callUrl}>Call to open it</a>
-            {first.wa && <a className="btn white small" href={`https://wa.me/${first.wa}?text=${encodeURIComponent(`open red packet ${p.id}`)}`} target="_blank" rel="noreferrer">Open on WhatsApp</a>}
+            {first.wa && <a className="btn white small" href={`https://wa.me/${first.wa}?text=${encodeURIComponent(`open money packet ${p.id}`)}`} target="_blank" rel="noreferrer">Open on WhatsApp</a>}
           </div>
         </>}
 

@@ -118,7 +118,7 @@ await t('website demo wallet: browser calls use it, Approve card on the page, no
     assert.equal(((await walletDesk.run(c2, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' })) as any).ok, true, 'another visitor can still use it');
   } finally { Object.assign(env, { demoPhone: '', demoPin: '' }); db.wallets = db.wallets.filter((w: any) => w.phone !== '19990000001'); }
 });
-await t('red packets: the words are checked on what the caller said; the split pays out exactly the packet', async () => {
+await t('money packets: the words are checked on what the caller said; the split pays out exactly the packet', async () => {
   const { wordsSaid, shareOf, norm, MIN_SHARE } = await import('../src/packets.ts');
   assert.equal(norm('Gong Xi, Fa Cai!'), 'gongxifacai');
   for (const heard of ['gong xi fa cai', 'Gong xi fa cai!', 'ok the words are gong xi fa cai right', 'gong xi fa chai', '恭喜发财 gong xi fa cai'])
@@ -135,7 +135,7 @@ await t('red packets: the words are checked on what the caller said; the split p
   }
   assert.equal(shareOf(Y, 4, false), Y / 4n);
 });
-await t('red packets: funded through the wallet (PIN, limits), opened by saying the words, one share per account', async () => {
+await t('money packets: funded through the wallet (PIN, limits), opened by saying the words, one share per account', async () => {
   const { startCall, system } = await import('../src/agent.ts');
   const { walletDesk } = await import('../src/desks/wallet.ts');
   const { packetDesk } = await import('../src/desks/packet.ts');
@@ -151,14 +151,14 @@ await t('red packets: funded through the wallet (PIN, limits), opened by saying 
   assert.match(((await walletDesk.run(mum, 'prepare_packet', { amount: '0.5', count: 0, words: 'wan shi ru yi' })) as any).reason, /How many people/);
   assert.match(((await walletDesk.run(mum, 'prepare_packet', { amount: '0.5', count: 3, words: '' })) as any).reason, /What should people say/);
   assert.match(((await walletDesk.run(mum, 'prepare_packet', { amount: '0.002', count: 3, words: 'wan shi ru yi' })) as any).reason, /0\.001 NEAR per person/);
-  mum.turns.push({ at: Date.now(), who: 'caller', text: 'a red packet of 2 NEAR for 3 people, the words are wan shi ru yi' });
+  mum.turns.push({ at: Date.now(), who: 'caller', text: 'a money packet of 2 NEAR for 3 people, the words are wan shi ru yi' });
   assert.match(((await walletDesk.run(mum, 'prepare_packet', { amount: '2', count: 3, words: 'wan shi ru yi' })) as any).reason, /1 NEAR per-transfer limit/, 'a packet cannot be bigger than the wallet\'s limit');
   // the words must be the caller's own: the model can't make them up
   assert.match(((await walletDesk.run(mum, 'prepare_packet', { amount: '0.1', count: 2, words: 'something the model made up' })) as any).reason, /have not said which words/);
-  mum.turns.push({ at: Date.now(), who: 'caller', text: 'send a red packet of 0.1 NEAR for 2 people, the words are Wan Shi Ru Yi' });
+  mum.turns.push({ at: Date.now(), who: 'caller', text: 'send a money packet of 0.1 NEAR for 2 people, the words are Wan Shi Ru Yi' });
   // 0.1 NEAR for 2 people: read back with the words, then the PIN
   const p0: any = await walletDesk.run(mum, 'prepare_packet', { amount: '0.1', count: 2, split: 'lucky', words: 'Wan Shi Ru Yi' });
-  assert.match(p0.read_back, /a red packet of 0\.1 NEAR for 2 people, lucky split\. The words to open it are "Wan Shi Ru Yi"/);
+  assert.match(p0.read_back, /a money packet of 0\.1 NEAR for 2 people, lucky split\. The words to open it are "Wan Shi Ru Yi"/);
   const made: any = await walletDesk.run(mum, 'confirm_transfer', { pin: '2468' });
   assert.equal(made.packet, true); assert.equal(made.dryRun, true, 'no keys in tests: a labelled dry run');
   const id = made.link.split('/packet/')[1];
@@ -195,9 +195,9 @@ await t('red packets: funded through the wallet (PIN, limits), opened by saying 
   assert.match(((await packetDesk.run(web, 'open_packet', { packet_id: id })) as any).reason, /Every share/);
   const none = startCall('whatsapp', NOBODY).call;
   assert.match(((await packetDesk.run(none, 'open_packet', { packet_id: id })) as any).reason, /no wallet yet/);
-  assert.match(((await packetDesk.run(kid, 'open_packet', { packet_id: 'nope1234' })) as any).reason, /no red packet/);
+  assert.match(((await packetDesk.run(kid, 'open_packet', { packet_id: 'nope1234' })) as any).reason, /no money packet/);
 });
-await t('red packets: on a packet call the words are checked before the model answers, even if it never calls the tool', async () => {
+await t('money packets: on a packet call the words are checked before the model answers, even if it never calls the tool', async () => {
   const { startCall, reply, setChatForTest } = await import('../src/agent.ts');
   const { createPacket, findPacket } = await import('../src/packets.ts');
   const p = await createPacket({ from: 'mum.ringfence-wallet.testnet', yocto: 10n ** 22n, count: 1, lucky: true, words: 'open sesame' });
@@ -215,7 +215,7 @@ await t('red packets: on a packet call the words are checked before the model an
     assert.equal(findPacket(p.id)!.claims.length, 1, 'saying them again opens nothing more');
   } finally { setChatForTest(null); }
 });
-await t('red packets: a browser caller gives an account after the words; expiry sends the rest back', async () => {
+await t('money packets: a browser caller gives an account after the words; expiry sends the rest back', async () => {
   const { startCall } = await import('../src/agent.ts');
   const { packetDesk } = await import('../src/desks/packet.ts');
   const { createPacket, refundExpired, findPacket, openPacket } = await import('../src/packets.ts');
@@ -291,7 +291,7 @@ await t('one agent: every tool on one list, dispatched to the desk code that own
   const { startCall, toolsFor, deskOfTool, system, GREETING } = await import('../src/agent.ts');
   const names = (c: any) => (toolsFor(c) as any[]).map((t) => t.function.name);
   const c = startCall('web').call;
-  assert.equal(GREETING, 'Hi, this is Ringfence on NEAR. I can send NEAR or a red packet for you, or launch a coin on JustHoot. What do you need?');
+  assert.equal(GREETING, 'Hi, this is Ringfence on NEAR. I can send NEAR or a money packet for you, or launch a coin on JustHoot. What do you need?');
   for (const n of ['prepare_transfer', 'confirm_transfer', 'get_spending', 'set_coin', 'prepare_launch', 'end_call']) assert.ok(names(c).includes(n), n);
   for (const n of ['propose_rules', 'confirm_rules', 'quote_job', 'book_visit', 'save_caller', 'take_message']) assert.ok(!names(c).includes(n), n);
   assert.equal(deskOfTool(c, 'prepare_transfer')?.id, 'wallet');

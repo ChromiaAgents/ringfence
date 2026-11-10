@@ -1,4 +1,4 @@
-// Red packets: money locked for a group, opened one share at a time by saying the packet's words on a call or in a
+// Money packets: money locked for a group, opened one share at a time by saying the packet's words on a call or in a
 // message. The money and the split live in the packets contract (contracts/packets); this file keeps the words (never
 // sent to the chat model that talks to the caller, never shown on a page), checks what a caller actually said, and
 // asks the contract to pay. Without keys, or without PACKETS_ACCOUNT_ID, everything is a labelled dry run with the
@@ -84,7 +84,7 @@ export async function createPacket(o: { from: string; fromName?: string; fromPho
   } else p.dryRun = true;
   db.packets.push(p);
   save();
-  log({ kind: 'packet', callId: o.callId, detail: `${p.dryRun ? 'DRY RUN: ' : ''}red packet ${id}: ${yoctoToNear(p.yocto)} NEAR for ${o.count}, ${o.lucky ? 'lucky' : 'equal'} split, from ${o.from}${p.url ? `: ${p.url}` : ''}` });
+  log({ kind: 'packet', callId: o.callId, detail: `${p.dryRun ? 'DRY RUN: ' : ''}money packet ${id}: ${yoctoToNear(p.yocto)} NEAR for ${o.count}, ${o.lucky ? 'lucky' : 'equal'} split, from ${o.from}${p.url ? `: ${p.url}` : ''}` });
   return p;
 }
 
@@ -94,9 +94,9 @@ const opening = new Set<string>(); // packet:account being paid right now (the A
 /** Opens one share for `to` if one of `heard` (the caller's own recent words) says the packet's words. */
 export async function openPacket(id: string, to: string | null, heard: string[], callId?: string, already?: PacketClaim['how']): Promise<Opened> {
   const p = findPacket(id);
-  if (!p) return { ok: false, reason: 'There is no red packet with that id. Check the link.' };
-  if (p.refunded || Date.now() >= p.expiresAt) return { ok: false, reason: 'This red packet has expired. What was left went back to the sender.' };
-  if (p.claims.length >= p.count) return { ok: false, reason: 'Every share of this red packet has been opened.' };
+  if (!p) return { ok: false, reason: 'There is no money packet with that id. Check the link.' };
+  if (p.refunded || Date.now() >= p.expiresAt) return { ok: false, reason: 'This money packet has expired. What was left went back to the sender.' };
+  if (p.claims.length >= p.count) return { ok: false, reason: 'Every share of this money packet has been opened.' };
   // `already`: this caller said the words earlier on the same call (they are now giving the account).
   let how: PacketClaim['how'] | null = already ?? (heard.some((h) => wordsSaid(p.words, h)) ? 'exact' : null);
   const last = heard.at(-1) ?? '';
@@ -119,8 +119,8 @@ export async function openPacket(id: string, to: string | null, heard: string[],
     p.left = (BigInt(p.left) - yocto).toString();
     p.claims.push({ to, yocto: yocto.toString(), at: Date.now(), url, how });
     save();
-    log({ kind: 'packet', callId, detail: `${p.dryRun ? 'DRY RUN: ' : ''}red packet ${p.id}: ${to} opened ${yoctoToNear(yocto)} NEAR (words: ${how})${url ? `: ${url}` : ''}` });
-    if (p.fromPhone) tell?.(p.fromPhone, `${to} opened ${yoctoToNear(yocto)} NEAR from your red packet${p.dryRun ? ' (dry run)' : ''}. ${p.count - p.claims.length} of ${p.count} left.${url ? ` ${url}` : ''}`);
+    log({ kind: 'packet', callId, detail: `${p.dryRun ? 'DRY RUN: ' : ''}money packet ${p.id}: ${to} opened ${yoctoToNear(yocto)} NEAR (words: ${how})${url ? `: ${url}` : ''}` });
+    if (p.fromPhone) tell?.(p.fromPhone, `${to} opened ${yoctoToNear(yocto)} NEAR from your money packet${p.dryRun ? ' (dry run)' : ''}. ${p.count - p.claims.length} of ${p.count} left.${url ? ` ${url}` : ''}`);
     return { ok: true, near: yoctoToNear(yocto), dryRun: p.dryRun, url, left: p.count - p.claims.length, total: yoctoToNear(p.yocto) };
   } finally { opening.delete(key); }
 }
@@ -131,8 +131,8 @@ export async function refundExpired(now = Date.now()) {
     if (p.refunded || now < p.expiresAt) continue;
     p.refunded = true; // once, whatever happens: the contract refuses a second refund anyway
     if (!p.dryRun && BigInt(p.left) > 0n) await callContract(env.packetsAccountId, 'refund', { id: p.id }).catch((e) => console.error('packet refund', p.id, (e as Error).message.slice(0, 120)));
-    log({ kind: 'packet', detail: `red packet ${p.id} expired: ${yoctoToNear(p.left)} NEAR back to ${p.from}` });
-    if (p.fromPhone && BigInt(p.left) > 0n) tell?.(p.fromPhone, `Your red packet expired with ${p.count - p.claims.length} of ${p.count} unopened: ${yoctoToNear(p.left)} NEAR ${p.dryRun ? 'would be' : 'is'} back in your wallet.`);
+    log({ kind: 'packet', detail: `money packet ${p.id} expired: ${yoctoToNear(p.left)} NEAR back to ${p.from}` });
+    if (p.fromPhone && BigInt(p.left) > 0n) tell?.(p.fromPhone, `Your money packet expired with ${p.count - p.claims.length} of ${p.count} unopened: ${yoctoToNear(p.left)} NEAR ${p.dryRun ? 'would be' : 'is'} back in your wallet.`);
     p.left = '0';
   }
   save();
