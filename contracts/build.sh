@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smallest wasm for both contracts. Mainnet charges 0.0001 NEAR per byte (burned) to publish the phone wallet as a
+# Smallest wasm for the three contracts (phone wallet, factory, red packets). Mainnet charges 0.0001 NEAR per byte (burned) to publish the phone wallet as a
 # global contract, so bytes are NEAR. Usage: contracts/build.sh [--evm]   (--evm adds Chain Signatures to the wallet)
 #   1. cargo near build (release profile: opt-level z, lto, codegen-units 1, panic abort, strip) without the ABI
 #      (nobody reads the embedded ABI on chain; it costs ~2.3 KB),
@@ -27,5 +27,7 @@ shrink() {
 shrink phone-wallet/target/near/phone_wallet.wasm
 (cd factory && cargo near build non-reproducible-wasm --locked --no-abi --env "$(flags factory)")
 shrink factory/target/near/wallet_factory.wasm
+(cd packets && cargo near build non-reproducible-wasm --locked --no-abi --env "$(flags packets)")
+shrink packets/target/near/red_packets.wasm
 cp phone-wallet/target/near/phone_wallet.wasm ../public/phone_wallet.wasm
-wc -c phone-wallet/target/near/phone_wallet.wasm factory/target/near/wallet_factory.wasm
+wc -c phone-wallet/target/near/phone_wallet.wasm factory/target/near/wallet_factory.wasm packets/target/near/red_packets.wasm
