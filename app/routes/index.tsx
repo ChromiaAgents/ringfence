@@ -24,7 +24,7 @@ export const Route = createFileRoute('/')({
 const i = (n: number) => ({ '--i': n }) as CSSProperties;
 
 const TRY: Record<Desk | 'auto', string[]> = {
-  auto: ['Send a red packet of 0.02 NEAR for 5 people, the words are huat ah.', 'Send 0.1 NEAR to liho00.near.', 'Send 0.3 NEAR to liho00.near.', 'How much is that in dollars?', 'Send 5 NEAR to stranger.near.', 'What is my balance?', 'I want to launch a memecoin.'],
+  auto: ['Send a red packet of 0.02 NEAR for 5 people, the words are open sesame.', 'Send 0.1 NEAR to liho00.near.', 'Send 0.3 NEAR to liho00.near.', 'How much is that in dollars?', 'Send 5 NEAR to stranger.near.', 'What is my balance?', 'I want to launch a memecoin.'],
   launch: ['It’s a coin about a sleepy otter.', 'Call it Sleepy Otter, ticker ZZZ.', 'Make the ticker NEAR.', 'Yes, set it up.'],
 };
 const DESK_LABEL: Record<Desk | 'auto', string> = { auto: 'Let it ask', launch: 'Launch a coin' };
@@ -45,14 +45,14 @@ function Landing() {
 
         <div className="top">
           <div className="intro">
-            <h1 className="rise"><span>Mum sends a red packet by phone call.</span> <span>You open it by saying the words.</span></h1>
-            <p className="lead rise" style={i(1)}>She can’t use Meteor Wallet, but she can make a call. Her phone number is a NEAR wallet, a contract the family owns caps what the AI may spend, and the packet’s lucky split happens on chain.</p>
+            <h1 className="rise"><span>Mum sends a money gift by phone call.</span> <span>You open it by saying the magic words.</span></h1>
+            <p className="lead rise" style={i(1)}>It’s a red packet: one gift, split between the family, each share opened with a spoken phrase. Mum’s phone number is her NEAR wallet, and a contract the family owns caps what the AI may spend.</p>
             <div className="acts rise" style={i(3)}>
               <a className="btn" href="/packet/demo">Open a red packet</a>
               <a href="#call" onClick={tryCall}>Send one by call</a>
               <a href={d.waUrl} target="_blank" rel="noopener">Message on WhatsApp</a>
             </div>
-            <p className="note rise" style={i(4)}>No phone or wallet app needed to try it: both buttons work in this browser. WhatsApp runs on a test number, so ask us to add yours. The contracts are unaudited: keep amounts small.</p>
+            <p className="note rise" style={i(4)}>No phone or wallet app needed: both buttons work in this browser. Red packets are how WeChat Pay signed up an estimated 100 to 200 million bank cards in one 2015 holiday. The contracts are unaudited, so amounts are tiny.</p>
           </div>
           <div className="callcol rise" style={i(2)}>
             <LiveCall network={d.network} demo={d.demo} />
@@ -206,7 +206,7 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
 const at = (n: number) => ({ animationDelay: `${n * 600}ms` });
 const SampleCall = () => (
   <>
-    <div className="msg you" style={at(0)}><span className="who">Mum</span>A red packet, 1 NEAR, five grandkids. Words: gong xi fa cai.</div>
+    <div className="msg you" style={at(0)}><span className="who">Mum</span>A red packet, 1 NEAR, five grandkids. Words: happy birthday.</div>
     <div className="msg agent" style={at(1)}><span className="who">Ringfence</span>A red packet of 1 NEAR for 5 people, lucky split. Your PIN, please.</div>
     <div className="msg you" style={at(2)}><span className="who">Mum</span><span className="pins"><i /><i /><i /><i /></span> <span className="muted">blanked from the transcript</span></div>
     <div className="msg sys" style={at(3)}><span className="who">phone.you.near · contract</span><span className="ok">Approved · 1 of 3 NEAR today · packet ready to share</span></div>

@@ -60,7 +60,7 @@ function PacketPage() {
         <div className="brandrow"><Wordmark /><Makers /><span className="pill wait">NEAR {p.network}</span></div>
         {p.dryRun && <p className="err" role="note"><b>Dry run.</b> This server has no keys, so no real money is in this packet. The split rule is the contract’s.</p>}
         <section className={`hb${open ? '' : ' shut'}`} aria-label="Red packet">
-          <div className="hb-seal" aria-hidden="true">福</div>
+          <div className="hb-seal" aria-hidden="true">✦</div>
           <p className="hb-from">A red packet from <b>{short(p.from)}</b></p>
           <p className="hb-amt">{near(p.near)} <span>NEAR</span></p>
           <p className="hb-meta">{p.count} {p.count === 1 ? 'share' : 'shares'} · {p.lucky ? 'lucky split' : 'equal split'}</p>
@@ -71,8 +71,8 @@ function PacketPage() {
         </section>
 
         {open && <>
-          <h1>Say the words to open it</h1>
-          <p className="muted">{p.hint ? <>The words are <b>“{p.hint}”</b>. </> : 'The sender told you the words. '}Type the NEAR account that should get your share, press Call, and say the words out loud (or type them). An AI in a NEAR AI enclave checks what you said; the contract pays.</p>
+          <h1>Say the magic words to open it</h1>
+          <p className="muted">{p.hint ? <>The words are <b>“{p.hint}”</b>. </> : 'The sender told you the words. '}A red packet is a money gift for a group: each person opens one share. Type the NEAR account that should get yours, press Call, and say the words out loud (or type them). An AI in a NEAR AI enclave checks what you said; the contract pays.</p>
           <label className="hb-acct">Your NEAR account
             <input type="text" value={acct} onChange={(e) => setAcct(e.target.value)} placeholder={p.network === 'mainnet' ? 'alice.near' : 'alice.testnet'} autoComplete="off" autoCapitalize="none" spellCheck={false} />
           </label>

@@ -209,7 +209,7 @@ try {
   });
   await step('demo packet page (/packet/demo) opens a tiny packet with its words shown', async () => {
     const page = await get('/packet/demo');
-    must(page.status === 200 && /gong xi fa cai/i.test(page.text), `status ${page.status}`);
+    must(page.status === 200 && /open sesame/i.test(page.text), `status ${page.status}`);
   });
   await step('/wallet/claim page renders', async () => { const r = await get('/wallet/claim'); must(r.status === 200 && /Claim your phone wallet/i.test(r.text), `status ${r.status}`); });
   await step('/wallet/bind page renders', async () => { const r = await get('/wallet/bind'); must(r.status === 200 && /phone number is a wallet/i.test(r.text), `status ${r.status}`); });
