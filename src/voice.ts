@@ -7,7 +7,7 @@ import { transcribe } from './ai.ts';
 import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
 import { whatsappWebhook } from './whatsapp.ts';
-import { onCallNews, onWebApproval, onButton } from './desks/wallet.ts';
+import { onCallNews, onWebApproval, onButton, parseRecipient } from './desks/wallet.ts';
 import { devServer } from './wallet.ts';
 import { env } from './config.ts';
 
@@ -43,7 +43,8 @@ export function attachVoice(server: Server) {
     // ?from= stands in for a WhatsApp number in the keyless demo only (MOCK_LLM=1, no keys); a real browser call has no number.
     const from = env.mockLlm && devServer() ? sp.get('from') ?? undefined : undefined; // never with real keys
     const packetId = (sp.get('packet') ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 64) || undefined; // from a packet page's Call button
-    const { call, greeting } = startCall('web', from, q === 'launch' ? 'launch' : undefined, packetId);
+    const payTo = packetId ? parseRecipient(sp.get('to') ?? '', 'near') ?? undefined : undefined; // typed on the packet page
+    const { call, greeting } = startCall('web', from, q === 'launch' ? 'launch' : undefined, packetId, payTo);
     const line = voiceLine((pcm, rate) => { if (ws.readyState === 1) ws.send(wav(pcm, rate)); });
     const sendLink = () => {
       const l = linkOf(call);

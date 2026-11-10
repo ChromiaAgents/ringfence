@@ -15,6 +15,8 @@ export type PacketClaim = { to: string; yocto: string; at: number; url?: string;
 export type PacketRow = {
   id: string; createdAt: number; expiresAt: number; from: string; fromName?: string; yocto: string; left: string;
   count: number; lucky: boolean; words: string; hint?: string; demo?: boolean; dryRun?: boolean; url?: string;
+  /** The wallet's transfer that funded it, and the sender's WhatsApp number (told when a share is opened). */
+  fundUrl?: string; fromPhone?: string;
   claims: PacketClaim[]; refunded?: boolean;
 };
 
@@ -67,10 +69,14 @@ export function shareOf(left: bigint, people: number, lucky: boolean, rand: () =
 }
 
 /** Records a packet for money that is already in the packets contract (the wallet's transfer went first). */
-export async function createPacket(o: { from: string; fromName?: string; yocto: bigint; count: number; lucky: boolean; words: string; hint?: string; demo?: boolean; dry?: boolean; callId?: string }): Promise<PacketRow> {
+/** Set by src/whatsapp.ts: tells the sender when a share is opened or the packet expires. */
+let tell: ((phone: string, text: string) => void) | undefined;
+export const setPacketNews = (f: typeof tell) => (tell = f);
+
+export async function createPacket(o: { from: string; fromName?: string; fromPhone?: string; fundUrl?: string; yocto: bigint; count: number; lucky: boolean; words: string; hint?: string; demo?: boolean; dry?: boolean; callId?: string }): Promise<PacketRow> {
   const id = newId(), now = Date.now();
   const p: PacketRow = { id, createdAt: now, expiresAt: now + env.packetExpirySec * 1000, from: o.from, fromName: o.fromName, yocto: o.yocto.toString(), left: o.yocto.toString(),
-    count: o.count, lucky: o.lucky, words: o.words, hint: o.hint, demo: o.demo, claims: [] };
+    count: o.count, lucky: o.lucky, words: o.words, hint: o.hint, demo: o.demo, fundUrl: o.fundUrl, fromPhone: o.fromPhone, claims: [] };
   if (!o.dry && packetsLive()) {
     const r = await callContract(env.packetsAccountId, 'create_for', { id, creator: o.from, amount: p.yocto, count: o.count, lucky: o.lucky, expires_in_sec: env.packetExpirySec,
       phrase_hash: createHash('sha256').update(`${id}:${norm(o.words)}`).digest('hex') });
@@ -114,6 +120,7 @@ export async function openPacket(id: string, to: string | null, heard: string[],
     p.claims.push({ to, yocto: yocto.toString(), at: Date.now(), url, how });
     save();
     log({ kind: 'packet', callId, detail: `${p.dryRun ? 'DRY RUN: ' : ''}red packet ${p.id}: ${to} opened ${yoctoToNear(yocto)} NEAR (words: ${how})${url ? `: ${url}` : ''}` });
+    if (p.fromPhone) tell?.(p.fromPhone, `${to} opened ${yoctoToNear(yocto)} NEAR from your red packet${p.dryRun ? ' (dry run)' : ''}. ${p.count - p.claims.length} of ${p.count} left.${url ? ` ${url}` : ''}`);
     return { ok: true, near: yoctoToNear(yocto), dryRun: p.dryRun, url, left: p.count - p.claims.length, total: yoctoToNear(p.yocto) };
   } finally { opening.delete(key); }
 }
@@ -125,6 +132,7 @@ export async function refundExpired(now = Date.now()) {
     p.refunded = true; // once, whatever happens: the contract refuses a second refund anyway
     if (!p.dryRun && BigInt(p.left) > 0n) await callContract(env.packetsAccountId, 'refund', { id: p.id }).catch((e) => console.error('packet refund', p.id, (e as Error).message.slice(0, 120)));
     log({ kind: 'packet', detail: `red packet ${p.id} expired: ${yoctoToNear(p.left)} NEAR back to ${p.from}` });
+    if (p.fromPhone && BigInt(p.left) > 0n) tell?.(p.fromPhone, `Your red packet expired with ${p.count - p.claims.length} of ${p.count} unopened: ${yoctoToNear(p.left)} NEAR ${p.dryRun ? 'would be' : 'is'} back in your wallet.`);
     p.left = '0';
   }
   save();
@@ -155,7 +163,7 @@ export function publicPacket(p: PacketRow) {
   const best = p.claims.reduce((m, c) => (BigInt(c.yocto) > m ? BigInt(c.yocto) : m), 0n);
   return {
     id: p.id, from: p.fromName ?? p.from, near: yoctoToNear(p.yocto), count: p.count, lucky: p.lucky, hint: p.hint ?? null, demo: !!p.demo, dryRun: !!p.dryRun,
-    createdAt: p.createdAt, expiresAt: p.expiresAt, expired: !!p.refunded || Date.now() >= p.expiresAt, url: p.url ?? null, network: env.network, contract: env.packetsAccountId || null,
+    createdAt: p.createdAt, expiresAt: p.expiresAt, expired: !!p.refunded || Date.now() >= p.expiresAt, url: p.fundUrl ?? p.url ?? null, network: env.network, contract: env.packetsAccountId || null,
     claims: p.claims.map((c) => ({ to: c.to, near: yoctoToNear(c.yocto), at: c.at, url: c.url ?? null, luckiest: p.lucky && p.claims.length > 1 && BigInt(c.yocto) === best })),
   };
 }

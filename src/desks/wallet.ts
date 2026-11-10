@@ -222,27 +222,30 @@ export function frozen(b: Binding, s: WalletState | null, now = Date.now()): str
 async function execute(callId: string, b: Binding, t: Transfer): Promise<{ ok: true; [k: string]: unknown } | { ok: false; reason: string }> {
   if (!live() || b.dryRun) {
     log({ kind: 'wallet', desk: 'wallet', callId, detail: `DRY RUN (${b.dryRun ? 'no CUSTODY_PRIVATE_KEY' : 'no AGENT_PRIVATE_KEY'}): would send ${readBack(t)} from ${b.contract}${b.custodial ? ' (custodial)' : ''}` });
-    if (t.packet) return packetOf(callId, b.contract, t, true);
+    if (t.packet) return packetOf(callId, b, t, true);
     return { ok: true, dryRun: true, txHash: `dry-run-${callId}`, note: 'DRY RUN: this server has no agent key, so nothing was sent. Say clearly it was a dry run.' };
   }
   const r = await (t.asset === 'near' ? sendNear(b, t.to, t.base) : isFt(t.asset) ? sendFt(b, t.asset.slice(3), t.to, t.base) : sendEvm(b, chainOf(t.asset)!.id, t.to, t.base)).catch((e) => e as Error);
   if (r instanceof GasShortError) return { ok: false, reason: r.message };
   if (r instanceof Error) return { ok: false, reason: `The wallet contract refused: ${r.message.slice(0, 160)}` };
   log({ kind: 'wallet', desk: 'wallet', callId, detail: `${readBack(t)} from ${b.contract}: ${r.url}${r.queuedId != null ? ` (queued #${r.queuedId})` : ''}` });
-  if (t.packet) return packetOf(callId, b.contract, t, false);
+  if (t.packet) return packetOf(callId, b, t, false, r.url);
   links.set(callId, { url: r.url, label: r.queuedId != null ? 'Queued transfer' : 'Your transaction' });
   return { ok: true, txHash: r.txHash, url: r.url, linkSent: true, queued: r.queuedId != null };
 }
 
 /** The money is in the packets contract (or this is a dry run): record the packet and hand over its link. */
-async function packetOf(callId: string, from: string, t: Transfer, dry: boolean): Promise<{ ok: true; [k: string]: unknown } | { ok: false; reason: string }> {
-  const p = await createPacket({ from, yocto: t.base, ...t.packet!, dry, callId }).catch((e) => e as Error);
+async function packetOf(callId: string, b: Pick<Binding, 'contract' | 'phone'> | null, t: Transfer, dry: boolean, fundUrl?: string): Promise<{ ok: true; [k: string]: unknown } | { ok: false; reason: string }> {
+  const from = b?.contract ?? 'a browser demo';
+  // The sender hears about each opened share on WhatsApp (not the shared website demo wallet: it has no real phone).
+  const fromPhone = b && b.phone !== env.demoPhone ? b.phone : undefined;
+  const p = await createPacket({ from, fromPhone, fundUrl, yocto: t.base, ...t.packet!, dry, callId }).catch((e) => e as Error);
   if (p instanceof Error) {
     log({ kind: 'refused', desk: 'wallet', callId, detail: `red packet not recorded after the transfer (${t.amount} NEAR from ${from}): ${p.message.slice(0, 160)}` });
     return { ok: false, reason: 'The money reached the red packet contract but the packet was not recorded. Nothing is lost: it is logged for the team to finish or send back.' };
   }
-  links.set(callId, { url: packetUrl(p.id), label: 'Your red packet. Share this link; they open it by saying the words' });
-  return { ok: true, packet: true, link: packetUrl(p.id), dryRun: p.dryRun || undefined, linkSent: true,
+  links.set(callId, { url: packetUrl(p.id), label: `Your red packet. Share this link; they open it by saying the words${fundUrl ? `. Funded on chain: ${fundUrl}` : ''}` });
+  return { ok: true, packet: true, link: packetUrl(p.id), funded_on_chain: fundUrl, dryRun: p.dryRun || undefined, linkSent: true,
     next: `The red packet is ready. Tell them to share the link and the words with the people it is for.${p.dryRun ? ' Say clearly it is a dry run: no real money is in it.' : ''}` };
 }
 
@@ -357,7 +360,7 @@ async function browserDemo(call: Call, name: string, a: any, packet?: Transfer['
     if (!pin) return { ok: false, reason: 'Say four digits.' };
     pending.delete(call.id);
     log({ kind: 'wallet', desk: 'wallet', callId: call.id, detail: `BROWSER DEMO: would ask the contract to send ${readBack(t)}` });
-    if (t.packet) return packetOf(call.id, 'a browser demo', t, true);
+    if (t.packet) return packetOf(call.id, null, t, true);
     return { ok: true, dryRun: true, demo: true, txHash: `demo-${call.id}`, note };
   }
   return { error: 'unknown tool' };

@@ -15,7 +15,7 @@ function wav16(f32: Float32Array) {
 
 export type Desk = 'launch';
 
-export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string) {
+export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string, payTo?: string) {
   const [lines, setLines] = useState<Line[]>([]);
   const [state, setState] = useState('Not connected');
   const [live, setLive] = useState(false);
@@ -81,7 +81,7 @@ export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string) {
     } catch (e: any) {
       add('tool', `No microphone (${e.message}). Type your side of the call below.`);
     }
-    const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/call' + (packet ? `?packet=${encodeURIComponent(packet)}` : deskPick === 'auto' ? '' : `?desk=${deskPick}`));
+    const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/call' + (packet ? `?packet=${encodeURIComponent(packet)}${payTo ? `&to=${encodeURIComponent(payTo)}` : ''}` : deskPick === 'auto' ? '' : `?desk=${deskPick}`));
     s.ws = ws;
     ws.binaryType = 'arraybuffer';
     ws.onopen = () => setState('Ringing…');

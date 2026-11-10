@@ -15,6 +15,8 @@ export type Call = {
   caller?: Record<string, string>; launchId?: string; routeMisses?: number;
   /** The red packet this call was opened from (a packet page's Call button). */
   packetId?: string;
+  /** The NEAR account typed on the packet page before the call: where this caller's share goes. */
+  payTo?: string;
 };
 export const isCurrentLaunch = (l: { launchpad?: string }) => l.launchpad === 'justhoot';
 

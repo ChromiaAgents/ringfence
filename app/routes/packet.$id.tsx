@@ -32,6 +32,7 @@ function PacketPage() {
   const first = Route.useLoaderData();
   const { id } = Route.useParams();
   const [p, setP] = useState<Packet | null>(first.packet);
+  const [acct, setAcct] = useState('');
   // Shares appear as people open them.
   useEffect(() => {
     if (!p || p.expired) return;
@@ -51,7 +52,8 @@ function PacketPage() {
     </>
   );
   const left = p.count - p.claims.length, done = left === 0, open = !p.expired && !done;
-  const callUrl = `/?packet=${p.id}${p.hint ? `&say=${encodeURIComponent(p.hint)}` : ''}#call`;
+  const acctOk = /^([a-z0-9_-]+\.)*[a-z0-9_-]+\.(near|testnet)$|^[0-9a-f]{64}$/.test(acct.trim().toLowerCase());
+  const callUrl = `/?packet=${p.id}${p.hint ? `&say=${encodeURIComponent(p.hint)}` : ''}${acctOk ? `&to=${encodeURIComponent(acct.trim().toLowerCase())}` : ''}#call`;
   return (
     <>
       <main className="app pay hb-page">
@@ -70,7 +72,10 @@ function PacketPage() {
 
         {open && <>
           <h1>Say the words to open it</h1>
-          <p className="muted">{p.hint ? <>The words are <b>“{p.hint}”</b>. </> : 'The sender told you the words. '}Call, say them out loud (or type them), then say which NEAR account gets your share. An AI in a NEAR AI enclave checks what you said; the contract pays.</p>
+          <p className="muted">{p.hint ? <>The words are <b>“{p.hint}”</b>. </> : 'The sender told you the words. '}Type the NEAR account that should get your share, press Call, and say the words out loud (or type them). An AI in a NEAR AI enclave checks what you said; the contract pays.</p>
+          <label className="hb-acct">Your NEAR account
+            <input type="text" value={acct} onChange={(e) => setAcct(e.target.value)} placeholder={p.network === 'mainnet' ? 'alice.near' : 'alice.testnet'} autoComplete="off" autoCapitalize="none" spellCheck={false} />
+          </label>
           <div className="hb-cta">
             <a className="btn green" href={callUrl}>Call to open it</a>
             {first.wa && <a className="btn white small" href={`https://wa.me/${first.wa}?text=${encodeURIComponent(`open red packet ${p.id}`)}`} target="_blank" rel="noreferrer">Open on WhatsApp</a>}

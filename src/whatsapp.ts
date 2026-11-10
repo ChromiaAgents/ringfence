@@ -11,6 +11,7 @@ import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
 import { onboard, bindingOf, NO_WALLET, devServer } from './wallet.ts';
 import { onButton, setApprovalSender, onCallNews } from './desks/wallet.ts';
+import { setPacketNews } from './packets.ts';
 
 const GRAPH = 'https://graph.facebook.com/v23.0';
 
@@ -46,6 +47,7 @@ export const sendButtons = (to: string, body: string, token: string) =>
   graph(`${env.waPhoneId}/messages`, { messaging_product: 'whatsapp', to, type: 'interactive', interactive: { type: 'button', body: { text: body },
     action: { buttons: [{ type: 'reply', reply: { id: `approve:${token}`, title: 'Approve' } }, { type: 'reply', reply: { id: `cancel:${token}`, title: 'Cancel' } }, { type: 'reply', reply: { id: `reject:${token}`, title: 'Not me' } }] } } });
 if (env.waToken) setApprovalSender(sendButtons);
+if (env.waToken) setPacketNews((phone, text) => { sendText(phone, text).catch((e) => console.error('packet news', e.message.slice(0, 120))); });
 
 
 function validSignature(req: IncomingMessage, body: Buffer) {

@@ -195,6 +195,18 @@ try {
     must(/alice\.testnet/.test(page.text) && /bob\.testnet/.test(page.text), 'the openers are not on the page');
     return `${got[0]} + ${got[1]} NEAR (dry run)`;
   });
+  await step('red packet: an account typed on the page means the caller only says the words', async () => {
+    const r = await call('wallet&from=15550001234', ['send a red packet of 0.01 NEAR for 1 people, the words are open sesame', 'one two three four']);
+    const id = r.link!.url.split('/packet/')[1];
+    const ws = new WebSocket(`ws://localhost:${PORT}/ws/call?packet=${id}&to=dana.testnet`);
+    const said: string[] = []; let done: (() => void) | null = null;
+    ws.on('message', (d, bin) => { if (bin) return; const m = JSON.parse(String(d)); if (m.type === 'agent') said.push(m.text); if (m.type === 'desk') done?.(); });
+    await new Promise((ok, bad) => { ws.once('open', ok); ws.once('error', bad); });
+    await new Promise<void>((ok, bad) => { done = ok; setTimeout(() => bad(new Error('no reply')), 20_000); ws.send(JSON.stringify({ type: 'text', text: 'open sesame' })); });
+    ws.close();
+    must(/You opened 0\.01 NEAR/.test(said.join(' ')), 'not opened in one line: ' + said.join(' | '));
+    must(/dana\.testnet/.test((await get(`/packet/${id}`)).text), 'not paid to the typed account');
+  });
   await step('demo packet page (/packet/demo) opens a tiny packet with its words shown', async () => {
     const page = await get('/packet/demo');
     must(page.status === 200 && /gong xi fa cai/i.test(page.text), `status ${page.status}`);

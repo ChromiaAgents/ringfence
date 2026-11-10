@@ -210,3 +210,6 @@ td .sub { display: block; font-size: 14px; color: var(--slate); }
 .hb-cta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin: 18px 0 26px; }
 .hb-lucky { margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--gold); color: #5a3d00; font-size: 12px; }
 .hb-foot { margin-top: 22px; font-size: 14px; }
+
+.hb-acct { display: grid; gap: 6px; margin: 14px 0 0; font-size: 14px; font-weight: 600; max-width: 360px; }
+.hb-acct input { min-height: 48px; padding: 10px 14px; border: 2px solid var(--ink); border-radius: 12px; font: inherit; font-weight: 400; font-size: 16px; }

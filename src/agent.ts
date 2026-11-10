@@ -79,8 +79,8 @@ export const setChatForTest = (f: typeof chat | null) => (chatFn = f ?? chat);
 const histories = new Map<string, Msg[]>();
 
 /** desk only labels the call up front. */
-export function startCall(channel: Call['channel'], from?: string, desk?: Desk, packetId?: string): { call: Call; greeting: string } {
-  const call: Call = { id: id(), channel, desk, from, startedAt: Date.now(), turns: [], packetId };
+export function startCall(channel: Call['channel'], from?: string, desk?: Desk, packetId?: string, payTo?: string): { call: Call; greeting: string } {
+  const call: Call = { id: id(), channel, desk, from, startedAt: Date.now(), turns: [], packetId, payTo };
   db.calls.push(call);
   const back = desk || packetId ? null : resume(call);
   // A returning caller with a coin in progress: the greeting offers to pick it up.
