@@ -2,7 +2,7 @@
 //   npm run dev  -> Vite in middleware mode (HMR, SSR from source)
 //   npm start    -> the built Start handler from dist/ (run `npm run build` first)
 import { startHeldLoop } from './src/held.ts';
-import { bindingOf, createCustodial, custodyLive } from './src/wallet.ts';
+import { bindingOf, createCustodial, custodyLive, saveRecipient, walletState } from './src/wallet.ts';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
@@ -59,8 +59,18 @@ server.on('request', async (req, res) => {
 attachVoice(server);
 startHeldLoop(); // first payments to new recipients go out when their wait is over
 // The website's demo wallet: made once on chain when the custody key is set and the demo number has no real wallet yet.
-if (env.demoPhone && /^\d{4}$/.test(env.demoPin) && custodyLive() && (!bindingOf(env.demoPhone) || bindingOf(env.demoPhone)!.dryRun))
-  createCustodial(env.demoPhone, env.demoPin).then((r) => console.log('demo wallet:', r.ok ? r.binding.contract : r.reason), (e) => console.error('demo wallet failed:', e.message));
+// It only ever pays one saved payee (DEMO_RECIPIENT): the owner (custody) saves that payee on the wallet once.
+async function demoWallet() {
+  if (!env.demoPhone || !/^\d{4}$/.test(env.demoPin) || !custodyLive()) return;
+  if (!bindingOf(env.demoPhone) || bindingOf(env.demoPhone)!.dryRun) {
+    const r = await createCustodial(env.demoPhone, env.demoPin);
+    console.log('demo wallet:', r.ok ? r.binding.contract : r.reason);
+    if (!r.ok) return;
+  }
+  const b = bindingOf(env.demoPhone)!, to = env.demoRecipient.toLowerCase();
+  if (to && !(await walletState(b)).allowlist.includes(to)) { await saveRecipient(b, to); console.log('demo wallet: saved payee', to); }
+}
+demoWallet().catch((e) => console.error('demo wallet failed:', e.message));
 server.listen(env.port, () => {
   console.log(`Ringfence on ${env.publicUrl}  (call: /  launches: /launch/:id  dashboard: /dashboard)  network: ${env.network}`);
   const t = Date.now();
