@@ -139,13 +139,14 @@ let making: Promise<PacketRow | null> | null = null;
 /** The website's demo packet: one is always open, funded by the demo wallet a little at a time, so the wallet's own
  *  daily limit caps the giveaway. Its words are public (the hint). Null when today's budget is used up. */
 export function demoPacket(): Promise<PacketRow | null> {
-  const open = [...db.packets].reverse().find((p) => p.demo && !p.refunded && Date.now() < p.expiresAt && p.claims.length < p.count);
+  // An open demo packet made with other words (before DEMO_PACKET_WORDS changed) or as a dry run before the keys were set is left to expire.
+  const real = packetsLive() && !!env.demoPhone && !!bindingOf(env.demoPhone) && !bindingOf(env.demoPhone)!.dryRun;
+  const open = [...db.packets].reverse().find((p) => p.demo && !p.refunded && Date.now() < p.expiresAt && p.claims.length < p.count && p.words === env.demoPacketWords && !!p.dryRun === !real);
   if (open) return Promise.resolve(open);
   return (making ??= (async () => {
     try {
       const yocto = parseUnits(env.demoPacketNear, 24);
       const b = env.demoPhone ? bindingOf(env.demoPhone) : undefined;
-      const real = packetsLive() && !!b && !b.dryRun;
       if (real) await sendNear(b!, env.packetsAccountId, yocto);
       return await createPacket({ from: real ? b!.contract : 'the Ringfence demo', fromName: 'the Ringfence demo', yocto, count: 5, lucky: true, words: env.demoPacketWords, hint: env.demoPacketWords, demo: true, dry: !real });
     } catch (e) {
