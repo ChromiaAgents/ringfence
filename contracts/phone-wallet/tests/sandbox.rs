@@ -110,3 +110,50 @@ async fn phone_wallet_in_sandbox() -> anyhow::Result<()> {
     assert!(format!("{:?}", r.into_result().unwrap_err()).contains("only the agent"));
     Ok(())
 }
+
+/// USDC path on the real runtime: a NEP-141 token, a recipient that was never registered with it (the wallet pays
+/// its storage), limits per token, the new-recipient queue, a guardian freeze, and the owner's withdraw_ft.
+#[cfg(not(feature = "evm"))]
+#[tokio::test]
+async fn usdc_and_guardian_in_sandbox() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let wasm = wallet_wasm().await?;
+    let ft = worker.dev_deploy(&near_workspaces::compile_project("../mock-ft").await?).await?;
+    ft.call("new").transact().await?.into_result()?;
+    let owner = worker.dev_create_account().await?;
+    let agent = worker.dev_create_account().await?;
+    let grocer = worker.dev_create_account().await?;
+    let son = worker.dev_create_account().await?;
+    let w = owner.create_subaccount("phone").initial_balance(NearToken::from_near(5)).transact().await?.into_result()?;
+    let w = w.deploy(&wasm).await?.into_result()?;
+    w.call("new").args_json(json!({ "owner": owner.id(), "agent": agent.id(), "phone_hash": "abc", "usdc": ft.id(),
+        "usdc_limit": { "per_tx": "25000000", "per_day": "60000000" } })).transact().await?.into_result()?;
+    // The wallet holds 100 USDC; the grocer has never touched the token.
+    ft.call("mint").args_json(json!({ "account_id": w.id(), "amount": "100000000" })).transact().await?.into_result()?;
+    let bal = |a: near_workspaces::AccountId| { let ft = ft.clone(); async move { ft.view("ft_balance_of").args_json(json!({ "account_id": a })).await.unwrap().json::<String>().unwrap() } };
+    let one = NearToken::from_yoctonear(1);
+    owner.call(w.id(), "allow").args_json(json!({ "recipient": grocer.id() })).deposit(one).transact().await?.into_result()?;
+    let send = |to: &near_workspaces::AccountId, amt: &str| agent.call(w.id(), "transfer_ft").args_json(json!({ "token": ft.id(), "to": to, "amount": amt })).max_gas().transact();
+
+    // 11.50 USDC (about RM 50) to a saved, unregistered recipient: registered and paid in one go.
+    send(grocer.id(), "11500000").await?.into_result()?;
+    assert_eq!(bal(grocer.id().clone()).await, "11500000");
+    assert_eq!(bal(w.id().clone()).await, "88500000");
+    // over the per-transfer limit: refused by the contract
+    assert!(format!("{:?}", send(grocer.id(), "25000001").await?.into_result().unwrap_err()).contains("over the per-transfer limit"));
+    // a new recipient is queued, not paid
+    let r = send(son.id(), "1000000").await?.into_result()?.json::<Option<u64>>()?;
+    assert_eq!(r, Some(0));
+    assert_eq!(bal(son.id().clone()).await, "0");
+
+    // guardian: the son can freeze from his own account, then the agent is refused
+    owner.call(w.id(), "add_guardian").args_json(json!({ "guardian": son.id() })).deposit(one).transact().await?.into_result()?;
+    son.call(w.id(), "guardian_freeze").args_json(json!({ "until_ts": "99999999999" })).deposit(one).transact().await?.into_result()?;
+    assert!(format!("{:?}", send(grocer.id(), "1000000").await?.into_result().unwrap_err()).contains("frozen by the owner"));
+    let r = son.call(w.id(), "unfreeze").deposit(one).transact().await?;
+    assert!(format!("{:?}", r.into_result().unwrap_err()).contains("only the owner"), "a guardian can't unfreeze");
+    // the owner always gets the tokens out
+    owner.call(w.id(), "withdraw_ft").args_json(json!({ "token": ft.id(), "amount": "88500000" })).deposit(one).max_gas().transact().await?.into_result()?;
+    assert_eq!(bal(owner.id().clone()).await, "88500000");
+    Ok(())
+}

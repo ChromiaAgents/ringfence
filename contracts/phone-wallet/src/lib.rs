@@ -10,9 +10,7 @@
 // both builds (signer, chains and Pending.tx stay, unused, in the NEAR-only build).
 // UNAUDITED PROTOTYPE: keep small amounts.
 use near_sdk::json_types::{U128, U64};
-use near_sdk::{env, near, require, AccountId, NearToken, PanicOnDefault, Promise, PromiseOrValue};
-#[cfg(feature = "evm")]
-use near_sdk::Gas;
+use near_sdk::{env, near, require, AccountId, Gas, NearToken, PanicOnDefault, Promise, PromiseOrValue};
 use std::collections::HashMap;
 
 const DAY_NS: u64 = 86_400_000_000_000;
@@ -20,6 +18,14 @@ const DAY_NS: u64 = 86_400_000_000_000;
 pub const CLAIM_DELAY_NS: u64 = DAY_NS;
 /// At most this many queued transfers (a compromised agent could otherwise fill storage and grow gas).
 pub const MAX_PENDING: usize = 10;
+/// At most this many guardians (family accounts that can only freeze).
+pub const MAX_GUARDIANS: usize = 5;
+/// A guardian's freeze lasts at most this long; only the owner can lift it early.
+pub const GUARDIAN_FREEZE_MAX_NS: u64 = 7 * DAY_NS;
+/// Native USDC on NEAR mainnet (Circle), 6 decimals. Fungible tokens are assets "ft:<token contract>".
+pub const USDC_MAINNET: &str = "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1";
+/// NEP-145 registration for a recipient that has never held the token (refunded by the token if already registered).
+const FT_STORAGE: NearToken = NearToken::from_yoctonear(1_250_000_000_000_000_000_000);
 #[cfg(feature = "evm")]
 const SIGN_GAS: Gas = Gas::from_tgas(50);
 #[cfg(feature = "evm")]
@@ -28,6 +34,16 @@ pub const ETH_PATH: &str = "ethereum-1";
 pub const BASE_CHAIN_ID: u64 = 8453;
 #[cfg(feature = "evm")]
 pub fn evm_key(chain_id: u64) -> String { format!("evm:{chain_id}") }
+
+pub fn ft_key(token: &str) -> String { let mut k = String::from("ft:"); k.push_str(token); k }
+
+/// storage_deposit for the recipient (registration only; refunded if already registered), then ft_transfer (1 yocto).
+fn ft_send(token: AccountId, to: AccountId, amount: U128) -> Promise {
+    let reg = near_sdk::serde_json::to_vec(&near_sdk::serde_json::json!({ "account_id": to, "registration_only": true })).unwrap();
+    let send = near_sdk::serde_json::to_vec(&near_sdk::serde_json::json!({ "receiver_id": to, "amount": amount })).unwrap();
+    Promise::new(token.clone()).function_call("storage_deposit".to_string(), reg, FT_STORAGE, Gas::from_tgas(10))
+        .then(Promise::new(token).function_call("ft_transfer".to_string(), send, NearToken::from_yoctonear(1), Gas::from_tgas(15)))
+}
 
 /// String-keyed map kept as a short Vec (a wallet has a handful of assets): much less wasm than a HashMap.
 /// The view (get_state) still returns JSON objects.
@@ -115,6 +131,8 @@ pub struct PhoneWallet {
     /// the agent or unfreeze; it can only freeze and propose the real owner, who may accept after CLAIM_DELAY_NS.
     custodial: bool,
     claim_ready_ns: u64,
+    /// Family accounts that may freeze the agent (never unfreeze, withdraw or change anything else).
+    guardians: Vec<AccountId>,
 }
 
 #[near(serializers = [json])]
@@ -135,6 +153,7 @@ pub struct State {
     pub frozen_until_ns: U64,
     pub custodial: bool,
     pub claim_ready_ns: U64,
+    pub guardians: Vec<AccountId>,
 }
 
 #[near]
@@ -146,11 +165,14 @@ impl PhoneWallet {
     #[init]
     pub fn new(owner: AccountId, agent: AccountId, phone_hash: String, signer: Option<AccountId>, evm_chain_ids: Option<Vec<u64>>,
                near_limit: Option<Limit>, evm_limit: Option<Limit>, new_recipient_delay_sec: Option<u64>,
-               recipients: Option<Vec<String>>, custodial: Option<bool>) -> Self {
+               recipients: Option<Vec<String>>, custodial: Option<bool>, usdc: Option<AccountId>, usdc_limit: Option<Limit>) -> Self {
         require!(agent != owner, "the agent can't be the owner");
         const E24: u128 = 10u128.pow(24); // compile-time constants: no u128 division in the wasm
         let mut limits = Map::default();
         limits.insert("near".into(), near_limit.unwrap_or(Limit { per_tx: U128(E24), per_day: U128(3 * E24) }));
+        // USDC: 25 per transfer, 60 per day by default (6 decimals). Any other token needs the owner's set_limits.
+        let usdc = usdc.map(|u| u.to_string()).unwrap_or_else(|| USDC_MAINNET.into());
+        limits.insert(ft_key(&usdc), usdc_limit.unwrap_or(Limit { per_tx: U128(25_000_000), per_day: U128(60_000_000) }));
         #[cfg(feature = "evm")]
         let chains = {
             const E18: u128 = 10u128.pow(18);
@@ -166,7 +188,7 @@ impl PhoneWallet {
             signer: signer.unwrap_or_else(|| "v1.signer".parse().unwrap()),
             limits, chains, allowlist: recipients.unwrap_or_default().iter().map(|r| r.to_ascii_lowercase()).collect(), new_recipient_delay_sec: new_recipient_delay_sec.unwrap_or(600),
             day: 0, spent: Map::default(), pending: vec![], next_id: 0, pending_owner: None, frozen_until_ns: 0,
-            custodial: custodial.unwrap_or(false), claim_ready_ns: 0,
+            custodial: custodial.unwrap_or(false), claim_ready_ns: 0, guardians: vec![],
         }
     }
 
@@ -244,6 +266,28 @@ impl PhoneWallet {
         self.only_owner();
         self.frozen_until_ns = until_ts.0.saturating_mul(1_000_000_000);
     }
+    /// Owner adds a family member who can freeze the agent from their own account. Allowed on custodial wallets too:
+    /// a guardian can only stop spending, never move money.
+    #[payable]
+    pub fn add_guardian(&mut self, guardian: AccountId) {
+        self.only_owner();
+        require!(Some(&guardian) != self.agent.as_ref(), "the agent can't be a guardian");
+        require!(self.guardians.len() < MAX_GUARDIANS, "too many guardians");
+        if !self.guardians.contains(&guardian) { self.guardians.push(guardian); }
+    }
+    #[payable]
+    pub fn remove_guardian(&mut self, guardian: AccountId) {
+        self.only_owner();
+        self.guardians.retain(|g| *g != guardian);
+    }
+    /// A guardian stops the agent until `until_ts` (unix seconds), at most 7 days ahead. It can only extend a freeze.
+    #[payable]
+    pub fn guardian_freeze(&mut self, until_ts: U64) {
+        near_sdk::assert_one_yocto();
+        require!(self.guardians.contains(&env::predecessor_account_id()), "only a guardian");
+        let until = until_ts.0.saturating_mul(1_000_000_000).min(env::block_timestamp() + GUARDIAN_FREEZE_MAX_NS);
+        self.frozen_until_ns = self.frozen_until_ns.max(until);
+    }
     #[payable]
     pub fn unfreeze(&mut self) {
         self.only_owner(); self.not_custodial();
@@ -259,6 +303,12 @@ impl PhoneWallet {
     pub fn withdraw(&mut self, amount: U128) -> Promise {
         self.only_owner(); self.not_custodial();
         Promise::new(self.owner.clone()).transfer(NearToken::from_yoctonear(amount.0))
+    }
+    /// The owner takes a token out (e.g. USDC), same rule as withdraw.
+    #[payable]
+    pub fn withdraw_ft(&mut self, token: AccountId, amount: U128) -> Promise {
+        self.only_owner(); self.not_custodial();
+        ft_send(token, self.owner.clone(), amount)
     }
     #[payable]
     pub fn cancel(&mut self, pending_id: u64) {
@@ -282,6 +332,18 @@ impl PhoneWallet {
         if !self.allowed("near", to.as_str()) { return Some(self.queue("near", to.to_string(), amount, None)); }
         self.spend("near", amount.0);
         let _ = Promise::new(to).transfer(NearToken::from_yoctonear(amount.0));
+        None
+    }
+
+    /// Same rules as transfer_near for a fungible token (asset "ft:<token>", e.g. USDC): limits in the token's units,
+    /// saved recipients send now, new ones queue. The recipient is registered with the token first if needed.
+    pub fn transfer_ft(&mut self, token: AccountId, to: AccountId, amount: U128) -> Option<u64> {
+        self.only_agent();
+        let asset = ft_key(token.as_str());
+        self.check_tx(&asset, amount.0);
+        if !self.allowed(&asset, to.as_str()) { return Some(self.queue(&asset, to.to_string(), amount, None)); }
+        self.spend(&asset, amount.0);
+        let _ = ft_send(token, to, amount);
         None
     }
 
@@ -313,7 +375,14 @@ impl PhoneWallet {
         self.check_tx(&p.asset, p.amount.0);
         self.spend(&p.asset, p.amount.0);
         match p.tx {
-            None => { let _ = Promise::new(p.to.parse::<AccountId>().unwrap()).transfer(NearToken::from_yoctonear(p.amount.0)); PromiseOrValue::Value(U64(p.id)) }
+            None => {
+                let to: AccountId = p.to.parse().unwrap();
+                match p.asset.strip_prefix("ft:") {
+                    Some(token) => { let _ = ft_send(token.parse().unwrap(), to, p.amount); }
+                    None => { let _ = Promise::new(to).transfer(NearToken::from_yoctonear(p.amount.0)); }
+                }
+                PromiseOrValue::Value(U64(p.id))
+            }
             #[cfg(feature = "evm")]
             Some(tx) => {
                 let id: u64 = p.asset.strip_prefix("evm:").and_then(|x| x.parse().ok()).unwrap();
@@ -338,7 +407,7 @@ impl PhoneWallet {
             pending: self.pending.clone(),
             balance: U128(env::account_balance().as_yoctonear()),
             pending_owner: self.pending_owner.clone(), frozen_until_ns: U64(self.frozen_until_ns),
-            custodial: self.custodial, claim_ready_ns: U64(self.claim_ready_ns),
+            custodial: self.custodial, claim_ready_ns: U64(self.claim_ready_ns), guardians: self.guardians.clone(),
         }
     }
 
@@ -356,7 +425,8 @@ impl PhoneWallet {
     /// One saved list, split by kind: a saved 0x address is for EVM chains only, never NEAR's eth-implicit 0x account.
     fn allowed(&self, asset: &str, to: &str) -> bool {
         let to = to.to_ascii_lowercase();
-        (asset == "near") != to.starts_with("0x") && self.allowlist.contains(&to)
+        let near_account = asset == "near" || asset.starts_with("ft:");
+        near_account != to.starts_with("0x") && self.allowlist.contains(&to)
     }
     fn limit(&self, asset: &str) -> Limit {
         self.limits.get(asset).cloned().unwrap_or_else(|| env::panic_str("no limit set for this asset"))
@@ -457,10 +527,72 @@ mod tests {
     fn wallet() -> PhoneWallet {
         ctx(0, 1000, 0);
         PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, Some(vec![SEPOLIA]),
-            Some(Limit { per_tx: U128(5 * NEAR), per_day: U128(10 * NEAR) }), Some(Limit { per_tx: U128(10u128.pow(16)), per_day: U128(2 * 10u128.pow(16)) }), None, None, None)
+            Some(Limit { per_tx: U128(5 * NEAR), per_day: U128(10 * NEAR) }), Some(Limit { per_tx: U128(10u128.pow(16)), per_day: U128(2 * 10u128.pow(16)) }), None, None, None, None, None)
     }
-    fn mainnet_wallet() -> PhoneWallet { ctx(0, 1000, 0); PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None, None, None) }
+    fn mainnet_wallet() -> PhoneWallet { ctx(0, 1000, 0); PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None, None, None, None, None) }
 
+    #[test]
+    fn usdc_limits_allowlist_and_queue() {
+        let mut w = mainnet_wallet();
+        let usdc: AccountId = USDC_MAINNET.parse().unwrap();
+        ctx(0, 1000, 1); w.allow("charlie".into());
+        ctx(1, 1000, 0);
+        assert_eq!(w.transfer_ft(usdc.clone(), accounts(2), U128(20_000_000)), None); // saved: sends now
+        assert_eq!(w.get_state().spent_today[&ft_key(USDC_MAINNET)].0, 20_000_000);
+        assert_eq!(w.get_state().spent_today.get("near"), None, "USDC spending is its own budget");
+        assert_eq!(w.transfer_ft(usdc.clone(), accounts(3), U128(1_000_000)), Some(0)); // new recipient: queued
+        assert_eq!(w.get_state().pending[0].asset, ft_key(USDC_MAINNET));
+    }
+    #[test]
+    #[should_panic(expected = "over the per-transfer limit")]
+    fn usdc_over_per_tx() {
+        let mut w = mainnet_wallet();
+        ctx(1, 1000, 0); w.transfer_ft(USDC_MAINNET.parse().unwrap(), accounts(2), U128(25_000_001));
+    }
+    #[test]
+    #[should_panic(expected = "no limit set for this asset")]
+    fn unknown_token_refused() {
+        let mut w = mainnet_wallet();
+        ctx(1, 1000, 0); w.transfer_ft("usdt.tether-token.near".parse().unwrap(), accounts(2), U128(1));
+    }
+    #[test]
+    fn guardian_can_only_freeze() {
+        let mut w = mainnet_wallet();
+        ctx(0, 1000, 1); w.add_guardian(accounts(3));
+        ctx(3, 1000, 1); w.guardian_freeze(U64(1000 + 30 * 86_400)); // asks 30 days
+        let f = w.get_state().frozen_until_ns.0;
+        assert_eq!(f, 1000 * 1_000_000_000 + GUARDIAN_FREEZE_MAX_NS, "capped at 7 days");
+        ctx(3, 1000, 1); w.guardian_freeze(U64(1001)); // shorter: no change
+        assert_eq!(w.get_state().frozen_until_ns.0, f, "a guardian can't shorten a freeze");
+        ctx(0, 1000, 1); w.unfreeze(); // owner lifts it
+        assert_eq!(w.get_state().frozen_until_ns.0, 0);
+    }
+    #[test]
+    #[should_panic(expected = "only the owner")]
+    fn guardian_cannot_unfreeze() {
+        let mut w = mainnet_wallet();
+        ctx(0, 1000, 1); w.add_guardian(accounts(3));
+        ctx(3, 1000, 1); w.unfreeze();
+    }
+    #[test]
+    #[should_panic(expected = "only the owner")]
+    fn guardian_cannot_withdraw() {
+        let mut w = mainnet_wallet();
+        ctx(0, 1000, 1); w.add_guardian(accounts(3));
+        ctx(3, 1000, 1); w.withdraw(U128(1));
+    }
+    #[test]
+    #[should_panic(expected = "only a guardian")]
+    fn stranger_cannot_guardian_freeze() {
+        let mut w = mainnet_wallet();
+        ctx(4, 1000, 1); w.guardian_freeze(U64(2000));
+    }
+    #[test]
+    #[should_panic(expected = "the agent can't be a guardian")]
+    fn agent_never_guardian() {
+        let mut w = mainnet_wallet();
+        ctx(0, 1000, 1); w.add_guardian(accounts(1));
+    }
     #[test]
     fn limits_and_allowlist() {
         let mut w = wallet();
@@ -570,7 +702,8 @@ mod tests {
             assert_eq!(s.limits["evm:8453"], Limit { per_tx: U128(5 * 10u128.pow(14)), per_day: U128(2 * 10u128.pow(15)) });
         }
         #[cfg(not(feature = "evm"))]
-        { assert!(s.chains.is_empty()); assert_eq!(s.limits.len(), 1, "NEAR only: no EVM limits even if asked"); }
+        { assert!(s.chains.is_empty()); assert_eq!(s.limits.len(), 2, "NEAR + USDC only: no EVM limits even if asked"); }
+        assert_eq!(s.limits[&ft_key(USDC_MAINNET)], Limit { per_tx: U128(25_000_000), per_day: U128(60_000_000) });
         assert_eq!(s.new_recipient_delay_sec, 600);
     }
     #[cfg(feature = "evm")]
@@ -618,7 +751,7 @@ mod tests {
     #[test]
     fn recipients_at_init_are_allowlisted() {
         ctx(0, 1000, 0);
-        let mut w = PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None, Some(vec!["Charlie".into()]), None);
+        let mut w = PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None, Some(vec!["Charlie".into()]), None, None, None);
         ctx(1, 1000, 0);
         assert_eq!(w.transfer_near(accounts(2), U128(NEAR / 10)), None);
     }
@@ -701,7 +834,7 @@ mod tests {
     // ---- security review fixes ----
     fn custodial_wallet() -> PhoneWallet {
         ctx(0, 1000, 0);
-        PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None, None, Some(true))
+        PhoneWallet::new(accounts(0), accounts(1), "h".into(), None, None, None, None, None, None, Some(true), None, None)
     }
     #[test]
     #[should_panic(expected = "custodial wallet")]
