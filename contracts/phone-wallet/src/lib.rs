@@ -18,10 +18,6 @@ const DAY_NS: u64 = 86_400_000_000_000;
 pub const CLAIM_DELAY_NS: u64 = DAY_NS;
 /// At most this many queued transfers (a compromised agent could otherwise fill storage and grow gas).
 pub const MAX_PENDING: usize = 10;
-/// At most this many guardians (family accounts that can only freeze).
-pub const MAX_GUARDIANS: usize = 5;
-/// A guardian's freeze lasts at most this long; only the owner can lift it early.
-pub const GUARDIAN_FREEZE_MAX_NS: u64 = 7 * DAY_NS;
 /// Native USDC on NEAR mainnet (Circle), 6 decimals. Fungible tokens are assets "ft:<token contract>".
 pub const USDC_MAINNET: &str = "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1";
 /// NEP-145 registration for a recipient that has never held the token (refunded by the token if already registered).
@@ -131,8 +127,6 @@ pub struct PhoneWallet {
     /// the agent or unfreeze; it can only freeze and propose the real owner, who may accept after CLAIM_DELAY_NS.
     custodial: bool,
     claim_ready_ns: u64,
-    /// Family accounts that may freeze the agent (never unfreeze, withdraw or change anything else).
-    guardians: Vec<AccountId>,
 }
 
 #[near(serializers = [json])]
@@ -153,7 +147,6 @@ pub struct State {
     pub frozen_until_ns: U64,
     pub custodial: bool,
     pub claim_ready_ns: U64,
-    pub guardians: Vec<AccountId>,
 }
 
 #[near]
@@ -188,7 +181,7 @@ impl PhoneWallet {
             signer: signer.unwrap_or_else(|| "v1.signer".parse().unwrap()),
             limits, chains, allowlist: recipients.unwrap_or_default().iter().map(|r| r.to_ascii_lowercase()).collect(), new_recipient_delay_sec: new_recipient_delay_sec.unwrap_or(600),
             day: 0, spent: Map::default(), pending: vec![], next_id: 0, pending_owner: None, frozen_until_ns: 0,
-            custodial: custodial.unwrap_or(false), claim_ready_ns: 0, guardians: vec![],
+            custodial: custodial.unwrap_or(false), claim_ready_ns: 0,
         }
     }
 
@@ -265,28 +258,6 @@ impl PhoneWallet {
     pub fn freeze(&mut self, until_ts: U64) {
         self.only_owner();
         self.frozen_until_ns = until_ts.0.saturating_mul(1_000_000_000);
-    }
-    /// Owner adds a family member who can freeze the agent from their own account. Allowed on custodial wallets too:
-    /// a guardian can only stop spending, never move money.
-    #[payable]
-    pub fn add_guardian(&mut self, guardian: AccountId) {
-        self.only_owner();
-        require!(Some(&guardian) != self.agent.as_ref(), "the agent can't be a guardian");
-        require!(self.guardians.len() < MAX_GUARDIANS, "too many guardians");
-        if !self.guardians.contains(&guardian) { self.guardians.push(guardian); }
-    }
-    #[payable]
-    pub fn remove_guardian(&mut self, guardian: AccountId) {
-        self.only_owner();
-        self.guardians.retain(|g| *g != guardian);
-    }
-    /// A guardian stops the agent until `until_ts` (unix seconds), at most 7 days ahead. It can only extend a freeze.
-    #[payable]
-    pub fn guardian_freeze(&mut self, until_ts: U64) {
-        near_sdk::assert_one_yocto();
-        require!(self.guardians.contains(&env::predecessor_account_id()), "only a guardian");
-        let until = until_ts.0.saturating_mul(1_000_000_000).min(env::block_timestamp() + GUARDIAN_FREEZE_MAX_NS);
-        self.frozen_until_ns = self.frozen_until_ns.max(until);
     }
     #[payable]
     pub fn unfreeze(&mut self) {
@@ -407,7 +378,7 @@ impl PhoneWallet {
             pending: self.pending.clone(),
             balance: U128(env::account_balance().as_yoctonear()),
             pending_owner: self.pending_owner.clone(), frozen_until_ns: U64(self.frozen_until_ns),
-            custodial: self.custodial, claim_ready_ns: U64(self.claim_ready_ns), guardians: self.guardians.clone(),
+            custodial: self.custodial, claim_ready_ns: U64(self.claim_ready_ns),
         }
     }
 
@@ -554,44 +525,6 @@ mod tests {
     fn unknown_token_refused() {
         let mut w = mainnet_wallet();
         ctx(1, 1000, 0); w.transfer_ft("usdt.tether-token.near".parse().unwrap(), accounts(2), U128(1));
-    }
-    #[test]
-    fn guardian_can_only_freeze() {
-        let mut w = mainnet_wallet();
-        ctx(0, 1000, 1); w.add_guardian(accounts(3));
-        ctx(3, 1000, 1); w.guardian_freeze(U64(1000 + 30 * 86_400)); // asks 30 days
-        let f = w.get_state().frozen_until_ns.0;
-        assert_eq!(f, 1000 * 1_000_000_000 + GUARDIAN_FREEZE_MAX_NS, "capped at 7 days");
-        ctx(3, 1000, 1); w.guardian_freeze(U64(1001)); // shorter: no change
-        assert_eq!(w.get_state().frozen_until_ns.0, f, "a guardian can't shorten a freeze");
-        ctx(0, 1000, 1); w.unfreeze(); // owner lifts it
-        assert_eq!(w.get_state().frozen_until_ns.0, 0);
-    }
-    #[test]
-    #[should_panic(expected = "only the owner")]
-    fn guardian_cannot_unfreeze() {
-        let mut w = mainnet_wallet();
-        ctx(0, 1000, 1); w.add_guardian(accounts(3));
-        ctx(3, 1000, 1); w.unfreeze();
-    }
-    #[test]
-    #[should_panic(expected = "only the owner")]
-    fn guardian_cannot_withdraw() {
-        let mut w = mainnet_wallet();
-        ctx(0, 1000, 1); w.add_guardian(accounts(3));
-        ctx(3, 1000, 1); w.withdraw(U128(1));
-    }
-    #[test]
-    #[should_panic(expected = "only a guardian")]
-    fn stranger_cannot_guardian_freeze() {
-        let mut w = mainnet_wallet();
-        ctx(4, 1000, 1); w.guardian_freeze(U64(2000));
-    }
-    #[test]
-    #[should_panic(expected = "the agent can't be a guardian")]
-    fn agent_never_guardian() {
-        let mut w = mainnet_wallet();
-        ctx(0, 1000, 1); w.add_guardian(accounts(1));
     }
     #[test]
     fn limits_and_allowlist() {

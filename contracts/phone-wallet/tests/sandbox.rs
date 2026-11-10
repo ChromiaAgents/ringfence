@@ -112,10 +112,10 @@ async fn phone_wallet_in_sandbox() -> anyhow::Result<()> {
 }
 
 /// USDC path on the real runtime: a NEP-141 token, a recipient that was never registered with it (the wallet pays
-/// its storage), limits per token, the new-recipient queue, a guardian freeze, and the owner's withdraw_ft.
+/// its storage), limits per token, the new-recipient queue, and the owner's withdraw_ft.
 #[cfg(not(feature = "evm"))]
 #[tokio::test]
-async fn usdc_and_guardian_in_sandbox() -> anyhow::Result<()> {
+async fn usdc_in_sandbox() -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
     let wasm = wallet_wasm().await?;
     let ft = worker.dev_deploy(&near_workspaces::compile_project("../mock-ft").await?).await?;
@@ -146,12 +146,6 @@ async fn usdc_and_guardian_in_sandbox() -> anyhow::Result<()> {
     assert_eq!(r, Some(0));
     assert_eq!(bal(son.id().clone()).await, "0");
 
-    // guardian: the son can freeze from his own account, then the agent is refused
-    owner.call(w.id(), "add_guardian").args_json(json!({ "guardian": son.id() })).deposit(one).transact().await?.into_result()?;
-    son.call(w.id(), "guardian_freeze").args_json(json!({ "until_ts": "99999999999" })).deposit(one).transact().await?.into_result()?;
-    assert!(format!("{:?}", send(grocer.id(), "1000000").await?.into_result().unwrap_err()).contains("frozen by the owner"));
-    let r = son.call(w.id(), "unfreeze").deposit(one).transact().await?;
-    assert!(format!("{:?}", r.into_result().unwrap_err()).contains("only the owner"), "a guardian can't unfreeze");
     // the owner always gets the tokens out
     owner.call(w.id(), "withdraw_ft").args_json(json!({ "token": ft.id(), "amount": "88500000" })).deposit(one).max_gas().transact().await?.into_result()?;
     assert_eq!(bal(owner.id().clone()).await, "88500000");
