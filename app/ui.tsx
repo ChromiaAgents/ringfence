@@ -35,7 +35,7 @@ export function SiteFooter({ credits }: { credits?: ReactNode }) {
       {credits && <p className="site-credits">{credits}</p>}
       <footer className="site-foot">
         <span className="foot-id"><span>Ringfence, built for the NEAR hackathon</span><Makers size="lg" /></span>
-        <nav aria-label="Site"><a href="/#call">Try a call</a><a href="/proof">Proof</a><a href="/wallet/bind">Bind your number</a><a href="/dashboard">Dashboard</a><a href={CODE_URL}>Code</a></nav>
+        <nav aria-label="Site"><a href="/packet/demo">Open a packet</a><a href="/#call">Try a call</a><a href="/proof">Proof</a><a href="/wallet/bind">Bind your number</a><a href={CODE_URL}>Code</a></nav>
         <span className="r">2026 · MIT licence</span>
       </footer>
     </>
