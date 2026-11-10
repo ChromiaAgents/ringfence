@@ -222,6 +222,10 @@ The launch desk launches coins on JustHoot:
 
 Code: `src/justhoot.ts`. Live view-only check: `npm run test:justhoot`. Not verified: no real JustHoot launch has been signed, and the token-id extraction from the launch logs is untested (the page always links the transaction and justhoot.fun).
 
+## Who pays, and how it spreads
+
+The buyer is the family, not the parent: a child sets limits and saved recipients once, the parent just calls. Revenue is a small per-send fee plus a family plan for WhatsApp voice minutes; banks, remittance apps and wallets can white-label the line while the open-source contract keeps the rules. NEAR makes it cheap (0.013 NEAR per wallet through a factory over a global contract), sayable ("liho dot near"), stable (native USDC) and private (NEAR AI TEEs with attestation).
+
 ## Honest limitations
 
 - The phone-wallet contract is unaudited; keep small amounts in it. The operator can spend inside your limits without the PIN. The PIN passes through speech-to-text and the LLM inside NEAR AI TEEs.
