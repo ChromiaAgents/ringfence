@@ -29,7 +29,7 @@ p { max-width: 62ch; }
 .makers img { height: clamp(18px, 1.8vw, 28px); }
 .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(20px, 4vw, 72px); align-items: center; }
 .rows { display: grid; gap: 8px; }
-.row { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 20px; padding: 16px 20px; background: var(--surface); }
+.row { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 20px; padding: 13px 20px; background: var(--surface); }
 .row b { font-weight: 600; }
 .row span { color: var(--muted); }
 .row span.tag { color: var(--on); }
@@ -93,7 +93,7 @@ img.wide { width: 100%; height: auto; display: block; }
     <div class="row"><b>More than that, inside the limits</b><span>The PIN, then an Approve / Cancel / Not me tap on WhatsApp. “Not me” locks the AI out for 15 minutes.</span></div>
     <div class="row"><b>Over a limit</b><span>Not sent. The contract refuses it whatever the AI says.</span></div>
     <div class="row"><b>First payment to a new account</b><span>Held by the contract for a few minutes, then sent. Saying “cancel” stops it. A scammer cannot get money out in a hurry.</span></div>
-    <div class="row"><b>Worst case, with a bad operator</b><span>The daily limit, to saved recipients only. The owner ends it with one transaction.</span></div>
+    <div class="row"><b>Worst case: a stolen agent key</b><span>The daily limit. Saved people are paid at once; anyone else only after the contract’s wait, which the owner can cancel. One transaction switches the AI off; the owner can pause or cancel any packet.</span></div>
   </div>
 </section>
 
@@ -104,6 +104,7 @@ img.wide { width: 100%; height: auto; display: block; }
     <div class="row"><b>The rules, in a contract</b><span>Per-send and per-day limits for NEAR and USDC, saved recipients, a wait for new ones, freeze, owner-only withdraw.</span></div>
     <div class="row"><b>The packets contract</b><span>Fund, split from the block’s random seed, one share per account, refund after expiry.</span></div>
     <div class="row"><b>Private AI with proof</b><span>Chat and speech-to-text run on NEAR AI Cloud inside TEEs. Our server verifies the Intel and NVIDIA attestation and shows it on /proof.</span></div>
+    <div class="row"><b>Bring your own wallet</b><span>Already on NEAR? Bind your number to a wallet contract you own, on /wallet/bind: one <code>create_wallet</code> call from any NEAR wallet. You set the limits; nobody can change the wallet code after it is made.</span></div>
     <div class="row"><b>Names you can say out loud</b><span>“liho dot near” is read back before anything moves.</span></div>
   </div>
 </section>
@@ -113,19 +114,19 @@ img.wide { width: 100%; height: auto; display: block; }
   <div class="rows">
     <div class="row"><b>Brands and communities <span class="tag">in the contract</span></b><span>They fund packets as promotions: “say our slogan, get paid”. The contract takes 5% plus the cost of each new wallet when the packet is funded. Family packets are free.</span></div>
     <div class="row"><b>Every packet makes wallets</b><span>Opening a share gives you a wallet tied to your phone number with money in it. Red packets signed up an estimated 100 to 200 million bank cards for WeChat Pay in one 2015 holiday.</span></div>
-    <div class="row"><b>Packets that grow <span class="tag no">next, not built</span></b><span>A packet staked until it is opened. The opener gets the gift plus the staking yield; Ringfence keeps a share of the yield.</span></div>
+    <div class="row"><b>Packets that grow: staking <span class="tag no">next, not built</span></b><span>The packets contract stakes the money with a liquid-staking pool while it waits. The opener gets the gift plus the yield; Ringfence keeps 10% of the yield. Only the packets contract changes, and it is upgradeable: v1 to v2 already happened on mainnet.</span></div>
     <div class="row"><b>Cash-out and swap fees <span class="tag no">later</span></b><span>A small fee when money leaves through NEAR Intents.</span></div>
   </div>
 </section>
 
 <section class="slide">
-  <h2>Where it stands, <span>10 November 2026</span></h2>
+  <h2>Live on NEAR mainnet, <span>10 November 2026</span></h2>
   <div class="nums">
-    <div><p class="big">52</p><p>server checks pass, including the PIN, the limits, the words check and the security tests</p></div>
-    <div><p class="big">60 + 6</p><p>contract unit tests, plus six runs on a local NEAR sandbox with the exact files to be deployed</p></div>
-    <div><p class="big">0</p><p>transactions on mainnet so far. The hosted site is a labelled dry run until the three contracts are deployed</p></div>
+    <div><p class="big"><a href="https://nearblocks.io/txns/9k37rWDGE9c4p3DACFjb4BhZ7dZ2ScNLGrnChfBrrFua">Sent</a></p><p>“Send 0.1 NEAR to liho00.near”, PIN on the call. The phone wallet’s contract sent it.</p></div>
+    <div><p class="big"><a href="https://nearblocks.io/txns/GmPzx6UgxX9jJsDpHEZRodEhSmABZ3uRqFr2WzANCUd8">Refused</a></p><p>The agent key asks for 5 NEAR. The contract: “over the per-transfer limit”. Nothing moved.</p></div>
+    <div><p class="big"><a href="https://nearblocks.io/txns/8EyQjwqWo5vJYqaSKVuo3586zqQQrs86JMvRzGBvZxH">Opened</a></p><p>“Happy new year” said on a call opened a share of a real 0.02 NEAR lucky packet.</p></div>
   </div>
-  <p class="muted">Tested with the real model in English and Chinese, typed and spoken. WhatsApp runs on Meta’s test number until business verification clears; everything on WhatsApp also works in the browser call. The contracts are unaudited.</p>
+  <p class="muted">Three contracts live; <code>npm run verify:contracts</code> checks the code on chain is the repo’s. 52 app checks, 64 contract unit tests, 7 sandbox tests. AI-reviewed, not audited: the critical and high findings in the packets contract were fixed and redeployed. WhatsApp runs on Meta’s test number until business verification clears; the browser call does everything WhatsApp does.</p>
 </section>
 
 <section class="slide">

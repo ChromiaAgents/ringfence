@@ -12,7 +12,8 @@
     "demo:check": "vite build --logLevel error && tsx scripts/demo-check.ts",
     "attest": "tsx scripts/attest.ts",
     "test:justhoot": "tsx test/justhoot-cost.ts",
-    "test:latency": "MOCK_LLM=1 DB_FILE=data/latency-db.json tsx test/latency.ts"
+    "test:latency": "MOCK_LLM=1 DB_FILE=data/latency-db.json tsx test/latency.ts",
+    "verify:contracts": "tsx scripts/verify-contracts.ts"
   },
   "keywords": [],
   "author": "",

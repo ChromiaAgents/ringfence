@@ -39,6 +39,7 @@ function Landing() {
           <Wordmark />
           <Makers />
           <span className="sp" />
+          <a className="code" href="/wallet/bind">Bind wallet</a>
           <a className="code" href="/deck.html">Deck</a>
           <a className="code" href="/stats">Stats</a>
           <a className="code" href="/proof">Proof</a>
@@ -100,7 +101,7 @@ function Landing() {
         <section className="cta" aria-labelledby="cta-h">
           <div className="say">
             <h2 id="cta-h" className="rise">Try a call.</h2>
-            <p className="rise" style={i(1)}>Ask for 0.1 NEAR to liho.near and listen for the read-back and the limit check. Without a bound, funded wallet the call ends in a dry run, and it says so. Mainnet signing is pending.</p>
+            <p className="rise" style={i(1)}>Ask for 0.1 NEAR to liho00.near, give the PIN on the page, and get a NEAR explorer link back. Then ask for 5 NEAR and hear the contract say no. Real mainnet, tiny amounts.</p>
             <div className="acts rise" style={i(2)}>
               <a className="btn" href="#call" onClick={tryCall}>Try a call</a>
               <a href="/proof">Read the proof</a>
@@ -200,7 +201,7 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
       {packet && <p className="help">You’re opening <a href={`/packet/${packet.id}`}>money packet {packet.id}</a>. Press Call, then say the words{packet.say ? <>: <b>“{packet.say}”</b></> : ' the sender gave you'}. {packet.to ? <>Your share goes to <b>{packet.to}</b>.</> : 'Then say which NEAR account gets your share.'}</p>}
       {packet ? null : demo
         ? <p className="help">Real NEAR {network}. No phone needed. Say <b>“send 0.1 NEAR to {demo.to}”</b>, then the demo PIN <b>{demo.pin}</b>. Try <b>0.3</b> and an Approve card appears here (it would go to WhatsApp). Try <b>5 NEAR</b>, or a stranger, and the <a href={`https://nearblocks.io/address/${demo.wallet}`} target="_blank" rel="noreferrer">demo wallet</a> contract refuses.</p>
-        : !call.live && !call.lines.length && <p className="help">Press Call, then speak or type. NEAR {network}. Sends stop at a labelled dry run.</p>}
+        : !call.live && !call.lines.length && <p className="help">Press Call, then speak or type. NEAR {network}. The demo wallet’s contract caps every send.</p>}
       {(call.live || call.lines.length > 0) && <>
       <div className="tries" role="group" aria-label="Things to say">
         {(packet ? [packet.say, packet.to ? '' : 'Send it to liho00.near.'].filter(Boolean) : TRY[active]).map((t) => <button key={t} type="button" onClick={() => (call.live ? call.say(t) : setTyped(t))}>{t}</button>)}
@@ -303,7 +304,7 @@ function Family() {
           <div className="rise"><dt>Saved recipients</dt><dd>Mum pays saved people straight away. For anyone else she gets a link to sign in a wallet.</dd></div>
           <div className="rise"><dt>Revoke</dt><dd><code>revoke_agent</code> switches the AI off. The agent can never become the owner.</dd></div>
         </dl>
-        <p className="note rise">Today you bind a number to a NEAR wallet you already have. A guardian holding the owner role for someone who only ever phones is in progress.</p>
+        <p className="note rise"><b>Already on NEAR?</b> <a href="/wallet/bind">Bind your number to a wallet you own</a>: connect any NEAR wallet, prove the number with a WhatsApp code, sign one call. You are the owner, nobody can change the wallet code after it is made, and one transaction switches the AI off. Only a phone? Text “create a wallet” and claim it to your own account later.</p>
       </div>
       <div data-ui className="owner rise" style={i(1)}>
         <div className="ui-head"><b>phone.you.near</b><span className="muted">owner view</span></div>
@@ -423,15 +424,15 @@ function Evidence() {
   const on = (k: string) => ({ onMouseEnter: () => setP(k), onFocus: () => setP(k) });
   return (
     <div className="evidence">
-      <h2 className="rise">What works today, and what’s pending</h2>
-      <p className="sub rise">Tests and attestation run today, and you can run them with no keys. The mainnet runs are pending and get explorer links when they happen.</p>
+      <h2 className="rise">On NEAR mainnet now</h2>
+      <p className="sub rise">Real transactions from the live site, each with its explorer link. Run <code>npm run verify:contracts</code> to check the code on chain is the code in the repo.</p>
       <div className="ev-list" onMouseLeave={() => setP('tee')}>
+        <a className="ev-row rise" href="https://nearblocks.io/txns/9k37rWDGE9c4p3DACFjb4BhZ7dZ2ScNLGrnChfBrrFua" {...on('call')}><span className="what">A NEAR transfer by voice</span><span className="st ok">On chain</span><span className="detail">“Send 0.1 NEAR to liho00.near”, PIN 4821, sent by the phone wallet’s contract.</span></a>
+        <a className="ev-row rise" href="https://nearblocks.io/txns/GmPzx6UgxX9jJsDpHEZRodEhSmABZ3uRqFr2WzANCUd8" {...on('exchange')}><span className="what">The contract says no to the AI</span><span className="st ok">Refused on chain</span><span className="detail">The agent key asks for 5 NEAR. The wallet contract: “over the per-transfer limit”. Nothing moves.</span></a>
+        <a className="ev-row rise" href="https://nearblocks.io/txns/8EyQjwqWo5vJYqaSKVuo3586zqQQrs86JMvRzGBvZxH" {...on('meter')}><span className="what">A money packet share, opened by voice</span><span className="st ok">On chain</span><span className="detail">“Happy new year” said on the call opened 0.0034 NEAR of a 0.02 NEAR lucky packet. Live counts on /stats.</span></a>
+        <a className="ev-row rise" href="https://nearblocks.io/address/ringfence-wallet.near" {...on('meter')}><span className="what">Three contracts deployed</span><span className="st ok">Live</span><span className="detail">Factory, phone-wallet code (global contract) and packets v2. AI-reviewed, not audited: findings and fixes are in the README.</span></a>
         <a className="ev-row rise" href="/proof" {...on('tee')}><span className="what">Private AI attestation</span><span className="st ok">3 of 3 models verified</span><span className="detail">Intel TDX attestation report, key and nonce binding, NVIDIA GPUs through NRAS. /proof re-runs the check live, or run npm run attest.</span></a>
-        <a className="ev-row rise" href={CODE_URL} {...on('room')}><span className="what">Contract and app tests</span><span className="st ok">Passing</span><span className="detail">npm test runs 51 app checks; cargo test runs 60 contract unit tests and 6 on a local NEAR sandbox. npm run demo:check walks a send and a money packet to a labelled dry run.</span></a>
-        <a className="ev-row rise" href="/packet/demo" {...on('call')}><span className="what">Money packets by voice</span><span className="st ok">Working, dry run</span><span className="detail">Fund one on a call, open a share by saying the words. Play money until the contracts are on mainnet. Live counts are on /stats.</span></a>
-        <div className="ev-row pending rise" tabIndex={0} {...on('meter')}><span className="what">Contracts deployed on mainnet</span><span className="st">Pending</span><span className="detail">The nearblocks link goes here once it runs.</span></div>
-        <div className="ev-row pending rise" tabIndex={0} {...on('call')}><span className="what">A NEAR transfer by voice</span><span className="st">Pending</span><span className="detail">Nothing has been signed on chain yet.</span></div>
-        <div className="ev-row pending rise" tabIndex={0} {...on('exchange')}><span className="what">An over-limit send, refused on chain</span><span className="st">Pending</span><span className="detail">The contract test covers it. The mainnet transaction is still to come.</span></div>
+        <a className="ev-row rise" href={CODE_URL} {...on('room')}><span className="what">Contract and app tests</span><span className="st ok">Passing</span><span className="detail">npm test runs 52 app checks; cargo test runs 64 contract unit tests and 7 on a local NEAR sandbox, including an upgrade of the live packets contract.</span></a>
       </div>
       <div className="ev-frame" aria-hidden="true">
         <img className={p === 'room' ? 'on' : ''} src="/media/wac-telephone-switchboard-operators.jpg" width={1920} height={1476} alt="" loading="lazy" />
@@ -439,14 +440,14 @@ function Evidence() {
         <div className={`pane${p === 'tee' ? ' on' : ''}`}><div data-ui><div className="ui-head"><b>/proof</b><span className="muted">checked live</span></div><div className="ui-body">
           {['Chat model', 'Speech to text', 'Logo', 'Intel TDX report', 'NVIDIA GPUs via NRAS'].map((k) => <div key={k} className="kv"><span>{k}</span><span>verified</span></div>)}
         </div></div></div>
-        <div className={`pane${p === 'meter' ? ' on' : ''}`}><div data-ui><div className="ui-head"><b>phone.you.near</b><span className="muted">pending</span></div><div className="ui-body">
-          <div className="kv"><span>Owner</span><span>you.near</span></div>
+        <div className={`pane${p === 'meter' ? ' on' : ''}`}><div data-ui><div className="ui-head"><b>f18d3a55399e.ringfence-wallet.near</b><span className="muted">mainnet</span></div><div className="ui-body">
+          <div className="kv"><span>Owner</span><span>ringfence-custody.near</span></div>
           <div className="kv"><span>Per transfer / day</span><span>1 / 3 NEAR</span></div>
-          <div className="kv"><span>Explorer</span><span>link pending</span></div>
+          <div className="kv"><span>Saved payees</span><span>liho00.near, packets</span></div>
         </div></div></div>
-        <div className={`pane${p === 'call' ? ' on' : ''}`}><div data-ui><div className="ui-head"><b>Browser call</b><span className="muted">dry run</span></div><div className="ui-body tx">
-          <div className="msg you" style={{ animation: 'none' }}><span className="who">You</span>Send 0.1 NEAR to liho.near.</div>
-          <div className="msg sys" style={{ animation: 'none' }}><span className="who">Result</span>Stopped before signing: DRY RUN.</div>
+        <div className={`pane${p === 'call' ? ' on' : ''}`}><div data-ui><div className="ui-head"><b>Browser call</b><span className="muted">mainnet</span></div><div className="ui-body tx">
+          <div className="msg you" style={{ animation: 'none' }}><span className="who">You</span>Send 0.1 NEAR to liho00.near.</div>
+          <div className="msg sys" style={{ animation: 'none' }}><span className="who">Result</span>Sent. Explorer link: 9k37rWDG…</div>
         </div></div></div>
       </div>
     </div>
@@ -464,11 +465,11 @@ const MONEY: [string, ReactNode][] = [
 
 const FAQ: [string, ReactNode][] = [
   ['Why can anyone try a real wallet here?', 'Because the limits aren’t ours to bend. The demo wallet is a NEAR contract that only pays one saved account and caps every send and every day, so the PIN on this page can’t move more than the contract allows. Approve cards show on the page instead of WhatsApp, and Not me locks only your session, so one visitor can’t block the demo for the rest.'],
-  ['What if you go rogue?', 'Inside the cap and only to saved recipients. See the worst case above.'],
+  ['What if you go rogue?', 'Inside the daily cap. Saved people get paid at once; anyone else only after the contract’s wait for new recipients, which the owner can cancel. The owner can switch the AI off with one transaction, and pause or cancel any packet.'],
   ['Can the AI be talked into more?', 'They can try. The AI has no authority of its own. It asks the contract, and the contract checks the limits and the recipient before anything moves.'],
   ['Who hears the PIN?', 'The speech and chat models hear it inside NEAR AI TEEs. It also passes through our app server, which isn’t attested. We store a salted hash and blank it from the transcript. Three wrong tries lock the line for 15 minutes.'],
   ['Is the voice private?', 'All three models run on NEAR AI Cloud in Intel TDX and NVIDIA confidential GPUs, and /proof checks them live. Cartesia hears the reply text when it speaks it, and on WhatsApp Meta sees the call metadata.'],
-  ['Has it moved real money yet?', 'Not yet. Nothing has been signed on mainnet, and the contract is unaudited, so keep amounts small. An audit comes before higher limits.'],
+  ['Has it moved real money yet?', 'Yes, on NEAR mainnet since 10 November 2026: a voice send, a refusal by the contract and a packet share opened by voice, each linked above. The contracts are AI-reviewed, not audited, so amounts stay tiny. An audit comes before higher limits.'],
   ['Can Mum start with just a phone?', 'Yes. She texts “create a wallet” on WhatsApp and picks a PIN. It starts custodial: we hold the owner key, with a small balance cap, until the family claims it to their own NEAR wallet.'],
   ['What else works on the line?', 'Checking a balance, NEAR in US dollars, sending USDC, checking an account before paying it (new or unknown accounts get a warning), what’s trending, and launching a coin on JustHoot, which you sign in your own wallet. English and Chinese.'],
   ['Which chains?', 'NEAR only, for now.'],

@@ -10,6 +10,7 @@ Ringfence is a phone line for NEAR. You call it (in the browser or on WhatsApp),
 
 - **Pay by voice.** "Send 0.1 NEAR to liho00.near" or "send 5 dollars to liho00.near" (USDC). The agent reads it back, takes a spoken PIN, and the wallet contract sends it.
 - **Money packets.** "Send a money packet of 1 NEAR for 5 people, the words are merry christmas." The money is locked in a contract. Each person opens one share by saying the words on a call. The split can be equal or lucky (random, on chain). It is the Chinese red packet, made digital.
+- **Bring your own NEAR wallet.** Already on NEAR? Bind your phone number to a wallet contract **you own**, at [/wallet/bind](https://ringfence.evalengine.ai/wallet/bind): connect any NEAR wallet, prove the number with a WhatsApp code, sign one `create_wallet` call. You set the limits, you can freeze the AI or remove it with one transaction, and nobody (us included) can change the wallet code after it is created. No wallet at all? Text "create a wallet" and claim it to your own account later.
 
 The AI never holds the money. Every phone number has its own NEAR contract, owned by the person or their family, and that contract decides what the AI may spend: a limit per send, a limit per day, and a list of saved recipients.
 
@@ -17,7 +18,7 @@ Built for people who can make a phone call but will never install a wallet app.
 
 Site: https://ringfence.evalengine.ai · Made by Chromia x evalengine x NEAR
 
-> **Status on 10 November 2026.** The contracts are tested but not yet on mainnet, so the hosted site runs as a labelled **dry run**: every flow below works end to end, with play money and the same rules as the contracts. Transaction links go in [Mainnet evidence](#mainnet-evidence) when the contracts are deployed. This paragraph is changed in the same commit.
+> **Live on NEAR mainnet since 10 November 2026.** Real money, tiny amounts: the demo wallet holds under 0.2 NEAR and the demo packet 0.02. Every link is in [Mainnet evidence](#mainnet-evidence). `npm run verify:contracts` checks that the code on chain is the code in this repo. The contracts are AI-reviewed, not audited: see [Security review](#security-review).
 
 ## Try it
 
@@ -28,7 +29,7 @@ Each step says what to do and what you should see.
 1. Open https://ringfence.evalengine.ai/packet/demo.
    You see a green gift card with an amount, the words to say (for example "merry christmas"), and how many of 5 shares are left.
 2. Type any NEAR account in "Send my share to", press **Call and say it**, then press **Call** on the next page. Say the words, or type them.
-   The agent answers with the amount of your share and how many are left. Go back to the packet page: your account is on the "Who got what" slip. Today it says "dry run".
+   The agent answers with the amount of your share and puts the transaction link on your screen. Go back to the packet page: your account is on the "Who got what" slip, with its NEAR explorer link. One share per account.
 3. Say different words, or ask "what are the words?".
    Nothing opens. The agent does not know the words; code checks what you said.
 4. Open https://ringfence.evalengine.ai, press **Call**, and say: "Send a money packet of 0.02 NEAR for 3 people, the words are happy new year." Then say a 4-digit PIN.
@@ -61,7 +62,7 @@ Contract tests (Rust 1.95+, `cargo install cargo-near`):
 ```bash
 cd contracts/phone-wallet && cargo test   # 38 unit tests, then 4 tests on a local NEAR sandbox
 cd contracts/factory && cargo test        # 10 unit tests, 1 sandbox test
-cd contracts/packets && cargo test        # 12 unit tests, 1 sandbox test
+cd contracts/packets && cargo test        # 16 unit tests, a sandbox test and an upgrade test
 ```
 
 ## What NEAR does here
@@ -91,7 +92,7 @@ The AI only asks. The contract decides.
 
 - **A money packet takes the same road.** Funding a packet is a send to the packets contract, so it needs the PIN and cannot be bigger than the wallet's limit.
 - **The words are checked in code.** The agent that talks to the opener never sees a packet's words. Code compares the words with what the caller said; a second model call in the TEE judges by sound when speech-to-text spells them differently ("huat ah" heard as "What? Ah!"). A model passing the words itself changes nothing.
-- **Worst case, with a malicious operator:** the daily limit, to saved recipients only. The owner ends it with one `revoke_agent` transaction. Or run the server yourself: [SELF-HOST.md](SELF-HOST.md).
+- **Worst case, with a stolen agent key or a malicious operator:** the daily limit (3 NEAR + 60 USDC per wallet). Saved recipients are paid at once; anyone else is paid only after the contract's wait for new recipients, which the owner can cancel. The owner ends it with one `revoke_agent` or `freeze` transaction. For packets, the owner can pause the packets contract and cancel any packet. Or run the server yourself: [SELF-HOST.md](SELF-HOST.md).
 
 What is trusted, plainly: the operator's server holds the agent key, so it could spend inside the limits without the PIN. For a money packet the agent decides who said the words; the contract stops it paying one account twice, paying more than the packet holds, or touching an expired packet. The lucky split uses the block's random seed, which a block producer can nudge slightly. The contracts are unaudited: amounts are kept small.
 
@@ -100,25 +101,65 @@ What is trusted, plainly: the operator's server holds the agent key, so it could
 | Part | State on 10 November 2026 |
 | --- | --- |
 | Voice agent, PIN, tiers, Approve card, money packets, the words check | Built. Tested with `npm test`, `npm run demo:check`, and with the real model in English and Chinese, typed and spoken |
-| Wallet, factory and packets contracts | Built. Unit tests and sandbox tests on NEAR's runtime pass. **Not deployed. Unaudited** |
+| Wallet, factory and packets contracts | **Live on mainnet.** 64 unit tests and 7 sandbox tests on NEAR's runtime pass, including an upgrade test of the packets contract. AI-reviewed, **not audited** |
 | TEE attestation of the models | Verified live at server start and on `/proof` |
-| Mainnet | **Pending.** The hosted site is a dry run until the three contracts are deployed |
+| Mainnet | **Live.** Real sends, a refusal by the contract, and a real packet opened by voice: see below |
 | WhatsApp | Runs on Meta's test number, which only answers 5 approved numbers. A real number is waiting on Meta's business verification. Everything on WhatsApp also works in the browser call |
 | EVM sends through Chain Signatures | Built, off by default, not part of this submission |
 
 ## Mainnet evidence
 
-<!-- Filled when the contracts are deployed. No invented links. -->
+Every row is a real transaction on NEAR mainnet. Nothing here is a mock-up.
 
 | What | Link |
 | --- | --- |
-| Factory deployed and wallet code published as a global contract | pending |
-| Packets contract deployed | pending |
-| A phone wallet created by the factory | pending |
-| A voice send with a spoken PIN | pending |
-| A send refused for being over the limit | pending |
-| A money packet funded by voice and its shares opened | pending |
+| Factory deployed on [`ringfence-wallet.near`](https://nearblocks.io/address/ringfence-wallet.near) | [`A1ptRucP…`](https://nearblocks.io/txns/A1ptRucPSaQQUqRZeDmzaaWYz1ajjoaWJokyfWeuwQf8) |
+| Phone-wallet code published once as a global contract (17.24 NEAR, burned) | [`AWCWv4mB…`](https://nearblocks.io/txns/AWCWv4mBsivz3aivTeYRRXWFhn8bFzHsUifTEJuDG2w4) |
+| Packets contract deployed on [`packets.ringfence-wallet.near`](https://nearblocks.io/address/packets.ringfence-wallet.near) | [`GJaYffS6…`](https://nearblocks.io/txns/GJaYffS6n1XiYcBQCJyqFWwyexsfo1HUyMdQSDRN5Ufm) |
+| Packets contract upgraded (v2, after the security review), data kept | [`6wYAUvK4…`](https://nearblocks.io/txns/6wYAUvK4ym19aiU9zJzq7258M1aew2YSdTZmxvDKBGGR) |
+| A phone wallet created by the factory: [`f18d3a55399e.ringfence-wallet.near`](https://nearblocks.io/address/f18d3a55399e.ringfence-wallet.near) (the website's demo wallet) | [`baAJRB5B…`](https://nearblocks.io/txns/baAJRB5BLFCmway2HD7mq1UovQhNsuM8j1er3Z3Qhkk) |
+| Its owner saves one payee on it | [`7oou7Mrd…`](https://nearblocks.io/txns/7oou7MrdztYBtHy53koSCC6SveUyiX9FRrCLWS1krhqF) |
+| **A voice send:** "send 0.1 NEAR to liho00.near", PIN 4821, on the live site | [`9k37rWDG…`](https://nearblocks.io/txns/9k37rWDGE9c4p3DACFjb4BhZ7dZ2ScNLGrnChfBrrFua) |
+| **The contract refuses the AI:** the agent key asks the wallet for 5 NEAR. On chain: `Smart contract panicked: over the per-transfer limit` | [`GmPzx6Ug…`](https://nearblocks.io/txns/GmPzx6UgxX9jJsDpHEZRodEhSmABZ3uRqFr2WzANCUd8) |
+| **A money packet funded** from the phone wallet (0.02 NEAR, 5 lucky shares) | [`7HkYdRt4…`](https://nearblocks.io/txns/7HkYdRt4W8gqbZWHShHN22qfmUsJHw4CZXmqBWZ46xFT) then [`4noicreq…`](https://nearblocks.io/txns/4noicreqHQgZmYz8iQpCmH8CV3fy3wYuC7ndHTYnsVa1) |
+| **A share opened by voice:** "happy new year" said on the call, 0.0034 NEAR to liho00.near | [`8EyQjwqW…`](https://nearblocks.io/txns/8EyQjwqWo5vJYqaSKVuo3586zqQQrs86JMvRzGBvZxH) |
 | Demo video | pending |
+
+### Verify the deployed code
+
+```bash
+npm run verify:contracts
+```
+
+It hashes each file in `contracts/release/` and compares it with the code hash on chain:
+
+| Contract | Code hash on chain (base58 sha256) |
+| --- | --- |
+| Factory, `ringfence-wallet.near` | `5e2KYRa4t7efpHJ7Rpp5usb9FJo4Ao3cvzrWDmwwYrVe` |
+| Phone wallet (global code) | `23Fdy7fDqtuY1YEo6NsT1qoXiNS99K8gZffT7TDaLSLe` |
+| Packets v2, `packets.ringfence-wallet.near` | `9yNnSjH7rm9r5WanoZZgiVm4ZEDVdfriQ4Ce595jkFaS` |
+
+The builds are not byte-reproducible (they were made with `cargo near build non-reproducible-wasm`), so NEAR explorers will not show a "verified" badge. The release files are the exact files the sandbox tests ran on.
+
+### Security review
+
+An independent AI review (not an audit) read the three contracts with this threat model: the agent key is on an internet-facing server and may be stolen. What it found, and what we did:
+
+| # | Finding | Severity | Status |
+| --- | --- | --- | --- |
+| 1 | A stolen agent key could open every share of every packet to its own accounts, and creators could not take the money back before expiry | Critical | **Fixed in packets v2:** the creator or the owner can `cancel` any packet at any time, and the owner can `set_paused` |
+| 2 | Anyone could create many tiny packets and leave their storage cost on the contract, eating other packets' money | High | **Fixed in packets v2:** the funder pays the packet's storage, including room for every opener; `create_for` needs that storage to be spare |
+| 3 | The wait for new recipients is a notice, not a block: a stolen agent key can pay any account once the wait is over | High (design) | **Not fixable in deployed wallets** (wallet code can't change). Worst case is the daily limit; the owner can cancel during the wait or `revoke_agent`. Said plainly above |
+| 4 | Sending USDC pays the recipient's token registration in NEAR outside the NEAR limit | Medium | Open. Small amounts |
+| 5 | If the server's phone-hash secret leaks, someone could create a wallet for another person's number | Medium | Open. Keep the secret off the agent host in production |
+| 6 | A failed wallet creation on a nearly empty factory could keep a phone hash taken | Low | Open. The factory keeps a reserve |
+| 7 | `upload_wallet_code` records the hash before the upload succeeds | Low | Owner-only; the upload succeeded |
+| 8 | Queued payments survive an agent change | Low | Open |
+| 9 | Packet ids can be taken first by someone else | Low | Blocks a packet, loses no money |
+| 10 | The agent can nudge the lucky split by picking the block | Info | The agent is already trusted for packets |
+| 11 | Accounts that start with `0x` can't be saved as recipients | Info | Open |
+
+Checked and fine: owner and agent checks, the daily limit across days and callbacks, no double counting in `on_sent`, the refund maths in the factory, no double claim, the lucky split always adds up, and no overflow (overflow checks are on).
 
 ## Architecture
 
@@ -165,13 +206,13 @@ What is trusted, plainly: the operator's server holds the agent key, so it could
 - **Fund from any wallet:** `create` on the packets contract takes attached NEAR from anyone: a wallet, a brand, a DAO treasury. With `campaign: true` the contract sends 5% plus 0.013 NEAR per share to the owner as a fee. There is no page for this yet; the method is tested in the sandbox.
 - **Open:** the packet page starts a call with the packet attached. On WhatsApp the share goes to the caller's phone wallet; on a browser call, to the NEAR account they type or say.
 - **Split:** equal, or lucky. In a lucky split each opener gets a random amount between 0.001 NEAR and twice the average of what is left, and the last opener gets the rest.
-- **Not built:** packets in USDC, and packets that are staked until opened.
+- **Not built:** packets in USDC, and packets that grow (see [Next: staking](#next-packets-that-grow-staking)).
 
 ### Phone wallets
 
 - **Bind your own wallet:** `/wallet/bind`. Connect a NEAR wallet, get a 6-digit code on WhatsApp to prove the number is yours, choose a PIN, sign one `create_wallet` call on the factory.
 - **Phone only:** text "create a wallet" on WhatsApp and choose a PIN. The wallet starts custodial (Ringfence's custody account is the owner, with a balance cap) and can be claimed to your own NEAR wallet on `/wallet/claim` after a 24-hour wait.
-- **Both are dry runs until the factory is deployed.**
+- **Both are live on mainnet.** The factory creates the wallet; the code it runs is the global contract above.
 
 ### TEE attestation
 
@@ -205,14 +246,23 @@ Production setup: `deploy/README.md`. The contract files for mainnet and their h
 ## Who pays
 
 - **Brands and communities** pay a fee to hand out money packets as a promotion: 5% plus the cost of each new wallet, taken by the packets contract when the packet is funded. Family packets are free.
-- **Later:** a fee when people cash out or swap, and a share of yield on balances people choose to save.
+- **Next:** a share of the staking yield on packets that grow (below), and a fee when people cash out or swap.
 - **Cost per new user:** 0.013 NEAR for a wallet.
 
 Red packets are how WeChat Pay signed up an estimated 100 to 200 million bank cards over the 2015 Spring Festival ([TechNode](https://technode.com/2015/02/27/wechat-payment-clear-winner-in-tencent-alibaba-digital-lucky-money-war/)). Every packet opened here creates a wallet.
 
+## Next: packets that grow (staking)
+
+Designed, **not built**. A packet that sits for a week is money doing nothing. The next version of the packets contract stakes it while it waits:
+
+- When a packet is funded, the contract deposits the NEAR into a liquid-staking pool (LiNEAR or Meta Pool) and keeps the receipt token, so there is no unstaking wait.
+- When someone opens a share, they get the gift plus the yield earned so far. Ringfence keeps 10% of the yield as its fee, so family packets stay free and still pay for themselves.
+- It goes in the packets contract, which can be upgraded (v1 to v2 already happened on mainnet with the data kept). The phone wallets don't change.
+- Honest numbers: at roughly 9% a year, 1 NEAR staked for a week earns about 0.002 NEAR. It matters for large brand campaigns and long-lived savings packets, not for a family gift opened the same day.
+
 ## Limitations
 
-- The contracts are unaudited. Nothing is on mainnet yet.
+- The contracts are on mainnet and unaudited (AI-reviewed only). Amounts are kept small.
 - The operator can spend inside a wallet's limits without the PIN. The PIN protects against someone else on the line, not against the operator.
 - For money packets the agent is trusted to judge the words, and the words are a game, not a secret: anyone who knows them can open a share.
 - Packets are NEAR only. Sends are NEAR and USDC only.
