@@ -44,7 +44,7 @@ setOnLink((call, link) => {
 /** Approve / Reject for larger sends: a Graph API interactive "button" message to the wallet's bound phone. */
 export const sendButtons = (to: string, body: string, token: string) =>
   graph(`${env.waPhoneId}/messages`, { messaging_product: 'whatsapp', to, type: 'interactive', interactive: { type: 'button', body: { text: body },
-    action: { buttons: [{ type: 'reply', reply: { id: `approve:${token}`, title: 'Approve' } }, { type: 'reply', reply: { id: `reject:${token}`, title: 'Reject' } }] } } });
+    action: { buttons: [{ type: 'reply', reply: { id: `approve:${token}`, title: 'Approve' } }, { type: 'reply', reply: { id: `cancel:${token}`, title: 'Cancel' } }, { type: 'reply', reply: { id: `reject:${token}`, title: 'Not me' } }] } } });
 if (env.waToken) setApprovalSender(sendButtons);
 
 

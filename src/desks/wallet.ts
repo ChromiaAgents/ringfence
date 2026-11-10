@@ -173,7 +173,7 @@ function spokenPin(call: Call, a: any) {
 
 /** Server-side stops before any spend: a Reject freeze, an on-chain freeze, or a custodial wallet over its balance cap. */
 export function frozen(b: Binding, s: WalletState | null, now = Date.now()): string | null {
-  if (b.frozenUntil && now < b.frozenUntil) return `Spending is paused for ${Math.ceil((b.frozenUntil - now) / 60_000)} more minutes because a transfer was rejected on WhatsApp.`;
+  if (b.frozenUntil && now < b.frozenUntil) return `Spending is paused for ${Math.ceil((b.frozenUntil - now) / 60_000)} more minutes because someone tapped Not me on WhatsApp.`;
   if (s && BigInt(s.frozen_until_ns ?? 0) > BigInt(now) * 1_000_000n) return 'The owner has frozen this wallet, so I can\'t send anything right now.';
   if (b.custodial && s && BigInt(s.balance) > toYocto(env.custodialMaxNear))
     return `This demo custodial wallet holds more than ${env.custodialMaxNear} NEAR, over its cap, so spends are stopped. Claim it to your own wallet at ${env.publicUrl}/wallet/claim.`;
@@ -209,7 +209,7 @@ type Approval = { phone: string; callId: string; t: Transfer; until: number; con
 const approvals = new Map<string, Approval>();
 const APPROVAL_MS = 120_000;
 let buttons: ((to: string, body: string, token: string) => Promise<unknown>) | undefined;
-/** Set by src/whatsapp.ts when WhatsApp is configured: sends the interactive [Approve] [Reject] message. */
+/** Set by src/whatsapp.ts when WhatsApp is configured: sends the interactive [Approve] [Cancel] [Not me] message. */
 export const setApprovalSender = (f: typeof buttons) => (buttons = f);
 /** Whoever is on the call (browser socket, WhatsApp voice) hears what happened after the tap. */
 const news = new Map<string, (s: string) => void>();
@@ -218,10 +218,10 @@ export const onCallNews = (callId: string, f: ((s: string) => void) | null) => (
 async function askApproval(b: Binding, callId: string, t: Transfer, left: string) {
   const token = randomBytes(16).toString('hex');
   approvals.set(token, { phone: b.phone, callId, t, until: Date.now() + APPROVAL_MS, contract: b.contract });
-  const body = `Approve this transfer?\n${t.amount} NEAR to ${t.to}\nFrom ${b.contract}${b.custodial ? ' (demo custodial)' : ''}\nDaily limit left after it: ${left}\nExpires in 2 minutes. If you didn't ask for this, tap Reject: spending pauses for 15 minutes.`;
+  const body = `Approve this transfer?\n${t.amount} NEAR to ${t.to}\nFrom ${b.contract}${b.custodial ? ' (demo custodial)' : ''}\nDaily limit left after it: ${left}\nExpires in 2 minutes. Changed your mind? Cancel. Didn't ask for this? Tap Not me: the AI is locked out for 15 minutes.`;
   if (!buttons) {
     // Only a dry-run server may print tokens: on a real one, log access would be spend access.
-    if (devServer()) console.log(`[wallet] no WhatsApp token: approval for ${b.phone}: approve:${token} / reject:${token}`);
+    if (devServer()) console.log(`[wallet] no WhatsApp token: approval for ${b.phone}: approve:${token} / cancel:${token} / reject:${token}`);
     return 'dry' as const;
   }
   try { await buttons(b.phone, body, token); return true; } catch (e) {
@@ -241,11 +241,13 @@ export async function onButton(from: string, id: string, now = Date.now()): Prom
   if (!b) return 'This number has no wallet any more.';
   const call = db.calls.find((c) => c.id === a.callId);
   const say = (s: string) => { call?.turns.push({ at: Date.now(), who: 'agent', text: s }); news.get(a.callId)?.(s); return s; };
-  // Reject is the "I didn't ask for this" alarm: it freezes even after the approval expired.
+  // Cancel: changed their mind (wrong amount, not now). Nothing sent, nothing frozen.
+  if (verb === 'cancel') return say('Cancelled. Nothing was sent.');
+  // Not me (id "reject") is the "I didn't ask for this" alarm: it freezes even after the approval expired.
   if (verb === 'reject') {
     await rejectFreeze(b, now);
-    say('You rejected it on WhatsApp, so nothing was sent. Spending is paused for 15 minutes.');
-    return 'Rejected. Nothing was sent, and the agent cannot spend from this wallet for 15 minutes.';
+    say('You tapped Not me on WhatsApp, so nothing was sent. The AI is locked out of your wallet for 15 minutes.');
+    return 'Locked. Nothing was sent, and the AI cannot spend from this wallet for 15 minutes. If someone is pressuring you to pay, hang up and call family.';
   }
   if (verb !== 'approve') return 'Unknown button.';
   if (now > a.until) return 'That approval expired (2 minutes). Ask again on the call.';

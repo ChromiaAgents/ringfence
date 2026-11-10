@@ -247,7 +247,19 @@ await t('wallet: Reject freezes spending on the server for 15 minutes and is log
   await walletDesk.run(c, 'confirm_transfer', { pin: '1234' });
   console.log = orig;
   const token = logs.join(' ').match(/reject:([0-9a-f]{32})/)![1];
-  // a late Reject still freezes: it is the "I didn't ask for this" alarm
+  // Cancel: changed their mind. Nothing sent, nothing frozen, and the token is spent.
+  {
+    const c2 = startCall('whatsapp', '15550000020', 'wallet').call;
+    console.log = (s: string) => logs.push(s);
+    await walletDesk.run(c2, 'prepare_transfer', { to: 'bob.testnet', amount: '0.5', asset: 'near' });
+    await walletDesk.run(c2, 'confirm_transfer', { pin: '1234' });
+    console.log = orig;
+    const t2 = logs.join(' ').match(/cancel:([0-9a-f]{32})/g)!.at(-1)!.slice(7);
+    assert.match(await onButton('15550000020', `cancel:${t2}`), /Cancelled/);
+    assert.equal(bindingOf('15550000020')!.frozenUntil ?? 0, 0, 'cancel does not freeze');
+    assert.match(await onButton('15550000020', `approve:${t2}`), /not valid/, 'cancelled token cannot be approved');
+  }
+  // a late Not me still freezes: it is the "I didn't ask for this" alarm
   assert.match(await onButton('15550000020', `reject:${token}`, Date.now() + 121_000), /15 minutes/);
   assert.match(db.ledger.at(-1)!.detail, /Rejected on WhatsApp.*frozen for 15 minutes/);
   const r: any = await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' });
