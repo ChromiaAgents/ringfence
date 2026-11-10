@@ -45,13 +45,14 @@ function Landing() {
 
         <div className="top">
           <div className="intro">
-            <h1 className="rise"><span>Mum can make a phone call.</span> <span>She doesn’t know how to use Meteor Wallet.</span></h1>
-            <p className="lead rise" style={i(1)}>Ringfence lets you pay by phone call. Your phone number is linked to a NEAR wallet, and a contract you own sets what the AI may spend.</p>
+            <h1 className="rise"><span>Mum sends a red packet by phone call.</span> <span>You open it by saying the words.</span></h1>
+            <p className="lead rise" style={i(1)}>She can’t use Meteor Wallet, but she can make a call. Her phone number is a NEAR wallet, a contract the family owns caps what the AI may spend, and the packet’s lucky split happens on chain.</p>
             <div className="acts rise" style={i(3)}>
-              <a className="btn" href="#call" onClick={tryCall}>Try a call in your browser</a>
+              <a className="btn" href="/packet/demo">Open a red packet</a>
+              <a href="#call" onClick={tryCall}>Send one by call</a>
               <a href={d.waUrl} target="_blank" rel="noopener">Message on WhatsApp</a>
             </div>
-            <p className="note rise" style={i(4)}>WhatsApp runs on a test number, so ask us to add yours. The contract is unaudited: keep amounts small.</p>
+            <p className="note rise" style={i(4)}>No phone or wallet app needed to try it: both buttons work in this browser. WhatsApp runs on a test number, so ask us to add yours. The contracts are unaudited: keep amounts small.</p>
           </div>
           <div className="callcol rise" style={i(2)}>
             <LiveCall network={d.network} demo={d.demo} />
@@ -144,7 +145,8 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
   }, [call.live]);
   const active = call.desk === 'launch' ? call.desk : pick;
   const clock = `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
-  const linkNote = call.desk === 'launch' ? 'Your launch is ready to check and sign.' : 'Sign this one in your own wallet.';
+  // What the link is, in the caller's words: a packet to share, a share that was paid, a launch or send to sign themselves.
+  const linkNote = call.desk === 'launch' ? 'Your launch is ready to check and sign.' : /\/packet\//.test(call.link?.url ?? '') ? (packet ? 'The packet you opened.' : 'Your red packet is ready.') : /nearblocks/.test(call.link?.url ?? '') ? 'On chain.' : 'Sign this one in your own wallet.';
 
   return (
     <div data-ui className="callui" id="call" ref={cardRef} aria-label="Browser call to Ringfence">
@@ -176,11 +178,11 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
       )}
       <div className="dial">
         <button type="button" className={`call-btn${call.live ? ' end' : ''}`} onClick={call.live ? call.stop : call.start}><Phone />{call.live ? 'Hang up' : 'Call'}</button>
-        <div className="desks" role="radiogroup" aria-label="Which desk">
+        {!packet && <div className="desks" role="radiogroup" aria-label="Which desk">
           {(['auto', 'launch'] as const).map((k) => (
             <button key={k} type="button" role="radio" aria-checked={pick === k} disabled={call.live} onClick={() => setPick(k)}>{DESK_LABEL[k]}</button>
           ))}
-        </div>
+        </div>}
       </div>
       {packet && <p className="help">You’re opening <a href={`/packet/${packet.id}`}>red packet {packet.id}</a>. Press Call, then say the words{packet.say ? <>: <b>“{packet.say}”</b></> : ' the sender gave you'}. {packet.to ? <>Your share goes to <b>{packet.to}</b>.</> : 'Then say which NEAR account gets your share.'}</p>}
       {packet ? null : demo
@@ -204,10 +206,10 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
 const at = (n: number) => ({ animationDelay: `${n * 600}ms` });
 const SampleCall = () => (
   <>
-    <div className="msg you" style={at(0)}><span className="who">You</span>Send 0.1 NEAR to liho.near.</div>
-    <div className="msg agent" style={at(1)}><span className="who">Ringfence</span>0.1 NEAR to liho dot near. Your PIN, please.</div>
-    <div className="msg you" style={at(2)}><span className="who">You</span><span className="pins"><i /><i /><i /><i /></span> <span className="muted">blanked from the transcript</span></div>
-    <div className="msg sys" style={at(3)}><span className="who">phone.you.near · contract</span><span className="ok">Approved · 0.1 of 3 NEAR today</span></div>
+    <div className="msg you" style={at(0)}><span className="who">Mum</span>A red packet, 1 NEAR, five grandkids. Words: gong xi fa cai.</div>
+    <div className="msg agent" style={at(1)}><span className="who">Ringfence</span>A red packet of 1 NEAR for 5 people, lucky split. Your PIN, please.</div>
+    <div className="msg you" style={at(2)}><span className="who">Mum</span><span className="pins"><i /><i /><i /><i /></span> <span className="muted">blanked from the transcript</span></div>
+    <div className="msg sys" style={at(3)}><span className="who">phone.you.near · contract</span><span className="ok">Approved · 1 of 3 NEAR today · packet ready to share</span></div>
   </>
 );
 

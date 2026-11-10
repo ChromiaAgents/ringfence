@@ -134,6 +134,16 @@ export type ChatOpts = { onText?: (delta: string) => void; signal?: AbortSignal;
  * stream framing and the final "data: [DONE]" included (docs.near.ai/cloud/verification/cloud-api/response-signatures).
  * So we hash every raw byte we read, before any SSE parsing.
  */
+/** A pooled connection the far side already closed fails before any answer ("fetch failed"). Nothing was sent back
+ *  yet, so the same request is safe to make once more. A caller hanging up (abort) is not retried. */
+async function again(signal: AbortSignal | undefined, f: () => Promise<Response>): Promise<Response> {
+  try { return await f(); } catch (e: any) {
+    if (signal?.aborted || e?.name === 'AbortError') throw e;
+    await new Promise((ok) => setTimeout(ok, 200));
+    return f();
+  }
+}
+
 export async function chat(messages: Msg[], tools: unknown[], model = env.llmModel, o: ChatOpts = {}): Promise<{ msg: Extract<Msg, { role: 'assistant' }>; proof: Proof }> {
   if (env.mockLlm) return mockChat(messages, tools, o);
   const pre = await attest(model).catch(() => null);
@@ -141,7 +151,7 @@ export async function chat(messages: Msg[], tools: unknown[], model = env.llmMod
     model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}), temperature: 0.3, max_tokens: o.maxTokens ?? 400,
     stream: true, chat_template_kwargs: { enable_thinking: false }, // Qwen3: no reasoning pass on a phone call
   });
-  const r = await fetch(`${BASE}/chat/completions`, {
+  const r = await again(o.signal, () => fetch(`${BASE}/chat/completions`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${env.nearAiKey}`,
@@ -152,7 +162,7 @@ export async function chat(messages: Msg[], tools: unknown[], model = env.llmMod
     },
     body,
     signal: o.signal,
-  });
+  }));
   if (!r.ok || !r.body) throw new Error(`chat ${r.status}: ${(await r.text()).slice(0, 300)}`);
   const hash = createHash('sha256');
   const dec = new TextDecoder();
@@ -327,7 +337,7 @@ async function stt(audio: Uint8Array, mime: string, language?: string): Promise<
   if (language) fd.set('language', language);
   fd.set('prompt', 'A phone call about sending NEAR or launching a coin on JustHoot. 发送 NEAR。'); // vocabulary hint, both languages
   fd.set('file', new Blob([audio as BlobPart], { type: mime }), mime.includes('webm') ? 'a.webm' : mime.includes('ogg') ? 'a.ogg' : 'a.wav');
-  const r = await fetch(`${BASE}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${env.nearAiKey}` }, body: fd });
+  const r = await again(undefined, () => fetch(`${BASE}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${env.nearAiKey}` }, body: fd }));
   if (!r.ok) throw new Error(`stt ${r.status}: ${(await r.text()).slice(0, 200)}`);
   return ((await r.json()) as any).text?.trim() ?? '';
 }

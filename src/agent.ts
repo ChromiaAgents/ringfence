@@ -8,7 +8,7 @@ import type { DeskDef } from './desks/types.ts';
 import { launchDesk } from './desks/launch.ts';
 import { walletDesk, takePin, clearPending } from './desks/wallet.ts';
 import { marketDesk } from './desks/market.ts';
-import { packetDesk } from './desks/packet.ts';
+import { packetDesk, autoOpen } from './desks/packet.ts';
 
 export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, wallet: walletDesk, market: marketDesk, packet: packetDesk };
 
@@ -124,6 +124,12 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   call.turns.push({ at: Date.now(), who: 'caller', text });
   h[0] = { role: 'system', content: sys(call) }; // pick up config changes mid-call
   h.push({ role: 'user', content: text });
+  // A call about one red packet: the words are checked in code on every line, whatever the model makes of it.
+  const auto = await autoOpen(call).catch(() => null);
+  if (auto) {
+    call.turns.push({ at: Date.now(), who: 'tool', text: `open_packet(auto) → ${JSON.stringify(auto)}` });
+    h.push({ role: 'system', content: `The packet check already ran on what the caller just said. Result: ${JSON.stringify(auto)}. Do not call open_packet for this line; tell the caller what happened.` });
+  }
   const tools = toolsFor(call);
   const before = new Set(linksOf(call).map((l) => l.url));
   const said: string[] = [];

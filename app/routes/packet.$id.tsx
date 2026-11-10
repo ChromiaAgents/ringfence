@@ -77,7 +77,7 @@ function PacketPage() {
             <input type="text" value={acct} onChange={(e) => setAcct(e.target.value)} placeholder={p.network === 'mainnet' ? 'alice.near' : 'alice.testnet'} autoComplete="off" autoCapitalize="none" spellCheck={false} />
           </label>
           <div className="hb-cta">
-            <a className="btn green" href={callUrl}>Call to open it</a>
+            <a className="btn" href={callUrl}>Call to open it</a>
             {first.wa && <a className="btn white small" href={`https://wa.me/${first.wa}?text=${encodeURIComponent(`open red packet ${p.id}`)}`} target="_blank" rel="noreferrer">Open on WhatsApp</a>}
           </div>
         </>}

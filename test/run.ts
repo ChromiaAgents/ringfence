@@ -75,20 +75,20 @@ await t('justhoot: no auction, and prepare_launch builds launch_meme from the vi
   assert.match((await import('../src/memory.ts')).recap(again), /on JustHoot/);
 });
 
-t('thinking noises are not turns', () => {
+await t('thinking noises are not turns', () => {
   for (const s of ['Um...', 'uh', 'Hmm.', 'Erm, uh', 'mm']) assert.ok(isFiller(s), s);
   for (const s of ['um, a cat coin', 'yes', 'Umbrella']) assert.ok(!isFiller(s), s);
 });
 
-t('ticker format', () => {
+await t('ticker format', () => {
   assert.equal(checkTicker('$doge2', lp).ok, true);
   assert.equal(checkTicker('TOOLONGTICK', lp).ok, false);
   assert.equal(checkTicker('ab-c', lp).ok, false);
 });
-t('ticker impersonation', () => {
+await t('ticker impersonation', () => {
   for (const x of ['NEAR', 'usdc', '$BTC', 'PEPE', 'TRUMP', 'ELONCAT', 'TESLA']) assert.equal(checkTicker(x, lp).ok, false, x);
 });
-t('website demo wallet: browser calls use it, Approve card on the page, no shared lockout or freeze', async () => {
+await t('website demo wallet: browser calls use it, Approve card on the page, no shared lockout or freeze', async () => {
   const { env } = await import('../src/config.ts');
   const { db } = await import('../src/store.ts');
   const { hashPin, checkPin, bindingOf } = await import('../src/wallet.ts');
@@ -118,7 +118,7 @@ t('website demo wallet: browser calls use it, Approve card on the page, no share
     assert.equal(((await walletDesk.run(c2, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' })) as any).ok, true, 'another visitor can still use it');
   } finally { Object.assign(env, { demoPhone: '', demoPin: '' }); db.wallets = db.wallets.filter((w: any) => w.phone !== '19990000001'); }
 });
-t('red packets: the words are checked on what the caller said; the split pays out exactly the packet', async () => {
+await t('red packets: the words are checked on what the caller said; the split pays out exactly the packet', async () => {
   const { wordsSaid, shareOf, norm, MIN_SHARE } = await import('../src/packets.ts');
   assert.equal(norm('Gong Xi, Fa Cai!'), 'gongxifacai');
   for (const heard of ['gong xi fa cai', 'Gong xi fa cai!', 'ok the words are gong xi fa cai right', 'gong xi fa chai', '恭喜发财 gong xi fa cai'])
@@ -135,7 +135,7 @@ t('red packets: the words are checked on what the caller said; the split pays ou
   }
   assert.equal(shareOf(Y, 4, false), Y / 4n);
 });
-t('red packets: funded through the wallet (PIN, limits), opened by saying the words, one share per account', async () => {
+await t('red packets: funded through the wallet (PIN, limits), opened by saying the words, one share per account', async () => {
   const { startCall, system } = await import('../src/agent.ts');
   const { walletDesk } = await import('../src/desks/wallet.ts');
   const { packetDesk } = await import('../src/desks/packet.ts');
@@ -177,7 +177,12 @@ t('red packets: funded through the wallet (PIN, limits), opened by saying the wo
   kid.turns.push({ at: Date.now(), who: 'caller', text: 'wan shi ru yi!' });
   const a: any = await packetDesk.run(kid, 'open_packet', { packet_id: id });
   assert.equal(a.ok, true); assert.ok(a.near >= 0.001 && a.near <= 0.1); assert.equal(a.left, 1);
-  assert.match(((await packetDesk.run(kid, 'open_packet', { packet_id: id })) as any).reason, /already opened/);
+  // asking again on the same call gives the same share back, never a second one; a new call from the same wallet is refused
+  const again: any = await packetDesk.run(kid, 'open_packet', { packet_id: id });
+  assert.equal(again.near, a.near); assert.equal(findPacket(id)!.claims.length, 1, 'never a second share');
+  const kidAgain = startCall('whatsapp', KID1).call;
+  kidAgain.turns.push({ at: Date.now(), who: 'caller', text: 'wan shi ru yi' });
+  assert.match(((await packetDesk.run(kidAgain, 'open_packet', { packet_id: id })) as any).reason, /already opened/);
   const kid2 = startCall('whatsapp', KID2).call;
   kid2.turns.push({ at: Date.now(), who: 'caller', text: 'wan shi ru yi' });
   const b: any = await packetDesk.run(kid2, 'open_packet', { packet_id: id });
@@ -192,7 +197,25 @@ t('red packets: funded through the wallet (PIN, limits), opened by saying the wo
   assert.match(((await packetDesk.run(none, 'open_packet', { packet_id: id })) as any).reason, /no wallet yet/);
   assert.match(((await packetDesk.run(kid, 'open_packet', { packet_id: 'nope1234' })) as any).reason, /no red packet/);
 });
-t('red packets: a browser caller gives an account after the words; expiry sends the rest back', async () => {
+await t('red packets: on a packet call the words are checked before the model answers, even if it never calls the tool', async () => {
+  const { startCall, reply, setChatForTest } = await import('../src/agent.ts');
+  const { createPacket, findPacket } = await import('../src/packets.ts');
+  const p = await createPacket({ from: 'mum.ringfence-wallet.testnet', yocto: 10n ** 22n, count: 1, lucky: true, words: 'open sesame' });
+  const seen: string[] = [];
+  // a model that never calls a tool: it only speaks
+  setChatForTest(async (h) => { seen.push(JSON.stringify(h.at(-1))); return { msg: { role: 'assistant', content: 'ok' }, proof: { chatId: 'x', model: 'm', requestHash: '', responseHash: '', status: 'pending' } } as any; });
+  try {
+    const c = startCall('web', undefined, undefined, p.id, 'erin.testnet').call;
+    await reply(c.id, 'what is this?');
+    assert.equal(findPacket(p.id)!.claims.length, 0, 'not the words: nothing opens');
+    await reply(c.id, 'Open sesame!');
+    assert.deepEqual(findPacket(p.id)!.claims.map((x) => x.to), ['erin.testnet'], 'the words were said: paid to the account typed on the page');
+    assert.match(seen.at(-1)!, /packet check already ran/, 'the model is told what happened');
+    await reply(c.id, 'open sesame');
+    assert.equal(findPacket(p.id)!.claims.length, 1, 'saying them again opens nothing more');
+  } finally { setChatForTest(null); }
+});
+await t('red packets: a browser caller gives an account after the words; expiry sends the rest back', async () => {
   const { startCall } = await import('../src/agent.ts');
   const { packetDesk } = await import('../src/desks/packet.ts');
   const { createPacket, refundExpired, findPacket, openPacket } = await import('../src/packets.ts');
@@ -208,7 +231,7 @@ t('red packets: a browser caller gives an account after the words; expiry sends 
   assert.equal(findPacket(p.id)!.refunded, true);
   assert.match(((await openPacket(p.id, 'bob.testnet', ['恭喜发财'])) as any).reason, /expired/);
 });
-t('security: owner data (call transcripts, ledger) is never loaded through a server function', async () => {
+await t('security: owner data (call transcripts, ledger) is never loaded through a server function', async () => {
   const { readFileSync, readdirSync } = await import('node:fs');
   // A server function gets its own public address, outside the owner-password check in server.ts.
   for (const f of readdirSync('app/routes').filter((x) => x.endsWith('.tsx'))) {
@@ -218,13 +241,13 @@ t('security: owner data (call transcripts, ledger) is never loaded through a ser
   }
   assert.ok(!readFileSync('app/routes/dashboard.tsx', 'utf8').includes('createServerFn('), 'the dashboard loads its data from /api/state only');
 });
-t('chain: a failed cross-contract step is read from the receipts; sends from one account run in order', async () => {
+await t('chain: a failed cross-contract step is read from the receipts; sends from one account run in order', async () => {
   const { receiptFailure } = await import('../src/wallet.ts');
   assert.equal(receiptFailure({ receipts_outcome: [{ outcome: { status: { SuccessValue: '' } } }] }), null);
   const out = { receipts_outcome: [{ outcome: { status: { SuccessValue: '' } } }, { outcome: { status: { Failure: { ActionError: { kind: { FunctionCallError: { ExecutionError: 'Smart contract panicked: not enough balance' } } } } } } }] };
   assert.match(receiptFailure(out)!, /not enough balance/);
 });
-t('usdc: read back, tiers, fallback limit, approval card unit', async () => {
+await t('usdc: read back, tiers, fallback limit, approval card unit', async () => {
   const { startCall } = await import('../src/agent.ts');
   const { walletDesk, parseAsset, readBack } = await import('../src/desks/wallet.ts');
   const { db } = await import('../src/store.ts');
@@ -242,7 +265,7 @@ t('usdc: read back, tiers, fallback limit, approval card unit', async () => {
   assert.match(((await walletDesk.run(c, 'prepare_transfer', { to: 'grocer.testnet', amount: '100', asset: 'usdc' })) as any).reason, /25 USDC per-transfer/);
   assert.match(((await walletDesk.run(c, 'prepare_transfer', { to: 'grocer.testnet', amount: '1.1234567', asset: 'usdc' })) as any).reason, /6 decimals/);
 });
-t('market: a ticker trending right now is refused like a blocked one; live tools never move money', async () => {
+await t('market: a ticker trending right now is refused like a blocked one; live tools never move money', async () => {
   const { trendingTickers, marketDesk } = await import('../src/desks/market.ts');
   assert.equal(checkTicker('ZZPNG', lp).ok, true);
   trendingTickers.add('ZZPNG');
@@ -253,13 +276,13 @@ t('market: a ticker trending right now is refused like a blocked one; live tools
   assert.match(JSON.stringify(await marketDesk.run({} as any, 'check_account', { account: 'not an account!' })), /does not look like/);
   assert.match(JSON.stringify(await marketDesk.run({} as any, 'get_price', { currency: 'xyz' })), /I can quote NEAR in/);
 });
-t('name impersonation', () => {
+await t('name impersonation', () => {
   assert.equal(checkName('Elon Musk Inu', lp).ok, false);
   assert.equal(checkName('Bitcoin Cat', lp).ok, false);
   assert.equal(checkName('Sleepy Otter', lp).ok, true);
   assert.equal(checkName('Metaphor', lp).ok, true); // "meta" only blocks as a whole word
 });
-t('no promised returns', () => {
+await t('no promised returns', () => {
   assert.ok(filterClaims('This will 100x for sure', lp).hit);
   assert.ok(filterClaims("It's guaranteed to pump", lp).hit);
   assert.equal(filterClaims('Your soft cap is 100 NEAR.', lp).hit, undefined);
@@ -295,7 +318,7 @@ await t('one agent: the AI ends the call (end_call), declines out-of-scope asks,
     assert.equal(d.desk, 'wallet', 'switched mid-call');
   } finally { env.mockLlm = false; }
 });
-t('streamed sentences + per-sentence filter', () => {
+await t('streamed sentences + per-sentence filter', () => {
   const out: string[] = [];
   const sp = sentenceSplitter((x) => filterClaims(x, lp));
   for (const tok of '<think>plan</think>Sure, the soft cap is 2.5 NEAR. What ticker? It will 100x for sure. Ignore me.'.match(/.{1,4}/gs)!) out.push(...sp.push(tok));
