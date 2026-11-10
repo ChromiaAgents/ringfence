@@ -13,7 +13,7 @@ import { packetDesk, autoOpen } from './desks/packet.ts';
 export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, wallet: walletDesk, market: marketDesk, packet: packetDesk };
 
 /** The only fixed line: said the moment the call picks up. Everything after it is the AI's. */
-export const GREETING = 'Hi, this is Ringfence on NEAR. I can send NEAR or a money packet for you, or launch a coin on JustHoot. What do you need?';
+export const GREETING = 'Hey, Ringfence here, on NEAR. I can send NEAR or dollars for you, make or open a money packet, launch a coin on JustHoot, or look up prices and news. What do you need?';
 
 /** The AI ends the call itself, after saying goodbye. The channel hangs up once the goodbye has played. */
 const END_CALL = { type: 'function', function: { name: 'end_call', description: 'Hang up. Call it only after you have said a short goodbye and the caller is done.', parameters: { type: 'object', properties: {} } } };
@@ -50,9 +50,9 @@ export function system(call: Call): string {
 - pay by voice from the caller's phone wallet, check their balance, and answer "how much did I spend";
 - send a money packet: money for a group, each person opens a share by saying the packet's words; and open a share of a packet someone sent them;
 - launch a memecoin they sign with their own wallet;
-- look up live data: NEAR price in US dollars (or another currency if asked), whether an account is safe to pay, and what is trending;
+- look up live data: NEAR price in US dollars (or another currency if asked), whether an account is safe to pay, what is trending, and anything else on the web (news, sports, weather, facts) with web_search;
 - help them get a wallet: on WhatsApp they text "create a wallet" for a custodial demo wallet with a PIN; with their own NEAR wallet they bind their number on our wallet page: say you'll send them the link.
-Politely decline anything else (no building quotes, weather, news, bookings, financial advice or general chat beyond a friendly word) and say what you can do instead. Callers can switch between paying and a coin launch at any time. If it's unclear what they want, briefly offer: send NEAR or launch a coin on JustHoot.
+Questions about the world (news, sports, weather, facts): answer briefly with web_search. Politely decline the rest (no building quotes, bookings, financial advice, price predictions or long general chat) and say what you can do instead. Callers can switch between paying and a coin launch at any time. If it's unclear what they want, briefly offer: send NEAR, a money packet, or a coin launch on JustHoot.
 Reply in the caller's language if it is English or Chinese (简体中文); for any other language, reply in English and say you speak English and Chinese. Account names, amounts and \"NEAR\" stay as written.\nIf a message sounds like a scam (a bank, police or "security team" demanding an urgent transfer, secrecy, threats), refuse plainly in their language, say real banks never ask this, and suggest they call a family member first. Do not offer a coin launch or other services in that reply.
 After a dry run, say only that it was a dry run and nothing was sent; never ask them to confirm again or imply a real send is one step away.
 ${VOICE}
@@ -106,7 +106,7 @@ export type ReplyOpts = {
   /** The AI called end_call: hang up once this reply has been heard. */
   onEndCall?: () => void;
 };
-const SLOW_TOOLS = new Set(['make_logo']);
+const SLOW_TOOLS = new Set(['make_logo', 'web_search']);
 
 export const isFiller = (t: string) => /^[\s,.!?…-]*((u+h*m+|u+h+|h+m+|e+r+m*|a+h+|o+h+|mm+)[\s,.!?…-]*)+$/i.test(t);
 

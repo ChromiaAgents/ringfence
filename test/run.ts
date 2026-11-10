@@ -330,8 +330,9 @@ await t('market: a ticker trending right now is refused like a blocked one; live
   assert.match((checkTicker('zzpng', lp) as any).reason, /trending right now/);
   trendingTickers.delete('ZZPNG');
   const names = marketDesk.tools.map((x: any) => x.function.name).sort();
-  assert.deepEqual(names, ['check_account', 'get_price', 'get_trends']);
+  assert.deepEqual(names, ['check_account', 'get_price', 'get_trends', 'web_search']);
   assert.match(JSON.stringify(await marketDesk.run({} as any, 'check_account', { account: 'not an account!' })), /does not look like/);
+  assert.equal((await marketDesk.run({} as any, 'web_search', { question: '  ' }) as any).ok, false, 'empty search refused');
   assert.match(JSON.stringify(await marketDesk.run({} as any, 'get_price', { currency: 'xyz' })), /I can quote NEAR in/);
 });
 await t('name impersonation', () => {
@@ -349,7 +350,7 @@ await t('one agent: every tool on one list, dispatched to the desk code that own
   const { startCall, toolsFor, deskOfTool, system, GREETING } = await import('../src/agent.ts');
   const names = (c: any) => (toolsFor(c) as any[]).map((t) => t.function.name);
   const c = startCall('web').call;
-  assert.equal(GREETING, 'Hi, this is Ringfence on NEAR. I can send NEAR or a money packet for you, or launch a coin on JustHoot. What do you need?');
+  assert.equal(GREETING, 'Hey, Ringfence here, on NEAR. I can send NEAR or dollars for you, make or open a money packet, launch a coin on JustHoot, or look up prices and news. What do you need?');
   for (const n of ['prepare_transfer', 'confirm_transfer', 'get_spending', 'set_coin', 'prepare_launch', 'end_call']) assert.ok(names(c).includes(n), n);
   for (const n of ['propose_rules', 'confirm_rules', 'quote_job', 'book_visit', 'save_caller', 'take_message']) assert.ok(!names(c).includes(n), n);
   assert.equal(deskOfTool(c, 'prepare_transfer')?.id, 'wallet');

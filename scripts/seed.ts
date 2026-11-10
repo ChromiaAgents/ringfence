@@ -9,7 +9,7 @@ const t0 = Date.now() - 3 * 3600_000;
 const m = (min: number) => t0 + min * 60_000;
 const proof = (n: number) => ({ chatId: `demo-${n}`, model: 'deepseek-ai/DeepSeek-V4.1-Flash-1017', requestHash: '0x', responseHash: '0x', status: 'verified', signer: '0x0000000000000000000000000000000000000000', kind: 'ecdsa' });
 
-const G = 'Hi, this is Ringfence on NEAR. I can send NEAR or a money packet for you, or launch a coin on JustHoot. What do you need?';
+const G = 'Hey, Ringfence here, on NEAR. I can send NEAR or dollars for you, make or open a money packet, launch a coin on JustHoot, or look up prices and news. What do you need?';
 const calls = [
   {
     id: 'c4', channel: 'whatsapp', desk: 'launch', from: '447700900456', startedAt: m(150), endedAt: m(156), launchId: 'l1',
