@@ -24,7 +24,7 @@ export const Route = createFileRoute('/')({
 const i = (n: number) => ({ '--i': n }) as CSSProperties;
 
 const TRY: Record<Desk | 'auto', string[]> = {
-  auto: ['Send 0.1 NEAR to liho00.near.', 'Send 0.3 NEAR to liho00.near.', 'How much is that in ringgit?', 'Send 5 NEAR to stranger.near.', 'What is my balance?', 'I want to launch a memecoin.'],
+  auto: ['Send 0.1 NEAR to liho00.near.', 'Send 0.3 NEAR to liho00.near.', 'How much is that in dollars?', 'Send 5 NEAR to stranger.near.', 'What is my balance?', 'I want to launch a memecoin.'],
   launch: ['It’s a coin about a sleepy otter.', 'Call it Sleepy Otter, ticker ZZZ.', 'Make the ticker NEAR.', 'Yes, set it up.'],
 };
 const DESK_LABEL: Record<Desk | 'auto', string> = { auto: 'Let it ask', launch: 'Launch a coin' };
@@ -442,7 +442,7 @@ const FAQ: [string, ReactNode][] = [
   ['Is the voice private?', 'All three models run on NEAR AI Cloud in Intel TDX and NVIDIA confidential GPUs, and /proof checks them live. Cartesia hears the reply text when it speaks it, and on WhatsApp Meta sees the call metadata.'],
   ['Has it moved real money yet?', 'Not yet. Nothing has been signed on mainnet, and the contract is unaudited, so keep amounts small. An audit comes before higher limits.'],
   ['Can Mum start with just a phone?', 'Yes. She texts “create a wallet” on WhatsApp and picks a PIN. It starts custodial: we hold the owner key, with a small balance cap, until the family claims it to their own NEAR wallet.'],
-  ['What else works on the line?', 'Checking a balance, NEAR in ringgit, checking an account before paying it (new or unknown accounts get a warning), what’s trending, and launching a coin on JustHoot, which you sign in your own wallet. English and Chinese.'],
+  ['What else works on the line?', 'Checking a balance, NEAR in US dollars, sending USDC, checking an account before paying it (new or unknown accounts get a warning), what’s trending, and launching a coin on JustHoot, which you sign in your own wallet. English and Chinese.'],
   ['Which chains?', 'NEAR only, for now.'],
 ];
 

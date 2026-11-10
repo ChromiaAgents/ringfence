@@ -19,12 +19,12 @@ const getJson = async (url: string) => {
   if (!r.ok) throw new Error(`${new URL(url).host} ${r.status}`);
   return r.json() as Promise<any>;
 };
-const CURRENCIES = ['myr', 'usd', 'sgd', 'cny', 'eur', 'gbp', 'idr', 'thb', 'php', 'inr', 'jpy', 'krw', 'aud', 'hkd', 'twd'];
+const CURRENCIES = ['usd', 'myr', 'sgd', 'cny', 'eur', 'gbp', 'idr', 'thb', 'php', 'inr', 'jpy', 'krw', 'aud', 'hkd', 'twd'];
 const JUSTHOOT = 'v2-launchpad.justhoot.near';
 
-export async function price(currency = 'myr', amount?: string, coin = 'near') {
+export async function price(currency = 'usd', amount?: string, coin = 'near') {
   const id = /usd/i.test(String(coin)) ? 'usd-coin' : 'near', label = id === 'near' ? 'NEAR' : 'USDC';
-  const cur = String(currency || 'myr').toLowerCase();
+  const cur = String(currency || 'usd').toLowerCase();
   if (!CURRENCIES.includes(cur)) return { ok: false, reason: `I can quote NEAR in ${CURRENCIES.map((c) => c.toUpperCase()).join(', ')}.` };
   const d = await cached('price', () => getJson(`https://api.coingecko.com/api/v3/simple/price?ids=near,usd-coin&vs_currencies=${CURRENCIES.join(',')}&include_24hr_change=true`));
   const p = d?.[id]?.[cur];
@@ -33,7 +33,6 @@ export async function price(currency = 'myr', amount?: string, coin = 'near') {
   return {
     ok: true, source: 'CoinGecko', coin: label, currency: cur.toUpperCase(), price: p, change_24h_pct: Math.round((d[id][`${cur}_24h_change`] ?? 0) * 10) / 10,
     ...(amt !== undefined ? { amount: amt, value: Math.round(amt * p * 100) / 100 } : {}),
-    one_ringgit_in: cur === 'myr' ? `${Math.round((1 / p) * 1e6) / 1e6} ${label}` : undefined,
   };
 }
 
@@ -72,7 +71,7 @@ export async function trends() {
 }
 
 const tools = [
-  { type: 'function', function: { name: 'get_price', description: 'Live NEAR or USDC price in a currency (default MYR, ringgit) and optionally what an amount of NEAR is worth. Use it to say amounts in money people know.', parameters: { type: 'object', properties: { coin: { type: 'string', description: '"near" (default) or "usdc"' }, currency: { type: 'string', description: 'myr, usd, sgd, cny, ...' }, amount: { type: 'string', description: 'amount of the coin to convert, optional' } } } } },
+  { type: 'function', function: { name: 'get_price', description: 'Live NEAR or USDC price in a currency (default USD) and optionally what an amount of NEAR is worth. Use it to say amounts in money people know.', parameters: { type: 'object', properties: { coin: { type: 'string', description: '"near" (default) or "usdc"' }, currency: { type: 'string', description: 'usd (default), sgd, myr, cny, ...' }, amount: { type: 'string', description: 'amount of the coin to convert, optional' } } } } },
   { type: 'function', function: { name: 'check_account', description: 'Check a NEAR account before paying it: does it exist, how old is it, is it a contract. Call it when the caller is unsure about a recipient or asks if an account is safe.', parameters: { type: 'object', properties: { account: { type: 'string' } }, required: ['account'] } } },
   { type: 'function', function: { name: 'get_trends', description: 'What is trending now: top coins on CoinGecko and the latest launches on JustHoot. Use for "what\'s hot", before suggesting coin ideas.', parameters: { type: 'object', properties: {} } } },
 ];
@@ -80,7 +79,7 @@ const tools = [
 export const marketDesk: DeskDef = {
   id: 'market',
   greeting: () => '',
-  system: () => `Live lookups: get_price (NEAR in ringgit or another currency; quote money amounts in the caller's currency, ringgit by default), check_account (before paying an unfamiliar account; repeat any warning plainly), get_trends (what is hot; for coin ideas). Say the source in a few words ("CoinGecko says"). Prices move: never predict them or call anything a good buy. Trending coins are for inspiration only: never suggest an existing coin's name or ticker for a new coin.`,
+  system: () => `Live lookups: get_price (NEAR in US dollars by default, another currency only if asked), check_account (before paying an unfamiliar account; repeat any warning plainly), get_trends (what is hot; for coin ideas). Say the source in a few words ("CoinGecko says"). Prices move: never predict them or call anything a good buy. Trending coins are for inspiration only: never suggest an existing coin's name or ticker for a new coin.`,
   tools,
   async run(_call, name, a) {
     try {

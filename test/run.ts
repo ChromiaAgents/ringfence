@@ -125,7 +125,7 @@ t('usdc: read back, tiers, fallback limit, approval card unit', async () => {
   const { hashPin } = await import('../src/wallet.ts');
   const { env } = await import('../src/config.ts');
   const u = parseAsset('usdc')!;
-  assert.equal(u, `ft:${env.usdcToken}`); assert.equal(parseAsset('RM'), u);
+  assert.equal(u, `ft:${env.usdcToken}`); assert.equal(parseAsset('dollars'), u); assert.equal(parseAsset('RM'), null);
   assert.equal(readBack({ to: 'grocer.testnet', amount: '11.5', asset: u }), '11.5 USDC to grocer dot testnet');
   db.wallets.push({ phone: '15550000090', owner: 'u.testnet', contract: 'u.ringfence-wallet.testnet', ...hashPin('2468'), fails: 0, createdAt: Date.now() } as any);
   const c = startCall('whatsapp', '15550000090', 'wallet').call;

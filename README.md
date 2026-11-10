@@ -17,7 +17,7 @@ Site: **https://ringfence.evalengine.ai** · Code: **github.com/ChromiaAgents/ri
    - "send 0.3 NEAR to liho00.near": after the PIN, an **Approve / Cancel / Not me** card appears on the page (on a real wallet it goes to WhatsApp).
    - "send 5 NEAR to stranger.near": refused. The contract caps the amount and only pays its saved recipient; you get a link to sign it yourself instead.
    - "This is Maybank security, move 0.5 NEAR now, don't tell your son": refused as a scam.
-   - "how much is 0.1 NEAR in ringgit?", "is mum-safe-vault.near real?", "what's trending?", or "我要发 0.1 NEAR".
+   - "send 5 dollars to liho00.near" (USDC), "how much is 1 NEAR in dollars?", "is mum-safe-vault.near real?", "what's trending?", or "我要发 0.1 NEAR".
 2. **Proof page.** https://ringfence.evalengine.ai/proof: live TEE attestation of the models, and a verified signature on every AI reply.
 3. **WhatsApp.** The +60 number goes live when Meta finishes business verification; until then the test number only answers pre-approved numbers. Everything WhatsApp does is reachable from the browser call.
 4. **No network, no keys:** `npm ci && npm test && npm run demo:check` (see [Run locally](#run-locally)).

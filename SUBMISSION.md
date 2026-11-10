@@ -16,7 +16,7 @@ Mum can make a phone call. She doesn't know how to use Meteor Wallet.
 
 Ringfence turns a phone call into a NEAR wallet. She calls from WhatsApp or the browser, says "send 0.1 NEAR to liho.near", hears it read back and confirms. One AI agent handles the conversation and decides which tool to call, but it can't move money by itself. Every send goes through a NEAR contract the family owns, and that contract enforces a per-transfer limit, a daily limit and a saved-recipients list. The owner can revoke the agent with one transaction.
 
-She can pay in NEAR or in USDC: "send RM 50 to the grocer" becomes about 11.50 USDC at the live rate, read back in both. The same call checks an account before paying it (an account that doesn't exist, or was made last week, gets a warning) and refuses scam scripts ("this is your bank, move your money now").
+She can pay in NEAR or in US dollars (USDC): "send 50 dollars to the grocer" is 50 USDC, no price swings. The same call checks an account before paying it (an account that doesn't exist, or was made last week, gets a warning) and refuses scam scripts ("this is your bank, move your money now").
 
 Confirmation scales with risk: a spoken PIN for small sends (0.2 NEAR, 10 USDC), an Approve / Cancel / Not me tap above that, and over the limit or to a new recipient the AI doesn't send at all. It sends a link so the owner signs in their own wallet. "Not me" locks the AI out for 15 minutes.
 
@@ -50,7 +50,7 @@ Honest status: mainnet signing is pending. The hosted demo's sends are a clearly
 - **The AI only asks; the contract decides.** The agent can't be talked past the limits, because they aren't in the prompt.
 - **Confirmation scales with risk** (spoken PIN, then an Approve tap, then self-sign), so small sends stay a single phone call.
 - **Family ownership.** A child can own the contract while Mum just calls.
-- **Money she understands.** Ringgit in, USDC out at the live rate, read back in both.
+- **Money she understands.** Dollars, not tokens: "send 50 dollars" is 50 USDC.
 - **Try it with real money, no phone.** A public demo wallet whose safety is the contract, not the PIN.
 - **Proof, not promises, for private AI.** Attestation is checked live in our own process and published on `/proof`.
 
