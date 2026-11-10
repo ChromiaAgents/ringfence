@@ -118,6 +118,24 @@ t('website demo wallet: browser calls use it, Approve card on the page, no share
     assert.equal(((await walletDesk.run(c2, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' })) as any).ok, true, 'another visitor can still use it');
   } finally { Object.assign(env, { demoPhone: '', demoPin: '' }); db.wallets = db.wallets.filter((w: any) => w.phone !== '19990000001'); }
 });
+t('usdc: read back, tiers, fallback limit, approval card unit', async () => {
+  const { startCall } = await import('../src/agent.ts');
+  const { walletDesk, parseAsset, readBack } = await import('../src/desks/wallet.ts');
+  const { db } = await import('../src/store.ts');
+  const { hashPin } = await import('../src/wallet.ts');
+  const { env } = await import('../src/config.ts');
+  const u = parseAsset('usdc')!;
+  assert.equal(u, `ft:${env.usdcToken}`); assert.equal(parseAsset('RM'), u);
+  assert.equal(readBack({ to: 'grocer.testnet', amount: '11.5', asset: u }), '11.5 USDC to grocer dot testnet');
+  db.wallets.push({ phone: '15550000090', owner: 'u.testnet', contract: 'u.ringfence-wallet.testnet', ...hashPin('2468'), fails: 0, createdAt: Date.now() } as any);
+  const c = startCall('whatsapp', '15550000090', 'wallet').call;
+  const small: any = await walletDesk.run(c, 'prepare_transfer', { to: 'grocer.testnet', amount: '5', asset: 'usdc' });
+  assert.equal(small.ok, true); assert.match(small.next, /PIN\.$/);
+  const big: any = await walletDesk.run(c, 'prepare_transfer', { to: 'grocer.testnet', amount: '20', asset: 'usdc' });
+  assert.match(big.next, /Approve/);
+  assert.match(((await walletDesk.run(c, 'prepare_transfer', { to: 'grocer.testnet', amount: '100', asset: 'usdc' })) as any).reason, /25 USDC per-transfer/);
+  assert.match(((await walletDesk.run(c, 'prepare_transfer', { to: 'grocer.testnet', amount: '1.1234567', asset: 'usdc' })) as any).reason, /6 decimals/);
+});
 t('market: a ticker trending right now is refused like a blocked one; live tools never move money', async () => {
   const { trendingTickers, marketDesk } = await import('../src/desks/market.ts');
   assert.equal(checkTicker('ZZPNG', lp).ok, true);

@@ -170,6 +170,13 @@ export async function sendNear(b: Binding, to: string, yocto: bigint) {
   return { txHash: r.hash, url: explorer.near(r.hash), queuedId: r.result as number | null };
 }
 
+/** USDC (any NEP-141): the contract checks the token's limits and registers the recipient with the token first. */
+export async function sendFt(b: Binding, token: string, to: string, units: bigint) {
+  const r = await callContract(b.contract, 'transfer_ft', { token, to, amount: units.toString() });
+  return { txHash: r.hash, url: explorer.near(r.hash), queuedId: r.result as number | null };
+}
+export const ftBalance = (token: string, account: string) => view<string>('ft_balance_of', { account_id: account }, env.network, token);
+
 export async function ethAddressOf(b: Binding) {
   const root = await view<string>('public_key', {}, env.network, env.mpcSigner);
   return deriveEthAddress(root, b.contract, ETH_PATH).address;

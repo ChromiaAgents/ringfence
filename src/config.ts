@@ -51,6 +51,9 @@ export const env = {
   waNumber: (process.env.WHATSAPP_NUMBER ?? '').replace(/\D/g, ''),
   // Tiered confirmation: up to SMALL_LIMIT NEAR to a saved recipient is confirmed by spoken PIN; more needs the WhatsApp Approve tap.
   smallLimitNear: process.env.SMALL_LIMIT ?? '0.2',
+  // USDC on NEAR (native Circle USDC on mainnet, 6 decimals). Above SMALL_LIMIT_USDC a send also needs the Approve tap.
+  usdcToken: process.env.USDC_TOKEN ?? '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1',
+  smallLimitUsdc: process.env.SMALL_LIMIT_USDC ?? '10',
   // Website demo: browser calls (no phone number) use this shared wallet, PIN shown on the page. Its contract limits
   // and saved recipient are what keep it safe; leave DEMO_WALLET_PHONE empty to keep browser sends a labelled dry run.
   demoPhone: (process.env.DEMO_WALLET_PHONE ?? '').replace(/\D/g, ''),
@@ -65,6 +68,7 @@ export const env = {
   // Default limits proposed on /wallet/bind (the user can change them there before signing). Human units.
   walletDefaults: {
     nearPerTx: process.env.WALLET_NEAR_PER_TX ?? '1', nearPerDay: process.env.WALLET_NEAR_PER_DAY ?? '3',
+    usdcPerTx: '25', usdcPerDay: '60', // the contract's USDC defaults
     evmPerTx: process.env.WALLET_EVM_PER_TX ?? '0.0005', evmPerDay: process.env.WALLET_EVM_PER_DAY ?? '0.002',
     delaySec: Number(process.env.WALLET_DELAY_SEC ?? 600),
   },
