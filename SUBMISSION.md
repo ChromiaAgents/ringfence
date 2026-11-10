@@ -34,7 +34,7 @@ Honest status: mainnet signing is pending. The hosted demo's sends are a clearly
 ## Tech used
 
 - NEAR smart contract (Rust, near-sdk) per phone wallet, created through a factory with a global contract
-- NEAR AI Cloud private inference: Whisper large v3 (speech), Qwen3.6-35B (chat), FLUX.2 klein (image generation)
+- NEAR AI Cloud private inference: Whisper large v3 (speech), DeepSeek V4.1 Flash (chat), FLUX.2 klein (image generation)
 - TEE attestation verification: `@phala/dcap-qvl` (Intel TDX), NVIDIA NRAS, ECDSA reply-signature recovery
 - NEAR Wallet Selector (Meteor, HOT, Intear, MyNearWallet), near-api-js
 - WhatsApp Cloud API: calls over WebRTC (werift + Opus), messages, interactive Approve buttons

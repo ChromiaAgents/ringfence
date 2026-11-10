@@ -71,7 +71,7 @@ export type Att =
       intel: { verified: boolean; tcbStatus?: string; advisoryIds?: string[]; error?: string };
       gpu: { verified: boolean; gpus?: number; arch?: string; nonceMatch?: boolean; error?: string } }
   | { model: string; error: string };
-export const ROLE: Record<string, string> = { 'Qwen/Qwen3.6-35B-A3B-FP8': 'Chat', 'openai/whisper-large-v3': 'Speech to text', 'black-forest-labs/FLUX.2-klein-4B': 'Logo' };
+export const ROLE: Record<string, string> = { 'deepseek-ai/DeepSeek-V4.1-Flash-1017': 'Chat', 'openai/whisper-large-v3': 'Speech to text', 'black-forest-labs/FLUX.2-klein-4B': 'Logo' };
 const ok = (b: boolean, yes: string, no: string, title?: string) => <span className={`pill ${b ? 'ok' : 'warn'}`} title={title}>{b ? yes : no}</span>;
 
 export function AttRow({ a, full }: { a: Att; full?: boolean }) {

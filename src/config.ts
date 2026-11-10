@@ -27,7 +27,7 @@ export const env = {
   publicUrl: process.env.PUBLIC_URL ?? `http://localhost:${process.env.PORT ?? 8787}`,
   nearAiKey: process.env.NEARAI_API_KEY ?? '',
   mockLlm: process.env.MOCK_LLM === '1', // scripted chat + STT for offline timing; TTS stays real
-  llmModel: process.env.LLM_MODEL ?? 'Qwen/Qwen3.6-35B-A3B-FP8',
+  llmModel: process.env.LLM_MODEL ?? 'deepseek-ai/DeepSeek-V4.1-Flash-1017',
   sttModel: process.env.STT_MODEL ?? 'openai/whisper-large-v3',
   imageModel: process.env.IMAGE_MODEL ?? 'black-forest-labs/FLUX.2-klein-4B',
   network: (process.env.NETWORK === 'mainnet' ? 'mainnet' : 'testnet') as 'mainnet' | 'testnet',

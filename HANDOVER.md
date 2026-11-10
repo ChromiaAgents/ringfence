@@ -24,7 +24,7 @@ Work runs in four places:
 
 | Job | Where |
 | --- | --- |
-| Chat model, speech-to-text, logo drawing | NEAR AI Cloud (`cloud-api.near.ai`): Qwen3.6-35B, Whisper large v3, FLUX.2 klein. Every reply's TEE signature is checked in the background. |
+| Chat model, speech-to-text, logo drawing | NEAR AI Cloud (`cloud-api.near.ai`): DeepSeek V4.1 Flash, Whisper large v3, FLUX.2 klein. Every reply's TEE signature is checked in the background. |
 | Text-to-speech | Local. Kokoro 82M runs in a worker thread (`src/tts-worker.ts`), voice `af_heart` at 1.15× speed. |
 | Launch funding from another chain (optional) | NEAR Intents 1Click, mainnet only. It only quotes and returns a deposit address; no money moves unless the creator pays. |
 | Coin launches | JustHoot contract `v2-launchpad.justhoot.near` (mainnet only, real NEAR). The user signs it in their own wallet. |

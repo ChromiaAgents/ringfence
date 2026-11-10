@@ -7,7 +7,7 @@ import { drawLogo } from '../src/image.ts';
 const FILE = process.env.SEED_FILE ?? 'data/demo-db.json';
 const t0 = Date.now() - 3 * 3600_000;
 const m = (min: number) => t0 + min * 60_000;
-const proof = (n: number) => ({ chatId: `demo-${n}`, model: 'Qwen/Qwen3.6-35B-A3B-FP8', requestHash: '0x', responseHash: '0x', status: 'verified', signer: '0x0000000000000000000000000000000000000000', kind: 'ecdsa' });
+const proof = (n: number) => ({ chatId: `demo-${n}`, model: 'deepseek-ai/DeepSeek-V4.1-Flash-1017', requestHash: '0x', responseHash: '0x', status: 'verified', signer: '0x0000000000000000000000000000000000000000', kind: 'ecdsa' });
 
 const G = 'Hi, this is Ringfence on NEAR. I can send NEAR for you, or launch a coin on JustHoot. What do you need?';
 const calls = [
