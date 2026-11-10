@@ -7,7 +7,7 @@ import { recap, resume, isKnown } from './memory.ts';
 import type { DeskDef } from './desks/types.ts';
 import { launchDesk } from './desks/launch.ts';
 import { walletDesk, takePin, clearPending } from './desks/wallet.ts';
-import { marketDesk } from './desks/market.ts';
+import { marketDesk, webSearch } from './desks/market.ts';
 import { packetDesk, autoOpen } from './desks/packet.ts';
 
 export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, wallet: walletDesk, market: marketDesk, packet: packetDesk };
@@ -144,6 +144,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
     emit(split.flush()); // a step ends at a tool call or the end of the reply
     h.push(msg);
     if (msg.tool_calls?.length) {
+      let direct = '';
       for (const tc of msg.tool_calls) {
         let args: any = {};
         try { args = JSON.parse(tc.function.arguments || '{}'); } catch {}
@@ -152,12 +153,33 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
         let out: unknown;
         if (name === 'end_call') { o.onEndCall?.(); clearPending(call.id); call.endedAt = Date.now(); out = { ok: true, note: 'The line hangs up after you finish speaking.' }; }
         else if (!desk) out = { error: 'unknown tool' };
+        else if (name === 'web_search') {
+          // The search model already writes a phone-ready answer: speak it as it arrives instead of paying for a second model pass.
+          call.desk = desk.id;
+          const before = said.length;
+          const r: any = await webSearch(args.question, (d) => { if (timing && timing.firstTokenMs == null) timing.firstTokenMs = Date.now() - t0; emit(split.push(d)); })
+            .catch((e) => ({ ok: false, reason: `I can't reach live data right now (${String(e.message).slice(0, 60)}). Try again in a minute.` }));
+          out = r;
+          if (r.ok) {
+            emit(split.flush());
+            if (said.length === before) emit([...split.push(r.answer), ...split.flush()]); // a cached answer, or one that could not be streamed
+            direct = said.slice(before).join(' ') || r.answer;
+          }
+        }
         else {
           call.desk = desk.id; // the dashboard label: the last tool family used
           out = await desk.run(call, name, args).catch((e) => ({ ok: false, reason: String(e.message) }));
         }
         call.turns.push({ at: Date.now(), who: 'tool', text: `${tc.function.name}(${tc.function.name === 'confirm_transfer' ? '{"pin":"****"}' : JSON.stringify(args)}) → ${JSON.stringify(out)}`, proof });
         h.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(out) });
+      }
+      if (direct) {
+        const say = said.join(' ');
+        h.push({ role: 'assistant', content: say });
+        if (timing) timing.llmMs = Date.now() - t0;
+        call.turns.push({ at: Date.now(), who: 'agent', text: say, timing });
+        save();
+        return say;
       }
       continue;
     }
