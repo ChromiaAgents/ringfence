@@ -467,7 +467,7 @@ await t('security: a spoken PIN never reaches the model or transcript (M4); a pr
   db.wallets = db.wallets.filter((w) => w.phone !== '15550000070');
   db.wallets.push({ phone: '15550000070', owner: 'erin.testnet', contract: 'e.ringfence-wallet.testnet', ...hashPin('2468'), fails: 0, createdAt: Date.now() });
   const c = startCall('whatsapp', '15550000070', 'wallet').call;
-  assert.equal(takePin(c.id, 'two four six eight'), false, 'nothing waiting: not taken');
+  assert.equal(takePin(c.id, 'one three five seven'), true, 'nothing waiting: masked as [PIN] but not kept');
   await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' });
   assert.equal(takePin(c.id, 'two four six eight'), true);
   const ok: any = await walletDesk.run(c, 'confirm_transfer', { pin: '[PIN]' });
@@ -538,7 +538,7 @@ await t('security: hanging up drops the waiting transfer; nothing more is said a
   const c = startCall('whatsapp', '15550000070').call;
   await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' });
   endCall(c.id);
-  assert.equal(takePin(c.id, '2468'), false, 'nothing waiting after the call ended');
+  assert.equal(takePin(c.id, '2468'), true, 'still masked after the call ended, but not kept for a transfer');
   assert.match(((await walletDesk.run(c, 'confirm_transfer', { pin: '2468' })) as any).reason, /Nothing to confirm/);
   env.mockLlm = true;
   try {

@@ -24,8 +24,9 @@ const spokenPins = new Map<string, string>();
 /** The call ended: drop its waiting transfer and any PIN taken for it. */
 export function clearPending(callId: string) { pending.delete(callId); spokenPins.delete(callId); }
 export function takePin(callId: string, text: string): boolean {
-  const pin = pending.has(callId) ? normalizePin(text) : null;
-  if (pin) spokenPins.set(callId, pin);
+  const pin = normalizePin(text);
+  // A PIN-shaped answer with nothing waiting (the model skipped prepare_transfer) is still masked, never stored.
+  if (pin && pending.has(callId)) spokenPins.set(callId, pin);
   return !!pin;
 }
 /** Exact decimal amounts (no float rounding): what is read back is what is sent. */
