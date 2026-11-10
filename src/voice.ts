@@ -58,7 +58,10 @@ export function attachVoice(server: Server) {
     ws.send(JSON.stringify({ type: 'agent', text: greeting })); // text first: the call works even if TTS is still loading
     warmUp().then(() => line.say(greeting)).catch(console.error);
     let busy = false;
-    ws.on('message', async (data, isBinary) => {
+    // A typed line that arrives while a reply is still being made is kept and answered next (the newest one wins);
+    // it used to be dropped without a word. Audio that arrives then is still dropped: the caller was hearing the agent.
+    let queued: string | null = null;
+    const onMessage = async (data: any, isBinary: boolean) => {
       if (!isBinary) {
         const msg = JSON.parse(String(data));
         if (msg.type === 'barge') { line.cancel(); return; } // caller talked over the agent
@@ -80,7 +83,7 @@ export function attachVoice(server: Server) {
         if (msg.type === 'text') data = Buffer.from(msg.text); // typed fallback
         else return;
       }
-      if (busy) return;
+      if (busy) { if (!isBinary) queued = String(data); return; }
       busy = true;
       try {
         const { signal, timing } = line.begin();
@@ -100,8 +103,10 @@ export function attachVoice(server: Server) {
         ws.send(JSON.stringify({ type: 'error', text: e.message }));
       } finally {
         busy = false;
+        if (queued !== null) { const text = queued; queued = null; void onMessage(Buffer.from(JSON.stringify({ type: 'text', text })), false); }
       }
-    });
+    };
+    ws.on('message', onMessage);
     // After an Approve / Reject tap on WhatsApp, the agent on this call says what happened.
     onCallNews(call.id, (s) => { if (ws.readyState !== 1) return; ws.send(JSON.stringify({ type: 'agent', text: s })); line.say(s); });
     onWebApproval(call.id, (body, token) => { if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'approval', body, token })); });
