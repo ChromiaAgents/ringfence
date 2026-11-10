@@ -8,8 +8,9 @@ import type { DeskDef } from './desks/types.ts';
 import { launchDesk } from './desks/launch.ts';
 import { walletDesk, takePin, clearPending } from './desks/wallet.ts';
 import { marketDesk } from './desks/market.ts';
+import { packetDesk } from './desks/packet.ts';
 
-export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, wallet: walletDesk, market: marketDesk };
+export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, wallet: walletDesk, market: marketDesk, packet: packetDesk };
 
 /** The only fixed line: said the moment the call picks up. Everything after it is the AI's. */
 export const GREETING = 'Hi, this is Ringfence on NEAR. I can send NEAR for you, or launch a coin on JustHoot. What do you need?';
@@ -18,7 +19,7 @@ export const GREETING = 'Hi, this is Ringfence on NEAR. I can send NEAR for you,
 const END_CALL = { type: 'function', function: { name: 'end_call', description: 'Hang up. Call it only after you have said a short goodbye and the caller is done.', parameters: { type: 'object', properties: {} } } };
 
 /** The desks the AI may use on a call. */
-const desksFor = (_call: Call): DeskDef[] => [walletDesk, launchDesk, marketDesk];
+const desksFor = (_call: Call): DeskDef[] => [walletDesk, packetDesk, launchDesk, marketDesk];
 const nameOf = (t: any): string => t.function?.name;
 /** One agent, every tool: the wallet and launch tools and end_call. */
 export const toolsFor = (call: Call): unknown[] => [...desksFor(call).flatMap((d) => d.tools), END_CALL];
@@ -47,6 +48,7 @@ Keep the conversation moving: remember everything they've said and never ask for
 export function system(call: Call): string {
   return `You are Ringfence, a voice agent on NEAR. You can:
 - pay by voice from the caller's phone wallet, check their balance, and answer "how much did I spend";
+- send a red packet: money for a group, each person opens a share by saying the packet's words; and open a share of a packet someone sent them;
 - launch a memecoin they sign with their own wallet;
 - look up live data: NEAR price in US dollars (or another currency if asked), whether an account is safe to pay, and what is trending;
 - help them get a wallet: on WhatsApp they text "create a wallet" for a custodial demo wallet with a PIN; with their own NEAR wallet they bind their number on our wallet page: say you'll send them the link.
@@ -61,6 +63,9 @@ ${walletDesk.system(call)}
 Launching a coin:
 ${launchDesk.system(call)}
 
+Red packets:
+${packetDesk.system(call)}
+
 Live data:
 ${marketDesk.system(call)}${recap(call)}
 /no_think`;
@@ -74,14 +79,15 @@ export const setChatForTest = (f: typeof chat | null) => (chatFn = f ?? chat);
 const histories = new Map<string, Msg[]>();
 
 /** desk only labels the call up front. */
-export function startCall(channel: Call['channel'], from?: string, desk?: Desk): { call: Call; greeting: string } {
-  const call: Call = { id: id(), channel, desk, from, startedAt: Date.now(), turns: [] };
+export function startCall(channel: Call['channel'], from?: string, desk?: Desk, packetId?: string): { call: Call; greeting: string } {
+  const call: Call = { id: id(), channel, desk, from, startedAt: Date.now(), turns: [], packetId };
   db.calls.push(call);
-  const back = desk ? null : resume(call);
+  const back = desk || packetId ? null : resume(call);
   // A returning caller with a coin in progress: the greeting offers to pick it up.
   if (back) call.desk = 'launch';
   const greeting = back
     ? `Hey, welcome back! Want to pick up ${back.ticker ?? back.name}, or start something new?`
+    : packetId ? `Hi, this is Ringfence. ${packetDesk.greeting()}`
     : isKnown(call) ? 'Hey, good to hear from you again. How can I help?' : GREETING;
   call.turns.push({ at: Date.now(), who: 'agent', text: greeting });
   histories.set(call.id, [{ role: 'system', content: '' }, { role: 'assistant', content: greeting }]);

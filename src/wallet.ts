@@ -133,11 +133,14 @@ export function bindTx(b: Binding) {
     receiverId: env.factoryAccountId,
     method: 'create_wallet',
     deposit: CREATE_DEPOSIT.toString(),
-    args: { phone_hash: phoneHash(b.phone), owner: b.owner, agent: env.agentAccountId || null, near_limit, new_recipient_delay_sec },
+    args: { phone_hash: phoneHash(b.phone), owner: b.owner, agent: env.agentAccountId || null, near_limit, new_recipient_delay_sec, ...packetRecipient() },
   };
 }
 
 // ---- chain ----
+
+/** New wallets save the red-packet contract as a recipient, so the agent can fund a packet inside the wallet's limits. */
+const packetRecipient = () => (env.packetsAccountId ? { recipients: [env.packetsAccountId] } : {});
 
 export const live = () => !!(env.agentAccountId && env.agentKey);
 export const custodyLive = () => !!(env.custodyAccountId && env.custodyKey);
@@ -175,7 +178,7 @@ function inOrder<T>(key: string, f: () => Promise<T>): Promise<T> {
   queues.set(key, p.catch(() => {}));
   return p;
 }
-async function callContract(contract: string, method: string, args: object, deposit = 0n, signer = agent()) {
+export async function callContract(contract: string, method: string, args: object, deposit = 0n, signer = agent()) {
   const out: any = await inOrder(signer.accountId, () => signer.signAndSendTransaction({ receiverId: contract, actions: [actions.functionCall(method, args, 300_000_000_000_000n, deposit)] }));
   const failed = receiptFailure(out);
   if (failed) throw new Error(`it failed on chain, so nothing moved and nothing was counted (${failed})`);
@@ -232,7 +235,7 @@ export async function createCustodial(phone: string, pin: string, now = Date.now
     log({ kind: 'wallet', desk: 'wallet', detail: `DRY RUN (no CUSTODY_PRIVATE_KEY): would create custodial wallet ${b.contract}` });
     return { ok: true, binding: b, message: `DEMO DRY RUN: this server has no custody key, so nothing was created on chain. Your PIN is saved (hashed), so you can try a call; sends are dry runs too.` };
   }
-  const r = await callContract(env.factoryAccountId, 'create_wallet', { phone_hash: phoneHash(phone), owner: env.custodyAccountId, custodial: true }, CREATE_DEPOSIT, custody());
+  const r = await callContract(env.factoryAccountId, 'create_wallet', { phone_hash: phoneHash(phone), owner: env.custodyAccountId, custodial: true, ...packetRecipient() }, CREATE_DEPOSIT, custody());
   if (!r.result) return { ok: false, reason: 'The factory refused to create the wallet. Try again later.' };
   b.contract = String(r.result);
   db.wallets = db.wallets.filter((x) => x.phone !== phone).concat(b);

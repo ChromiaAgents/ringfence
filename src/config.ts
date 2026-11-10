@@ -51,6 +51,11 @@ export const env = {
   waNumber: (process.env.WHATSAPP_NUMBER ?? '').replace(/\D/g, ''),
   // Tiered confirmation: up to SMALL_LIMIT NEAR to a saved recipient is confirmed by spoken PIN; more needs the WhatsApp Approve tap.
   smallLimitNear: process.env.SMALL_LIMIT ?? '0.2',
+  // Red packets (contracts/packets). Empty = packets are labelled dry runs. Demo packets on the website are tiny.
+  packetsAccountId: process.env.PACKETS_ACCOUNT_ID ?? '',
+  packetExpirySec: Number(process.env.PACKET_EXPIRY_SEC ?? 86_400),
+  demoPacketNear: process.env.DEMO_PACKET_NEAR ?? '0.02',
+  demoPacketWords: process.env.DEMO_PACKET_WORDS ?? 'gong xi fa cai',
   // USDC on NEAR (native Circle USDC on mainnet, 6 decimals). Above SMALL_LIMIT_USDC a send also needs the Approve tap.
   usdcToken: process.env.USDC_TOKEN ?? '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1',
   smallLimitUsdc: process.env.SMALL_LIMIT_USDC ?? '10',

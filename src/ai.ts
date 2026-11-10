@@ -214,6 +214,18 @@ export function mockStep(messages: Msg[], tools: unknown[]): { name: string; arg
     if (/\blogo\b|\bvibe\b/i.test(u)) return { name: 'make_logo', args: { vibe: u } };
     if (/^\s*(yes|yeah|yep|do it|go ahead|set it up)\b/i.test(u) && messages.some((m) => m.role === 'assistant' && /shall I set it up/i.test(textOf(m)))) return { name: 'prepare_launch', args: { caller_confirmed: true } };
   }
+  // Red packets: fund one ("send a red packet of 0.02 NEAR for 5 people, the words are ..."), or open one. On a call
+  // started from a packet's page the system prompt names the packet, so anything that isn't a PIN or a send is an attempt.
+  if (names.has('prepare_packet') && /red packet|hongbao|angpao|红包/i.test(u)) {
+    const m = u.match(/([\d.]+)\s*near/i), n = u.match(/(\d+)\s*(?:people|persons?|kids|shares)/i), w = u.match(/words?\s+(?:are|is)\s+["“]?([^"”.!?]+)/i);
+    if (m && /\b(send|make|give|create)\b/i.test(u)) return { name: 'prepare_packet', args: { amount: m[1], count: Number(n?.[1] ?? 5), split: /equal/i.test(u) ? 'equal' : 'lucky', words: (w?.[1] ?? '').trim() } };
+  }
+  if (names.has('open_packet')) {
+    const sys = messages[0] ? textOf(messages[0]) : '';
+    const id = u.match(/packet\s+([a-z0-9-]{6,})/i)?.[1] ?? sys.match(/page of packet ([a-z0-9-]+)/)?.[1];
+    const acct = u.match(/([a-z0-9_-]+(?:\.[a-z0-9_-]+)*\.(?:near|testnet))/i)?.[1];
+    if (id && u !== '[PIN]' && !/\b(send|pay|transfer|balance|spen[dt])\b/i.test(u.replace(/send it to/i, ''))) return { name: 'open_packet', args: { packet_id: id, ...(acct ? { account: acct } : {}) } };
+  }
   if (names.has('confirm_transfer')) {
     const send = u.match(/(?:send|pay|transfer)\s+([\d.]+)\s*([a-z]+)?\b(?:\s+on\s+([a-z0-9 ]+?))?\s+to\s+(\S+(?:\s+dot\s+\S+)*)/i);
     if (send) return { name: 'prepare_transfer', args: { to: send[4].replace(/[.,!?]$/, ''), amount: send[1], asset: send[3] ? send[3].trim().toLowerCase() : /^near$/i.test(send[2] ?? 'near') ? 'near' : (send[2] ?? '').toLowerCase() } };
@@ -243,6 +255,10 @@ function mockText(messages: Msg[], tools: unknown[] = []): string {
   const tool = prev?.tool_calls?.[0]?.function?.name;
   if (tool === 'end_call') return 'Thanks for calling, take care. Bye!';
   if (tool === 'set_coin' && out.ok !== false && !out.error) return 'Got it. Shall I set it up? Say yes and I’ll put the launch on your screen to check and sign.';
+  if (out.need === 'words') return 'Say the words that came with the red packet to open it.';
+  if (out.need === 'account') return 'Those are the words. Which NEAR account should I send your share to?';
+  if (tool === 'open_packet' && out.ok) return `You opened ${out.near} NEAR${out.dryRun ? ' (a dry run: no real money moved)' : ''}. ${out.left ? `${out.left} left for the others.` : 'That was the last share.'}`;
+  if (out.packet) return `Your red packet is ready${out.dryRun ? ' (a dry run: no real money is in it)' : ''}. Share the link on your screen, and tell them the words.`;
   if (out.ok === false && /^I still need/.test(out.reason ?? '')) return out.reason;
   if (out.ok === false || out.error) return `Sorry, I can't do that: ${out.reason ?? out.error}`;
   if (out.approvalDemo) return `That's ${out.read_back}. On a bound wallet that amount needs your PIN and then an Approve tap on WhatsApp. This browser demo stops here: nothing was sent.`;
@@ -310,7 +326,7 @@ async function stt(audio: Uint8Array, mime: string, language?: string): Promise<
   fd.set('model', env.sttModel);
   if (language) fd.set('language', language);
   fd.set('prompt', 'A phone call about sending NEAR or launching a coin on JustHoot. 发送 NEAR。'); // vocabulary hint, both languages
-  fd.set('file', new Blob([audio as BlobPart], { type: mime }), mime.includes('webm') ? 'a.webm' : 'a.wav');
+  fd.set('file', new Blob([audio as BlobPart], { type: mime }), mime.includes('webm') ? 'a.webm' : mime.includes('ogg') ? 'a.ogg' : 'a.wav');
   const r = await fetch(`${BASE}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${env.nearAiKey}` }, body: fd });
   if (!r.ok) throw new Error(`stt ${r.status}: ${(await r.text()).slice(0, 200)}`);
   return ((await r.json()) as any).text?.trim() ?? '';

@@ -118,6 +118,92 @@ t('website demo wallet: browser calls use it, Approve card on the page, no share
     assert.equal(((await walletDesk.run(c2, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' })) as any).ok, true, 'another visitor can still use it');
   } finally { Object.assign(env, { demoPhone: '', demoPin: '' }); db.wallets = db.wallets.filter((w: any) => w.phone !== '19990000001'); }
 });
+t('red packets: the words are checked on what the caller said; the split pays out exactly the packet', async () => {
+  const { wordsSaid, shareOf, norm, MIN_SHARE } = await import('../src/packets.ts');
+  assert.equal(norm('Gong Xi, Fa Cai!'), 'gongxifacai');
+  for (const heard of ['gong xi fa cai', 'Gong xi fa cai!', 'ok the words are gong xi fa cai right', 'gong xi fa chai', '恭喜发财 gong xi fa cai'])
+    assert.equal(wordsSaid('gong xi fa cai', heard), true, heard);
+  for (const heard of ['', 'happy new year', 'gong xi', 'what are the words', 'fa cai gong xi'])
+    assert.equal(wordsSaid('gong xi fa cai', heard), false, heard);
+  assert.equal(wordsSaid('恭喜发财', '我说恭喜发财'), true);
+  assert.equal(wordsSaid('恭喜发财', '恭喜'), false, 'short phrases get no slack');
+  const Y = 10n ** 24n;
+  for (let round = 0; round < 200; round++) {
+    let left = Y, sum = 0n;
+    for (let people = 5; people >= 1; people--) { const s = shareOf(left, people, true); assert.ok(s >= MIN_SHARE && s <= left, 'a share is at least 0.001 NEAR and never more than what is left'); left -= s; sum += s; }
+    assert.equal(sum, Y);
+  }
+  assert.equal(shareOf(Y, 4, false), Y / 4n);
+});
+t('red packets: funded through the wallet (PIN, limits), opened by saying the words, one share per account', async () => {
+  const { startCall, system } = await import('../src/agent.ts');
+  const { walletDesk } = await import('../src/desks/wallet.ts');
+  const { packetDesk } = await import('../src/desks/packet.ts');
+  const { findPacket, publicPacket } = await import('../src/packets.ts');
+  const { db } = await import('../src/store.ts');
+  const { hashPin } = await import('../src/wallet.ts');
+  // Fresh numbers each run: the test db file is kept between runs, and a returning caller's prompt recaps their own earlier words.
+  const run = String(Date.now()).slice(-7), MUM = `1555${run}1`, KID1 = `1555${run}2`, KID2 = `1555${run}3`, NOBODY = `1555${run}9`;
+  const wallet = (phone: string, contract: string) => db.wallets.push({ phone, owner: 'o.testnet', contract, ...hashPin('2468'), fails: 0, createdAt: Date.now() } as any);
+  wallet(MUM, 'mum.ringfence-wallet.testnet'); wallet(KID1, 'kid1.ringfence-wallet.testnet'); wallet(KID2, 'kid2.ringfence-wallet.testnet');
+  const mum = startCall('whatsapp', MUM).call;
+  // refusals before any money moves
+  assert.match(((await walletDesk.run(mum, 'prepare_packet', { amount: '0.5', count: 0, words: 'wan shi ru yi' })) as any).reason, /How many people/);
+  assert.match(((await walletDesk.run(mum, 'prepare_packet', { amount: '0.5', count: 3, words: '' })) as any).reason, /What should people say/);
+  assert.match(((await walletDesk.run(mum, 'prepare_packet', { amount: '0.002', count: 3, words: 'wan shi ru yi' })) as any).reason, /0\.001 NEAR per person/);
+  assert.match(((await walletDesk.run(mum, 'prepare_packet', { amount: '2', count: 3, words: 'wan shi ru yi' })) as any).reason, /1 NEAR per-transfer limit/, 'a packet cannot be bigger than the wallet\'s limit');
+  // 0.1 NEAR for 2 people: read back with the words, then the PIN
+  const p0: any = await walletDesk.run(mum, 'prepare_packet', { amount: '0.1', count: 2, split: 'lucky', words: 'Wan Shi Ru Yi' });
+  assert.match(p0.read_back, /a red packet of 0\.1 NEAR for 2 people, lucky split\. The words to open it are "Wan Shi Ru Yi"/);
+  const made: any = await walletDesk.run(mum, 'confirm_transfer', { pin: '2468' });
+  assert.equal(made.packet, true); assert.equal(made.dryRun, true, 'no keys in tests: a labelled dry run');
+  const id = made.link.split('/packet/')[1];
+  const row = findPacket(id)!;
+  assert.equal(row.from, 'mum.ringfence-wallet.testnet');
+  // the words never reach a page or the opener's model
+  assert.ok(!JSON.stringify(publicPacket(row)).toLowerCase().includes('ru yi'), 'the public view has no words');
+  const kid = startCall('whatsapp', KID1).call;
+  assert.ok(!system(kid).toLowerCase().includes('wan shi'), 'the model that talks to the opener never sees the words');
+  // not said yet -> asked for the words; a wrong phrase -> still no
+  assert.equal(((await packetDesk.run(kid, 'open_packet', { packet_id: id })) as any).need, 'words');
+  kid.turns.push({ at: Date.now(), who: 'caller', text: 'happy new year' });
+  assert.equal(((await packetDesk.run(kid, 'open_packet', { packet_id: id })) as any).need, 'words');
+  // the model passing the words itself changes nothing: only the caller's own turns count
+  assert.equal(((await packetDesk.run(kid, 'open_packet', { packet_id: id, words: 'wan shi ru yi', said: 'wan shi ru yi' })) as any).need, 'words');
+  kid.turns.push({ at: Date.now(), who: 'caller', text: 'wan shi ru yi!' });
+  const a: any = await packetDesk.run(kid, 'open_packet', { packet_id: id });
+  assert.equal(a.ok, true); assert.ok(a.near >= 0.001 && a.near <= 0.1); assert.equal(a.left, 1);
+  assert.match(((await packetDesk.run(kid, 'open_packet', { packet_id: id })) as any).reason, /already opened/);
+  const kid2 = startCall('whatsapp', KID2).call;
+  kid2.turns.push({ at: Date.now(), who: 'caller', text: 'wan shi ru yi' });
+  const b: any = await packetDesk.run(kid2, 'open_packet', { packet_id: id });
+  assert.equal(b.ok, true); assert.equal(b.left, 0);
+  assert.ok(Math.abs(a.near + b.near - 0.1) < 3e-6, 'the two shares are the whole packet (amounts are shown to 6 decimals; the exact check is the next line)');
+  assert.equal(findPacket(id)!.left, '0');
+  // a browser caller names the account; no wallet on WhatsApp -> create one first; unknown id; five wrong tries
+  const web = startCall('web', undefined, undefined, id).call;
+  web.turns.push({ at: Date.now(), who: 'caller', text: 'wan shi ru yi' });
+  assert.match(((await packetDesk.run(web, 'open_packet', { packet_id: id })) as any).reason, /Every share/);
+  const none = startCall('whatsapp', NOBODY).call;
+  assert.match(((await packetDesk.run(none, 'open_packet', { packet_id: id })) as any).reason, /no wallet yet/);
+  assert.match(((await packetDesk.run(kid, 'open_packet', { packet_id: 'nope1234' })) as any).reason, /no red packet/);
+});
+t('red packets: a browser caller gives an account after the words; expiry sends the rest back', async () => {
+  const { startCall } = await import('../src/agent.ts');
+  const { packetDesk } = await import('../src/desks/packet.ts');
+  const { createPacket, refundExpired, findPacket, openPacket } = await import('../src/packets.ts');
+  const p = await createPacket({ from: 'mum.ringfence-wallet.testnet', yocto: 3n * 10n ** 22n, count: 3, lucky: false, words: '恭喜发财' });
+  const web = startCall('web', undefined, undefined, p.id).call;
+  web.turns.push({ at: Date.now(), who: 'caller', text: '恭喜发财' });
+  assert.equal(((await packetDesk.run(web, 'open_packet', { packet_id: p.id })) as any).need, 'account');
+  assert.equal(((await packetDesk.run(web, 'open_packet', { packet_id: p.id, account: 'not an account' })) as any).need, 'account');
+  const r: any = await packetDesk.run(web, 'open_packet', { packet_id: p.id, account: 'alice dot testnet' });
+  assert.equal(r.ok, true); assert.equal(r.near, 0.01, 'equal split: a third');
+  for (let i = 0; i < 5; i++) { const c = startCall('web', undefined, undefined, p.id).call; c.turns.push({ at: Date.now(), who: 'caller', text: 'wrong' }); if (i === 0) for (let k = 0; k < 5; k++) await packetDesk.run(c, 'open_packet', { packet_id: p.id }); if (i === 0) assert.match(((await packetDesk.run(c, 'open_packet', { packet_id: p.id })) as any).reason, /Too many wrong tries/); }
+  await refundExpired(p.expiresAt + 1);
+  assert.equal(findPacket(p.id)!.refunded, true);
+  assert.match(((await openPacket(p.id, 'bob.testnet', ['恭喜发财'])) as any).reason, /expired/);
+});
 t('chain: a failed cross-contract step is read from the receipts; sends from one account run in order', async () => {
   const { receiptFailure } = await import('../src/wallet.ts');
   assert.equal(receiptFailure({ receipts_outcome: [{ outcome: { status: { SuccessValue: '' } } }] }), null);

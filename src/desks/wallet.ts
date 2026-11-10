@@ -10,6 +10,7 @@ import { yoctoToNear } from '../near.ts';
 import { bindingOf, checkPin, normalizePin, live, devServer, sendEvm, sendNear, sendFt, ftBalance, walletState, ethAddressOf, rejectFreeze, digits, type Binding, type WalletState } from '../wallet.ts';
 import { CHAINS, chainById, findChain, defaultChainIds } from '../chains.ts';
 import { GasShortError, prepareTransfer } from '../eth.ts';
+import { createPacket, packetsTo, packetUrl, norm, MIN_SHARE } from '../packets.ts';
 import type { DeskDef } from './types.ts';
 
 /** "near", or "evm:<chainId>" for an EVM chain's native coin. */
@@ -17,7 +18,9 @@ export type Asset = 'near' | `evm:${number}` | `ft:${string}`;
 /** NEAR and USDC (NEP-141) go to NEAR accounts; EVM chains to 0x addresses. */
 const isFt = (a: Asset): a is `ft:${string}` => a.startsWith('ft:');
 const USDC_DECIMALS = 6;
-type Transfer = { to: string; amount: string; asset: Asset; base: bigint; tier?: 'pin' | 'approve'; until?: number };
+type Transfer = { to: string; amount: string; asset: Asset; base: bigint; tier?: 'pin' | 'approve'; until?: number;
+  /** A red packet: the transfer goes to the packets contract, and the packet is recorded once it has arrived. */
+  packet?: { count: number; lucky: boolean; words: string } };
 const pending = new Map<string, Transfer>();
 const PENDING_MS = 120_000;
 /** Spoken PINs, taken out of the caller's words before the model sees them (see takePin). */
@@ -58,7 +61,8 @@ export const parseAsset = (a: string): Asset | null => {
   return c ? `evm:${c.id}` : null;
 };
 /** "5 NEAR to liho dot near" / "0.0001 ETH on Base to address 0x1111 ending 1111": what the agent reads back. */
-export const readBack = (t: { to: string; amount: string; asset: Asset }) => {
+export const readBack = (t: { to: string; amount: string; asset: Asset; packet?: Transfer['packet'] }) => {
+  if (t.packet) return `a red packet of ${t.amount} NEAR for ${t.packet.count} ${t.packet.count === 1 ? 'person' : 'people'}, ${t.packet.lucky ? 'lucky' : 'equal'} split`;
   const c = chainOf(t.asset);
   return `${t.amount} ${c ? `${c.symbol} on ${c.name}` : isFt(t.asset) ? 'USDC' : 'NEAR'} to ${t.to.startsWith('0x') ? `address ${t.to.slice(0, 6)} ending ${t.to.slice(-4)}` : t.to.replace(/\./g, ' dot ')}`;
 };
@@ -74,11 +78,13 @@ const tools = [
   { type: 'function', function: { name: 'get_balance', description: "The caller's phone-wallet balance and today's limits.", parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'get_spending', description: 'How much did I spend? Today\'s spending against the daily limit, and the last 5 transfers.', parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'prepare_transfer', description: 'Get a transfer ready. Read back the returned read_back, then ask for the 4-digit PIN.', parameters: { type: 'object', properties: { to: { type: 'string', description: 'NEAR account like liho.near (liho.testnet on testnet), or a 0x address for an EVM chain' }, amount: { type: 'string' }, asset: { type: 'string', description: '"near", "usdc" (US dollars: "send 50 dollars" is 50 USDC), or the EVM chain name for its native coin: base, ethereum, arbitrum, optimism, polygon, bnb, avalanche (sepolia on testnet)' } }, required: ['to', 'amount', 'asset'] } } },
+  { type: 'function', function: { name: 'prepare_packet', description: 'Get a red packet (hongbao, angpao, 红包) ready: money for a group, opened by saying the words. Read back the returned read_back, then ask for the 4-digit PIN and call confirm_transfer.', parameters: { type: 'object', properties: { amount: { type: 'string', description: 'total NEAR in the packet' }, count: { type: 'integer', description: 'how many people share it' }, split: { type: 'string', description: '"lucky" (random shares, the default) or "equal"' }, words: { type: 'string', description: 'the short phrase people must say to open it, exactly as the caller said it' } }, required: ['amount', 'count', 'words'] } } },
   { type: 'function', function: { name: 'confirm_transfer', description: 'After the caller says their PIN (you see it as [PIN]). Pass "[PIN]".', parameters: { type: 'object', properties: { pin: { type: 'string' } }, required: ['pin'] } } },
 ];
 
 export const ONLY_NEAR = 'Only NEAR and USDC for now, sorry. I can send NEAR or USDC, or check your balance.';
 const system = (call?: Call) => `${webDemo(call) ? `This is a browser call on the shared website demo wallet: real NEAR on ${env.network}, the contract's limits apply and it only pays its saved recipient ${env.demoRecipient}. The demo PIN is on their screen. Above ${env.smallLimitNear} NEAR the Approve card appears on their screen (not WhatsApp): say so. Their own WhatsApp number can be bound to their own NEAR wallet contract;` : call?.channel === 'web' ? 'This is a browser call: no wallet is bound to it, so a transfer is a labelled demo and nothing is sent. Their WhatsApp number can be bound to their own NEAR wallet contract;' : `The caller's WhatsApp number can be bound to their own NEAR ${env.network} wallet contract;`} ${env.evmEnabled ? `you can send NEAR, or the native coin of an EVM chain the owner allowed (${chainList()}),` : 'you can send NEAR or USDC (stable US dollars on NEAR; politely decline other chains or coins). Amounts in dollars are USDC one to one ("send 50 dollars to the grocer" is 50 USDC),'} within limits the contract enforces.
+For a red packet ("send a red packet", hongbao, angpao, 红包): call prepare_packet with the total in NEAR, how many people, lucky or equal split (lucky unless they ask for equal) and the words people must say to open it; if they gave no words, ask for some (suggest "gong xi fa cai"). Read back its read_back exactly, then the PIN and confirm_transfer as for a transfer. When it is created, tell them to share the link and the words with the family.
 For a transfer: call prepare_transfer and read back its read_back exactly ("0.1 NEAR to liho dot ${suffix()}"). Then ask for their 4-digit PIN; their answer reaches you as [PIN]: call confirm_transfer with pin "[PIN]". Above ${env.smallLimitNear} NEAR, confirm_transfer then sends an Approve button to their WhatsApp: tell them to tap it within two minutes. For "how much did I spend", call get_spending.${env.evmEnabled ? ' If they say just "ETH", ask which chain.\nTheir EVM address is the same on every EVM chain: they fund gas on whichever chain they want to use.' : ''}
 If a tool refuses, say why in plain words. ${call?.channel === 'web' ? 'If a link was sent, say it is on their screen.' : 'If a link was sent, say it is on WhatsApp.'} ${env.network === 'mainnet' ? 'Transfers are on mainnet, real money, and an unaudited prototype: suggest small amounts.' : 'Transfers are on testnet: no real money.'} Never give financial advice.`;
 
@@ -86,12 +92,25 @@ If a tool refuses, say why in plain words. ${call?.channel === 'web' ? 'If a lin
 const webDemo = (call?: Call) => call?.channel === 'web' && !call.from && !!env.demoPhone && !!bindingOf(env.demoPhone);
 
 async function run(call: Call, name: string, a: any): Promise<unknown> {
+  // A red packet is a NEAR transfer to the packets contract plus what to record there: it takes the same road as any
+  // send (limits, PIN, the Approve tap above the small limit), so nothing about a packet can get past the wallet's rules.
+  let packet: Transfer['packet'];
+  if (name === 'prepare_packet') {
+    const count = Number(a.count), words = String(a.words ?? '').trim(), amt = String(a.amount ?? '').trim();
+    const no = (reason: string) => { log({ kind: 'refused', desk: 'wallet', callId: call.id, detail: `prepare_packet: ${reason}` }); return { ok: false, reason }; };
+    if (!Number.isInteger(count) || count < 1 || count > 100) return no('How many people is it for? 1 to 100.');
+    if (norm(words).length < 2 || words.length > 60) return no('What should people say to open it? A short phrase, like "gong xi fa cai".');
+    if (!AMOUNT.test(amt) || toYocto(amt) < BigInt(count) * MIN_SHARE) return no('How much in total? At least 0.001 NEAR per person.');
+    packet = { count, lucky: !/equal|even|same/i.test(String(a.split ?? '')), words };
+    a = { to: packetsTo(), amount: amt, asset: 'near' };
+    name = 'prepare_transfer';
+  }
   const demo = webDemo(call);
   const b = demo ? bindingOf(env.demoPhone) : bindingOf(call.from);
   const refuse = (reason: string, extra: object = {}) => { log({ kind: 'refused', desk: 'wallet', callId: call.id, detail: `${name}: ${reason}` }); return { ok: false, reason, ...extra }; };
   // EVM sends are off unless EVM_ENABLED: anything but NEAR (a chain name, "ETH", an unknown coin) gets the same polite no.
   if (name === 'prepare_transfer' && !env.evmEnabled && !['near', `ft:${env.usdcToken}`].includes(parseAsset(a.asset) ?? '')) return refuse(ONLY_NEAR);
-  if (!b && call.channel === 'web') return browserDemo(call, name, a);
+  if (!b && call.channel === 'web') return browserDemo(call, name, a, packet);
   if (!b) {
     links.set(call.id, { url: `${env.publicUrl}/wallet/bind`, label: 'No wallet yet. Reply "create a wallet" for a demo custodial wallet, or bind your own NEAR wallet' });
     return refuse('This number has no wallet yet. Two ways in: text "create a wallet" to this number for a demo custodial wallet, or bind your own NEAR wallet: the link is on WhatsApp.', { linkSent: true });
@@ -124,7 +143,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     const amount = String(a.amount ?? '').trim();
     if (!AMOUNT.test(amount) || Number(amount) <= 0) return refuse('How much? Say a number, with at most 18 decimals.');
     if (isFt(asset) && !/^\d+(\.\d{1,6})?$/.test(amount)) return refuse('USDC has at most 6 decimals: say the amount in dollars and cents.');
-    const t: Transfer = { to, amount, asset, base: asset === 'near' ? toYocto(amount) : parseUnits(amount, isFt(asset) ? USDC_DECIMALS : chain!.decimals) };
+    const t: Transfer = { to, amount, asset, base: asset === 'near' ? toYocto(amount) : parseUnits(amount, isFt(asset) ? USDC_DECIMALS : chain!.decimals), packet };
     // The contract would refuse these anyway; here we say so early and hand over a self-sign link.
     if (state) {
       if (chain && !(state.chains ?? []).includes(chain.id)) return refuse(`${chain.name} is not enabled on your wallet. You can allow it on your wallet contract with allow_chain, with its own limits.`);
@@ -137,6 +156,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
         const short = await prepareTransfer(chain, from, to, t.base).then(() => null, (e) => (e instanceof GasShortError ? e.message : null));
         if (short) return refuse(short, { evmAddress: from });
       }
+      if (packet && isNew && !over) return refuse(`This wallet was set up before red packets. Its owner saves ${to} as a recipient once, then you can send packets by voice.`);
       if (over || isNew) {
         if (isFt(asset)) return refuse(`I can't send that: ${over || `${to} is not on your saved list`}. The wallet's owner can raise the USDC limit or save the recipient.`);
         if (asset !== 'near') return refuse(`I can't: ${over || 'that address is not on your saved list'}. Raise the limit or save the address on your wallet page.`);
@@ -156,7 +176,8 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     t.until = Date.now() + PENDING_MS;
     pending.set(call.id, t);
     spokenPins.delete(call.id);
-    return { ok: true, read_back: readBack(t) + tag, next: t.tier === 'pin' ? 'Ask for their 4-digit PIN.' : `Ask for their 4-digit PIN; after it, an Approve button goes to ${demo ? 'their screen' : 'their WhatsApp'}.` };
+    const say = packet ? `${readBack(t)}. The words to open it are "${packet.words}"` : readBack(t);
+    return { ok: true, read_back: say + tag, next: t.tier === 'pin' ? 'Ask for their 4-digit PIN.' : `Ask for their 4-digit PIN; after it, an Approve button goes to ${demo ? 'their screen' : 'their WhatsApp'}.` };
   }
   if (name === 'confirm_transfer') {
     const t = pending.get(call.id);
@@ -199,14 +220,28 @@ export function frozen(b: Binding, s: WalletState | null, now = Date.now()): str
 async function execute(callId: string, b: Binding, t: Transfer): Promise<{ ok: true; [k: string]: unknown } | { ok: false; reason: string }> {
   if (!live() || b.dryRun) {
     log({ kind: 'wallet', desk: 'wallet', callId, detail: `DRY RUN (${b.dryRun ? 'no CUSTODY_PRIVATE_KEY' : 'no AGENT_PRIVATE_KEY'}): would send ${readBack(t)} from ${b.contract}${b.custodial ? ' (custodial)' : ''}` });
+    if (t.packet) return packetOf(callId, b.contract, t, true);
     return { ok: true, dryRun: true, txHash: `dry-run-${callId}`, note: 'DRY RUN: this server has no agent key, so nothing was sent. Say clearly it was a dry run.' };
   }
   const r = await (t.asset === 'near' ? sendNear(b, t.to, t.base) : isFt(t.asset) ? sendFt(b, t.asset.slice(3), t.to, t.base) : sendEvm(b, chainOf(t.asset)!.id, t.to, t.base)).catch((e) => e as Error);
   if (r instanceof GasShortError) return { ok: false, reason: r.message };
   if (r instanceof Error) return { ok: false, reason: `The wallet contract refused: ${r.message.slice(0, 160)}` };
   log({ kind: 'wallet', desk: 'wallet', callId, detail: `${readBack(t)} from ${b.contract}: ${r.url}${r.queuedId != null ? ` (queued #${r.queuedId})` : ''}` });
+  if (t.packet) return packetOf(callId, b.contract, t, false);
   links.set(callId, { url: r.url, label: r.queuedId != null ? 'Queued transfer' : 'Your transaction' });
   return { ok: true, txHash: r.txHash, url: r.url, linkSent: true, queued: r.queuedId != null };
+}
+
+/** The money is in the packets contract (or this is a dry run): record the packet and hand over its link. */
+async function packetOf(callId: string, from: string, t: Transfer, dry: boolean): Promise<{ ok: true; [k: string]: unknown } | { ok: false; reason: string }> {
+  const p = await createPacket({ from, yocto: t.base, ...t.packet!, dry, callId }).catch((e) => e as Error);
+  if (p instanceof Error) {
+    log({ kind: 'refused', desk: 'wallet', callId, detail: `red packet not recorded after the transfer (${t.amount} NEAR from ${from}): ${p.message.slice(0, 160)}` });
+    return { ok: false, reason: 'The money reached the red packet contract but the packet was not recorded. Nothing is lost: it is logged for the team to finish or send back.' };
+  }
+  links.set(callId, { url: packetUrl(p.id), label: 'Your red packet. Share this link; they open it by saying the words' });
+  return { ok: true, packet: true, link: packetUrl(p.id), dryRun: p.dryRun || undefined, linkSent: true,
+    next: `The red packet is ready. Tell them to share the link and the words with the people it is for.${p.dryRun ? ' Say clearly it is a dry run: no real money is in it.' : ''}` };
 }
 
 /** "How much did I spend?": today's spend vs the daily limit from the contract, last 5 transfers from the ledger. */
@@ -289,6 +324,7 @@ export async function onButton(from: string, id: string, now = Date.now()): Prom
   const r = await execute(a.callId, b, a.t);
   if (!r.ok) return say(`It didn't go through: ${r.reason}`);
   log({ kind: 'wallet', desk: 'wallet', callId: a.callId, detail: `approved on WhatsApp: ${readBack(a.t)}` });
+  if (r.packet) return say(`Approved. Your red packet is ready${r.dryRun ? ' (a dry run: no real money is in it)' : ''}: ${r.link}`);
   if (r.dryRun) return say(`Approved. This was a dry run: no agent key on this server, so nothing was sent.`);
   return say(`Approved and sent: ${readBack(a.t)}. ${r.url}`);
 }
@@ -296,7 +332,7 @@ export async function onButton(from: string, id: string, now = Date.now()): Prom
 // A browser call has no phone number, so no wallet is bound to it. It walks the same steps (read back, spoken PIN,
 // the contract's mainnet default limits) and always stops at a labelled dry run: nothing is read from or sent to a chain.
 const DEMO_LIMIT = { per_tx: 1, unit: 'NEAR' };
-function browserDemo(call: Call, name: string, a: any): unknown {
+async function browserDemo(call: Call, name: string, a: any, packet?: Transfer['packet']): Promise<unknown> {
   const note = 'BROWSER DEMO: a browser call has no phone number, so no wallet is bound and nothing is sent. Say so plainly.';
   if (name === 'get_balance' || name === 'get_spending') return { ok: true, dryRun: true, demo: true, note };
   if (name === 'prepare_transfer') {
@@ -307,10 +343,10 @@ function browserDemo(call: Call, name: string, a: any): unknown {
     const amount = String(a.amount ?? '').trim();
     if (!AMOUNT.test(amount) || Number(amount) <= 0) return { ok: false, reason: 'How much? Say a number.' };
     if (Number(amount) > DEMO_LIMIT.per_tx) return { ok: false, demo: true, reason: `That is over the ${DEMO_LIMIT.per_tx} ${DEMO_LIMIT.unit} per-transfer default, so the contract would refuse it. Try 0.5 NEAR.` };
-    const t: Transfer = { to, amount, asset, base: toYocto(amount) };
+    const t: Transfer = { to, amount, asset, base: toYocto(amount), packet };
     if (Number(amount) > Number(env.smallLimitNear)) return { ok: true, demo: true, approvalDemo: true, read_back: readBack(t), note: `${note} Above ${env.smallLimitNear} NEAR, a bound wallet also needs an Approve tap on WhatsApp after the PIN.` };
     pending.set(call.id, t);
-    return { ok: true, read_back: readBack(t), next: 'Ask for their 4-digit PIN.', note };
+    return { ok: true, read_back: packet ? `${readBack(t)}. The words to open it are "${packet.words}"` : readBack(t), next: 'Ask for their 4-digit PIN.', note };
   }
   if (name === 'confirm_transfer') {
     const t = pending.get(call.id);
@@ -319,6 +355,7 @@ function browserDemo(call: Call, name: string, a: any): unknown {
     if (!pin) return { ok: false, reason: 'Say four digits.' };
     pending.delete(call.id);
     log({ kind: 'wallet', desk: 'wallet', callId: call.id, detail: `BROWSER DEMO: would ask the contract to send ${readBack(t)}` });
+    if (t.packet) return packetOf(call.id, 'a browser demo', t, true);
     return { ok: true, dryRun: true, demo: true, txHash: `demo-${call.id}`, note };
   }
   return { error: 'unknown tool' };

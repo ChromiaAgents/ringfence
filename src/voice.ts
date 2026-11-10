@@ -42,7 +42,8 @@ export function attachVoice(server: Server) {
     const sp = new URL(req.url ?? '/', 'http://x').searchParams, q = sp.get('desk');
     // ?from= stands in for a WhatsApp number in the keyless demo only (MOCK_LLM=1, no keys); a real browser call has no number.
     const from = env.mockLlm && devServer() ? sp.get('from') ?? undefined : undefined; // never with real keys
-    const { call, greeting } = startCall('web', from, q === 'launch' ? 'launch' : undefined);
+    const packetId = (sp.get('packet') ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 64) || undefined; // from a packet page's Call button
+    const { call, greeting } = startCall('web', from, q === 'launch' ? 'launch' : undefined, packetId);
     const line = voiceLine((pcm, rate) => { if (ws.readyState === 1) ws.send(wav(pcm, rate)); });
     const sendLink = () => {
       const l = linkOf(call);

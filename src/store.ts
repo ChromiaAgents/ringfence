@@ -4,14 +4,17 @@ import { randomUUID } from 'node:crypto';
 import type { Proof } from './ai.ts';
 import type { LaunchParams } from './near.ts';
 import type { Binding } from './wallet.ts';
+import type { PacketRow } from './packets.ts';
 
-export type Desk = 'launch' | 'wallet' | 'market';
+export type Desk = 'launch' | 'wallet' | 'market' | 'packet';
 /** Per-turn latency in ms, all counted from `start` (when the caller's utterance reached the server). */
 export type Timing = { start?: number; sttMs?: number; firstTokenMs?: number; firstAudioMs?: number; llmMs?: number; totalMs?: number };
 export type Turn = { at: number; who: 'caller' | 'agent' | 'tool'; text: string; proof?: Proof; timing?: Timing };
 export type Call = {
   id: string; channel: 'web' | 'whatsapp'; desk?: Desk; from?: string; startedAt: number; endedAt?: number; turns: Turn[];
   caller?: Record<string, string>; launchId?: string; routeMisses?: number;
+  /** The red packet this call was opened from (a packet page's Call button). */
+  packetId?: string;
 };
 export const isCurrentLaunch = (l: { launchpad?: string }) => l.launchpad === 'justhoot';
 
@@ -23,16 +26,16 @@ export type Launch = {
 };
 export type LedgerEntry = {
   at: number;
-  kind: 'refused' | 'launch_prepared' | 'launch_signed' | 'logo' | 'filtered' | 'wallet';
+  kind: 'refused' | 'launch_prepared' | 'launch_signed' | 'logo' | 'filtered' | 'wallet' | 'packet';
   desk?: Desk; callId?: string; launchId?: string; detail: string;
 };
 
-type Db = { calls: Call[]; launches: Launch[]; ledger: LedgerEntry[]; wallets: Binding[] };
+type Db = { calls: Call[]; launches: Launch[]; ledger: LedgerEntry[]; wallets: Binding[]; packets: PacketRow[] };
 const FILE = process.env.DB_FILE ?? 'data/db.json';
 
 function load(): Db {
   const d = existsSync(FILE) ? JSON.parse(readFileSync(FILE, 'utf8')) : {};
-  return { calls: [], launches: [], ledger: [], wallets: [], ...d };
+  return { calls: [], launches: [], ledger: [], wallets: [], packets: [], ...d };
 }
 // Shared through globalThis: the Node server (voice, WhatsApp) and the TanStack Start routes run in one process
 // but may load this module twice (Vite's SSR runner in dev, the built server bundle in prod).
