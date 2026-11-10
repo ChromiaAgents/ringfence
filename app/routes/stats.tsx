@@ -33,7 +33,7 @@ function Stats() {
   ];
   return (
     <>
-      <main className="app st">
+      <main className="app stp">
         <div className="brandrow"><Wordmark /><Makers /></div>
         <h1>The line, in numbers</h1>
         <p className="st-lead">Live counts from this server on NEAR {s.network}{s.since ? `, since ${new Date(s.since).toLocaleDateString('en-GB', { dateStyle: 'medium' })}` : ''}. Counts only: what people said on calls stays private. {s.realMoney ? 'Sends are real.' : 'The server has no keys yet, so every send and packet so far is a labelled dry run.'}</p>
