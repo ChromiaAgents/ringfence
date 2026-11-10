@@ -2,6 +2,7 @@
 //   npm run dev  -> Vite in middleware mode (HMR, SSR from source)
 //   npm start    -> the built Start handler from dist/ (run `npm run build` first)
 import { startHeldLoop } from './src/held.ts';
+import { bindingOf, createCustodial, custodyLive } from './src/wallet.ts';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
@@ -57,6 +58,9 @@ server.on('request', async (req, res) => {
 });
 attachVoice(server);
 startHeldLoop(); // first payments to new recipients go out when their wait is over
+// The website's demo wallet: made once on chain when the custody key is set and the demo number has no real wallet yet.
+if (env.demoPhone && /^\d{4}$/.test(env.demoPin) && custodyLive() && (!bindingOf(env.demoPhone) || bindingOf(env.demoPhone)!.dryRun))
+  createCustodial(env.demoPhone, env.demoPin).then((r) => console.log('demo wallet:', r.ok ? r.binding.contract : r.reason), (e) => console.error('demo wallet failed:', e.message));
 server.listen(env.port, () => {
   console.log(`Ringfence on ${env.publicUrl}  (call: /  launches: /launch/:id  dashboard: /dashboard)  network: ${env.network}`);
   const t = Date.now();
