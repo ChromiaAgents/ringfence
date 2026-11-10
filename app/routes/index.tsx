@@ -23,7 +23,7 @@ const WA_URL = 'https://wa.me/15551444220?text=hi';
 const i = (n: number) => ({ '--i': n }) as CSSProperties;
 
 const TRY: Record<Desk | 'auto', string[]> = {
-  auto: ['Send 0.1 NEAR to liho00.near.', 'How much is that in ringgit?', 'Send 5 NEAR to stranger.near.', 'What is my balance?', 'I want to launch a memecoin.'],
+  auto: ['Send 0.1 NEAR to liho00.near.', 'Send 0.3 NEAR to liho00.near.', 'How much is that in ringgit?', 'Send 5 NEAR to stranger.near.', 'What is my balance?', 'I want to launch a memecoin.'],
   launch: ['It’s a coin about a sleepy otter.', 'Call it Sleepy Otter, ticker ZZZ.', 'Make the ticker NEAR.', 'Yes, set it up.'],
 };
 const DESK_LABEL: Record<Desk | 'auto', string> = { auto: 'Let it ask', launch: 'Launch a coin' };
@@ -159,6 +159,17 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
       {call.link && (
         <div className="signlink"><span>{linkNote}</span><a href={call.link.url} target="_blank" rel="noreferrer">{call.link.label}</a></div>
       )}
+      {call.approval && (
+        <div className="wa-card" role="dialog" aria-label="Approve this transfer">
+          <p className="wa-from">WhatsApp · Ringfence <span>(shown here: the demo wallet has no phone)</span></p>
+          <p className="wa-body">{call.approval.body}</p>
+          <div className="wa-btns">
+            <button type="button" onClick={() => call.tap('approve')}>Approve</button>
+            <button type="button" onClick={() => call.tap('cancel')}>Cancel</button>
+            <button type="button" onClick={() => call.tap('reject')}>Not me</button>
+          </div>
+        </div>
+      )}
       <div className="dial">
         <button type="button" className={`call-btn${call.live ? ' end' : ''}`} onClick={call.live ? call.stop : call.start}><Phone />{call.live ? 'Hang up' : 'Call'}</button>
         <div className="desks" role="radiogroup" aria-label="Which desk">
@@ -168,7 +179,7 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
         </div>
       </div>
       {demo
-        ? <p className="help">Real NEAR {network}. Say <b>“send 0.1 NEAR to {demo.to}”</b>, then the demo PIN <b>{demo.pin}</b>. The <a href={`https://nearblocks.io/address/${demo.wallet}`} target="_blank" rel="noreferrer">demo wallet</a> contract caps it at {demo.max} NEAR a send and only pays {demo.to}: try more, or someone else, and watch it refuse.</p>
+        ? <p className="help">Real NEAR {network}. No phone needed. Say <b>“send 0.1 NEAR to {demo.to}”</b>, then the demo PIN <b>{demo.pin}</b>. Try <b>0.3</b> and an Approve card appears here (it would go to WhatsApp). Try <b>5 NEAR</b>, or a stranger, and the <a href={`https://nearblocks.io/address/${demo.wallet}`} target="_blank" rel="noreferrer">demo wallet</a> contract refuses.</p>
         : !call.live && !call.lines.length && <p className="help">Press Call, then speak or type. NEAR {network}. Sends stop at a labelled dry run.</p>}
       {(call.live || call.lines.length > 0) && <>
       <div className="tries" role="group" aria-label="Things to say">

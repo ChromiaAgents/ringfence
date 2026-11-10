@@ -21,6 +21,8 @@ export function useCall(deskPick: Desk | 'auto' = 'auto') {
   const [live, setLive] = useState(false);
   const [link, setLink] = useState<{ url: string; label: string } | null>(null);
   const [desk, setDesk] = useState<Desk | 'wallet' | 'agent' | null>(null);
+  // The website demo wallet's Approve card (WhatsApp buttons, shown on the page instead).
+  const [approval, setApproval] = useState<{ body: string; token: string } | null>(null);
   const r = useRef<{ ws?: WebSocket; ctx?: AudioContext; stream?: MediaStream; playing: boolean; srcs?: AudioBufferSourceNode[]; next?: number }>({ playing: false });
   const add = (who: Line['who'], text: string) => setLines((l) => [...l, { who, text }]);
 
@@ -108,6 +110,7 @@ export function useCall(deskPick: Desk | 'auto' = 'auto') {
         setLines((l) => (l.at(-1)?.who === 'agent' ? [...l.slice(0, -1), { who: 'agent', text: l.at(-1)!.text + ' ' + d.text }] : [...l, { who: 'agent', text: d.text }]));
       if (d.type === 'caller') add('caller', d.text);
       if (d.type === 'error') { add('tool', d.text); setState('Your turn'); }
+      if (d.type === 'approval') setApproval({ body: d.body, token: d.token });
       if (d.type === 'link') setLink({ url: d.url, label: d.label });
       if (d.type === 'desk' && d.desk) setDesk(d.desk);
       // The AI ended the call: wait for the end of the turn (all goodbye audio sent), let it finish playing, then hang up.
@@ -115,6 +118,13 @@ export function useCall(deskPick: Desk | 'auto' = 'auto') {
       if (d.type === 'desk' && hangAfterTurn) { const bye = () => (s.playing ? setTimeout(bye, 200) : stop()); setTimeout(bye, 600); }
     };
     ws.onclose = () => stop();
+  }
+
+  function tap(verb: 'approve' | 'cancel' | 'reject') {
+    const ws = r.current.ws;
+    if (!approval || ws?.readyState !== 1) return;
+    ws.send(JSON.stringify({ type: 'button', id: `${verb}:${approval.token}` }));
+    setApproval(null);
   }
 
   function say(text: string) {
@@ -141,5 +151,5 @@ export function useCall(deskPick: Desk | 'auto' = 'auto') {
 
   // On unmount only release the mic and socket (no state updates).
   useEffect(() => () => { const s = r.current; s.ws?.close(); s.stream?.getTracks().forEach((t) => t.stop()); s.ctx?.close().catch(() => {}); }, []);
-  return { lines, state, live, link, desk, sendPhoto, start: () => start().catch((e) => { add('tool', e.message); stop(); }), stop, say };
+  return { lines, state, live, link, desk, approval, tap, sendPhoto, start: () => start().catch((e) => { add('tool', e.message); stop(); }), stop, say };
 }

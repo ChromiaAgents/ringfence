@@ -73,7 +73,7 @@ const tools = [
 ];
 
 export const ONLY_NEAR = 'Only NEAR transfers for now, sorry. I can send NEAR, or check your balance.';
-const system = (call?: Call) => `${webDemo(call) ? `This is a browser call on the shared website demo wallet: real NEAR on ${env.network}, up to ${env.smallLimitNear} NEAR a send, and the contract only pays its saved recipient ${env.demoRecipient}. The demo PIN is on their screen. Their own WhatsApp number can be bound to their own NEAR wallet contract;` : call?.channel === 'web' ? 'This is a browser call: no wallet is bound to it, so a transfer is a labelled demo and nothing is sent. Their WhatsApp number can be bound to their own NEAR wallet contract;' : `The caller's WhatsApp number can be bound to their own NEAR ${env.network} wallet contract;`} ${env.evmEnabled ? `you can send NEAR, or the native coin of an EVM chain the owner allowed (${chainList()}),` : 'you can send NEAR (only NEAR for now: politely decline other chains or coins),'} within limits the contract enforces.
+const system = (call?: Call) => `${webDemo(call) ? `This is a browser call on the shared website demo wallet: real NEAR on ${env.network}, the contract's limits apply and it only pays its saved recipient ${env.demoRecipient}. The demo PIN is on their screen. Above ${env.smallLimitNear} NEAR the Approve card appears on their screen (not WhatsApp): say so. Their own WhatsApp number can be bound to their own NEAR wallet contract;` : call?.channel === 'web' ? 'This is a browser call: no wallet is bound to it, so a transfer is a labelled demo and nothing is sent. Their WhatsApp number can be bound to their own NEAR wallet contract;' : `The caller's WhatsApp number can be bound to their own NEAR ${env.network} wallet contract;`} ${env.evmEnabled ? `you can send NEAR, or the native coin of an EVM chain the owner allowed (${chainList()}),` : 'you can send NEAR (only NEAR for now: politely decline other chains or coins),'} within limits the contract enforces.
 For a transfer: call prepare_transfer and read back its read_back exactly ("0.1 NEAR to liho dot ${suffix()}"). Then ask for their 4-digit PIN; their answer reaches you as [PIN]: call confirm_transfer with pin "[PIN]". Above ${env.smallLimitNear} NEAR, confirm_transfer then sends an Approve button to their WhatsApp: tell them to tap it within two minutes. For "how much did I spend", call get_spending.${env.evmEnabled ? ' If they say just "ETH", ask which chain.\nTheir EVM address is the same on every EVM chain: they fund gas on whichever chain they want to use.' : ''}
 If a tool refuses, say why in plain words. ${call?.channel === 'web' ? 'If a link was sent, say it is on their screen.' : 'If a link was sent, say it is on WhatsApp.'} ${env.network === 'mainnet' ? 'Transfers are on mainnet, real money, and an unaudited prototype: suggest small amounts.' : 'Transfers are on testnet: no real money.'} Never give financial advice.`;
 
@@ -97,6 +97,8 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
 
   if (name === 'get_spending') return spending(b, state);
   if (name === 'prepare_transfer' || name === 'confirm_transfer') {
+    const lockedTill = demo ? demoLocked.get(call.id) ?? 0 : 0;
+    if (lockedTill > Date.now()) return refuse('You tapped Not me, so this session is locked for 15 minutes. On a real wallet the whole wallet locks; on this shared demo only your session does, so others can still try it.');
     const stop = frozen(b, state);
     if (stop) return refuse(stop);
   }
@@ -139,13 +141,12 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
       links.set(call.id, { url: selfSign(t), label: `Sign ${readBack(t)} in your own wallet` });
       return refuse(`I can't send that myself: that is over your ${env.walletDefaults.nearPerTx} NEAR per-transfer limit. A link to sign it in your own wallet is on WhatsApp.`, { linkSent: true });
     }
-    if (demo && t.base > toYocto(env.smallLimitNear)) return refuse(`The website demo sends up to ${env.smallLimitNear} NEAR. Bigger sends need your own wallet on WhatsApp.`);
     // Every send needs the spoken PIN; larger NEAR sends also need the Approve tap on WhatsApp after it.
     t.tier = asset === 'near' && t.base > toYocto(env.smallLimitNear) ? 'approve' : 'pin';
     t.until = Date.now() + PENDING_MS;
     pending.set(call.id, t);
     spokenPins.delete(call.id);
-    return { ok: true, read_back: readBack(t) + tag, next: t.tier === 'pin' ? 'Ask for their 4-digit PIN.' : 'Ask for their 4-digit PIN; after it, an Approve button goes to their WhatsApp.' };
+    return { ok: true, read_back: readBack(t) + tag, next: t.tier === 'pin' ? 'Ask for their 4-digit PIN.' : `Ask for their 4-digit PIN; after it, an Approve button goes to ${demo ? 'their screen' : 'their WhatsApp'}.` };
   }
   if (name === 'confirm_transfer') {
     const t = pending.get(call.id);
@@ -159,7 +160,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
       const left = l ? fmt('near', BigInt(l.per_day) - BigInt(state!.spent_today.near ?? 0) - t.base) : 'unknown (dry run)';
       const sent = await askApproval(b, call.id, t, left);
       if (sent === false) return { ok: false, approvalSent: false, read_back: readBack(t) + tag, reason: 'WhatsApp could not deliver the Approve button to this number (on the test number Meta only allows approved recipients). Tell them to sign it in their own wallet at ringfence dot evalengine dot ai slash wallet slash send, or send 0.2 NEAR or less by PIN.' };
-      return { ok: true, approvalSent: true, whatsapp: sent, read_back: readBack(t) + tag, next: 'PIN accepted. Tell them: an Approve button is on their WhatsApp, valid for two minutes.' };
+      return { ok: true, approvalSent: true, whatsapp: sent, read_back: readBack(t) + tag, next: `PIN accepted. Tell them: an Approve card is on ${demo ? 'their screen (on a real wallet it would be WhatsApp)' : 'their WhatsApp'}, valid for two minutes.` };
     }
     const r = await execute(call.id, b, t);
     return r.ok ? r : refuse(r.reason);
@@ -220,10 +221,18 @@ export const setApprovalSender = (f: typeof buttons) => (buttons = f);
 const news = new Map<string, (s: string) => void>();
 export const onCallNews = (callId: string, f: ((s: string) => void) | null) => (f ? news.set(callId, f) : news.delete(callId));
 
+/** The website demo wallet has no real phone: its Approve card goes to the browser that is on the call. */
+/** Calls whose visitor tapped Not me on the demo wallet: only that browser session is locked, not the shared wallet. */
+const demoLocked = new Map<string, number>();
+const webCards = new Map<string, (body: string, token: string) => void>();
+export const onWebApproval = (callId: string, f: ((body: string, token: string) => void) | null) => (f ? webCards.set(callId, f) : webCards.delete(callId));
+
 async function askApproval(b: Binding, callId: string, t: Transfer, left: string) {
   const token = randomBytes(16).toString('hex');
   approvals.set(token, { phone: b.phone, callId, t, until: Date.now() + APPROVAL_MS, contract: b.contract });
   const body = `Approve this transfer?\n${t.amount} NEAR to ${t.to}\nFrom ${b.contract}${b.custodial ? ' (demo custodial)' : ''}\nDaily limit left after it: ${left}\nExpires in 2 minutes. Changed your mind? Cancel. Didn't ask for this? Tap Not me: the AI is locked out for 15 minutes.`;
+  const card = env.demoPhone && b.phone === env.demoPhone ? webCards.get(callId) : undefined;
+  if (card) { card(body, token); return true; }
   if (!buttons) {
     // Only a dry-run server may print tokens: on a real one, log access would be spend access.
     if (devServer()) console.log(`[wallet] no WhatsApp token: approval for ${b.phone}: approve:${token} / cancel:${token} / reject:${token}`);
@@ -249,6 +258,11 @@ export async function onButton(from: string, id: string, now = Date.now()): Prom
   // Cancel: changed their mind (wrong amount, not now). Nothing sent, nothing frozen.
   if (verb === 'cancel') return say('Cancelled. Nothing was sent.');
   // Not me (id "reject") is the "I didn't ask for this" alarm: it freezes even after the approval expired.
+  if (verb === 'reject' && env.demoPhone && a.phone === env.demoPhone) {
+    demoLocked.set(a.callId, now + 15 * 60_000);
+    log({ kind: 'refused', desk: 'wallet', callId: a.callId, detail: 'Not me on the website demo wallet: this session locked for 15 minutes' });
+    return say('You tapped Not me, so nothing was sent and this session is locked for 15 minutes. On a real wallet, the AI would be locked out of the whole wallet.');
+  }
   if (verb === 'reject') {
     await rejectFreeze(b, now);
     say('You tapped Not me on WhatsApp, so nothing was sent. The AI is locked out of your wallet for 15 minutes.');

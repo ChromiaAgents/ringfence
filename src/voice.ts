@@ -7,7 +7,7 @@ import { transcribe } from './ai.ts';
 import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
 import { whatsappWebhook } from './whatsapp.ts';
-import { onCallNews } from './desks/wallet.ts';
+import { onCallNews, onWebApproval, onButton } from './desks/wallet.ts';
 import { devServer } from './wallet.ts';
 import { env } from './config.ts';
 
@@ -74,6 +74,8 @@ export function attachVoice(server: Server) {
           } catch (e: any) { ws.send(JSON.stringify({ type: 'error', text: e.message })); } finally { busy = false; }
           return;
         }
+        // A tap on the on-screen Approve card (website demo wallet only: the browser is that wallet's "phone").
+        if (msg.type === 'button') { if (env.demoPhone && !call.from) onButton(env.demoPhone, String(msg.id)).catch(console.error); return; }
         if (msg.type === 'text') data = Buffer.from(msg.text); // typed fallback
         else return;
       }
@@ -101,6 +103,7 @@ export function attachVoice(server: Server) {
     });
     // After an Approve / Reject tap on WhatsApp, the agent on this call says what happened.
     onCallNews(call.id, (s) => { if (ws.readyState !== 1) return; ws.send(JSON.stringify({ type: 'agent', text: s })); line.say(s); });
-    ws.on('close', () => { onCallNews(call.id, null); endCall(call.id); });
+    onWebApproval(call.id, (body, token) => { if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'approval', body, token })); });
+    ws.on('close', () => { onCallNews(call.id, null); onWebApproval(call.id, null); endCall(call.id); });
   });
 }

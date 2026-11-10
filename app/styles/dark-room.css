@@ -170,6 +170,13 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .dr .tries button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 .dr .signlink { margin: 0 14px 14px; padding: 10px 12px; border: 1px solid #5a524a; border-radius: 2px; font-size: 15px; display: flex; flex-direction: column; gap: 6px; }
 .dr .signlink a { color: var(--fg); }
+.dr .wa-card { margin: 0 14px 14px; padding: 12px; border-radius: 10px; background: #12261d; border: 1px solid #1f4d38; font-size: 15px; }
+.dr .wa-from { margin: 0 0 6px; font-size: 13px; color: #9fd6bd; }
+.dr .wa-from span { opacity: .7; }
+.dr .wa-body { margin: 0 0 10px; white-space: pre-line; color: var(--fg); }
+.dr .wa-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.dr .wa-btns button { padding: 10px 6px; min-height: 44px; border-radius: 8px; border: 1px solid #2c6b4f; background: #183528; color: #e9fff5; font: inherit; cursor: pointer; }
+.dr .wa-btns button:first-child { background: #00ec97; color: #0c0a08; border-color: #00ec97; font-weight: 600; }
 .dr .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* ---------- how it works: drag through the stages ---------- */

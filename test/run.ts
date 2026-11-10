@@ -88,7 +88,7 @@ t('ticker format', () => {
 t('ticker impersonation', () => {
   for (const x of ['NEAR', 'usdc', '$BTC', 'PEPE', 'TRUMP', 'ELONCAT', 'TESLA']) assert.equal(checkTicker(x, lp).ok, false, x);
 });
-t('website demo wallet: browser calls use it, sends capped at the PIN tier, no shared lockout', async () => {
+t('website demo wallet: browser calls use it, Approve card on the page, no shared lockout or freeze', async () => {
   const { env } = await import('../src/config.ts');
   const { db } = await import('../src/store.ts');
   const { hashPin, checkPin, bindingOf } = await import('../src/wallet.ts');
@@ -101,8 +101,21 @@ t('website demo wallet: browser calls use it, sends capped at the PIN tier, no s
     for (let i = 0; i < 5; i++) assert.match((checkPin(b, '0000') as any).reason, /demo PIN: it's 4821/);
     assert.equal(b.lockedUntil, undefined, 'never locked');
     const c = startCall('web').call;
-    assert.match(((await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.5', asset: 'near' })) as any).reason, /website demo sends up to/);
-    assert.equal(((await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' })) as any).ok, true);
+    // Above the PIN tier, the Approve card goes to this browser, not WhatsApp; Not me locks this session only.
+    const { onWebApproval, onButton } = await import('../src/desks/wallet.ts');
+    let token = '';
+    onWebApproval(c.id, (_b, t) => (token = t));
+    const p: any = await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.5', asset: 'near' });
+    assert.match(p.next, /their screen/);
+    const { takePin } = await import('../src/desks/wallet.ts');
+    takePin(c.id, '4821');
+    const k: any = await walletDesk.run(c, 'confirm_transfer', { pin: '[PIN]' });
+    assert.equal(k.approvalSent, true); assert.ok(token, 'card sent to the browser');
+    assert.match(await onButton('19990000001', `reject:${token}`), /this session is locked/);
+    assert.equal(bindingOf('19990000001')!.frozenUntil, undefined, 'the shared wallet is not frozen');
+    assert.match(((await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' })) as any).reason, /session is locked/);
+    const c2 = startCall('web').call;
+    assert.equal(((await walletDesk.run(c2, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' })) as any).ok, true, 'another visitor can still use it');
   } finally { Object.assign(env, { demoPhone: '', demoPin: '' }); db.wallets = db.wallets.filter((w: any) => w.phone !== '19990000001'); }
 });
 t('market: a ticker trending right now is refused like a blocked one; live tools never move money', async () => {
