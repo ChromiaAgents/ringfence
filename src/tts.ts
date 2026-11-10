@@ -44,7 +44,7 @@ async function cartesiaOnce(text: string, key: string): Promise<Float32Array> {
     signal: AbortSignal.timeout(CARTESIA.timeoutMs),
     headers: { Authorization: `Bearer ${key}`, 'Cartesia-Version': CARTESIA.version, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model_id: CARTESIA.model, transcript: text, voice: { id: CARTESIA.voice }, language: 'en',
+      model_id: CARTESIA.model, transcript: text, voice: { id: CARTESIA.voice }, language: /\p{Script=Han}/u.test(text) ? 'zh' : 'en',
       output_format: { container: 'raw', encoding: 'pcm_f32le', sample_rate: RATE },
       generation_config: { speed: Math.min(1.5, Math.max(0.6, speed)) },
     }),

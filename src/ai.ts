@@ -300,10 +300,16 @@ async function verifyLater(p: Proof, pre: Attested | null) {
 
 export async function transcribe(audio: Uint8Array, mime = 'audio/wav'): Promise<string> {
   if (env.mockLlm) { await new Promise((ok) => setTimeout(ok, Number(process.env.MOCK_STT_MS ?? 350))); return 'I want to launch a memecoin about sleepy otters.'; }
+  // English and Chinese only: auto-detect, and if Whisper hears any other script (short words like 'bye' came back as Korean), retry as English.
+  const text = await stt(audio, mime);
+  return /^[\p{Script=Latin}\p{Script=Han}\p{N}\p{P}\p{Zs}\p{S}]*$/u.test(text) ? text : stt(audio, mime, 'en');
+}
+
+async function stt(audio: Uint8Array, mime: string, language?: string): Promise<string> {
   const fd = new FormData();
   fd.set('model', env.sttModel);
-  fd.set('language', 'en'); // short words like 'bye' were coming back as Korean
-  fd.set('prompt', 'A phone call about launching a memecoin on NEAR or JustHoot, a ticker, a coin name.'); // vocabulary hint
+  if (language) fd.set('language', language);
+  fd.set('prompt', 'A phone call about sending NEAR or launching a coin on JustHoot. 发送 NEAR。'); // vocabulary hint, both languages
   fd.set('file', new Blob([audio as BlobPart], { type: mime }), mime.includes('webm') ? 'a.webm' : 'a.wav');
   const r = await fetch(`${BASE}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${env.nearAiKey}` }, body: fd });
   if (!r.ok) throw new Error(`stt ${r.status}: ${(await r.text()).slice(0, 200)}`);
