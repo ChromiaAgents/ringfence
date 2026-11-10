@@ -55,7 +55,8 @@ export const env = {
   packetsAccountId: process.env.PACKETS_ACCOUNT_ID ?? '',
   packetExpirySec: Number(process.env.PACKET_EXPIRY_SEC ?? 86_400),
   demoPacketNear: process.env.DEMO_PACKET_NEAR ?? '0.02',
-  demoPacketWords: process.env.DEMO_PACKET_WORDS ?? 'merry christmas',
+  // The demo packet's words, taken in turn (comma-separated).
+  demoPacketWords: (process.env.DEMO_PACKET_WORDS ?? 'merry christmas,trick or treat,happy new year').split(',').map((w) => w.trim()).filter(Boolean),
   // USDC on NEAR (native Circle USDC on mainnet, 6 decimals). Above SMALL_LIMIT_USDC a send also needs the Approve tap.
   usdcToken: process.env.USDC_TOKEN ?? '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1',
   smallLimitUsdc: process.env.SMALL_LIMIT_USDC ?? '10',

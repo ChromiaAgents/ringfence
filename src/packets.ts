@@ -141,14 +141,15 @@ let making: Promise<PacketRow | null> | null = null;
 export function demoPacket(): Promise<PacketRow | null> {
   // An open demo packet made with other words (before DEMO_PACKET_WORDS changed) or as a dry run before the keys were set is left to expire.
   const real = packetsLive() && !!env.demoPhone && !!bindingOf(env.demoPhone) && !bindingOf(env.demoPhone)!.dryRun;
-  const open = [...db.packets].reverse().find((p) => p.demo && !p.refunded && Date.now() < p.expiresAt && p.claims.length < p.count && p.words === env.demoPacketWords && !!p.dryRun === !real);
+  const open = [...db.packets].reverse().find((p) => p.demo && !p.refunded && Date.now() < p.expiresAt && p.claims.length < p.count && env.demoPacketWords.includes(p.words) && !!p.dryRun === !real);
   if (open) return Promise.resolve(open);
   return (making ??= (async () => {
     try {
       const yocto = parseUnits(env.demoPacketNear, 24);
+      const words = env.demoPacketWords[db.packets.filter((p) => p.demo).length % env.demoPacketWords.length];
       const b = env.demoPhone ? bindingOf(env.demoPhone) : undefined;
       if (real) await sendNear(b!, env.packetsAccountId, yocto);
-      return await createPacket({ from: real ? b!.contract : 'the Ringfence demo', fromName: 'the Ringfence demo', yocto, count: 5, lucky: true, words: env.demoPacketWords, hint: env.demoPacketWords, demo: true, dry: !real });
+      return await createPacket({ from: real ? b!.contract : 'Ringfence demo', fromName: 'Ringfence demo', yocto, count: 5, lucky: true, words, hint: words, demo: true, dry: !real });
     } catch (e) {
       console.error('demo packet', (e as Error).message.slice(0, 160));
       return null;

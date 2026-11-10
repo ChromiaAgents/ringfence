@@ -187,29 +187,3 @@ td .sub { display: block; font-size: 14px; color: var(--slate); }
   .rows .row b { text-align: left; }
   .steps { grid-template-columns: 1fr 1fr; }
 }
-
-/* ---- red packet page (/packet/$id) ---- */
-.hb-page { --hb: #c8102e; --hb-d: #8f0b20; --gold: #f2c14e; }
-.hb { position: relative; margin: 20px 0 28px; padding: 34px 22px 26px; border-radius: 18px; background: var(--hb); color: #fff5e6; text-align: center; overflow: hidden; }
-.hb::before { content: ''; position: absolute; left: -10%; right: -10%; top: -120px; height: 200px; border-radius: 50%; background: var(--hb-d); }
-.hb > * { position: relative; }
-.hb.shut { background: #6d5a5d; }
-.hb.shut::before { background: #54464a; }
-.hb-seal { width: 64px; height: 64px; margin: 18px auto 14px; display: grid; place-items: center; border-radius: 50%; background: var(--gold); color: var(--hb-d); font-size: 32px; font-weight: 700; }
-.hb.shut .hb-seal { background: #cfc4b4; color: #54464a; }
-.hb-from { margin: 0; font-size: 16px; }
-.hb-amt { margin: 6px 0 2px; font-size: clamp(44px, 12vw, 72px); font-weight: 800; line-height: 1; letter-spacing: -0.02em; color: #fff; }
-.hb-amt span { font-size: .35em; font-weight: 700; letter-spacing: 0; }
-.hb-meta, .hb-state { margin: 6px 0 0; font-size: 15px; }
-.hb-state { font-weight: 700; color: #fff; }
-.hb-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 16px auto 4px; max-width: 320px; }
-.hb-dots span { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--gold); }
-.hb-dots span.on { background: var(--gold); }
-.hb.shut .hb-dots span { border-color: #cfc4b4; }
-.hb.shut .hb-dots span.on { background: #cfc4b4; }
-.hb-cta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin: 18px 0 26px; }
-.hb-lucky { margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--gold); color: #5a3d00; font-size: 12px; }
-.hb-foot { margin-top: 22px; font-size: 14px; }
-
-.hb-acct { display: grid; gap: 6px; margin: 14px 0 0; font-size: 14px; font-weight: 600; max-width: 360px; }
-.hb-acct input { min-height: 48px; padding: 10px 14px; border: 2px solid var(--ink); border-radius: 12px; font: inherit; font-weight: 400; font-size: 16px; }

@@ -358,7 +358,10 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 /* ---------- app screens: square corners, smaller type, mint kept for limits ---------- */
 .app { font-size: 14px; line-height: 1.45; }
 .app .card { border-radius: 4px; }
-.app .control, .typed input, .app .btn { border-radius: 2px; }
+.app .control, .typed input { border-radius: 2px; }
+/* One button on every page: the home page's (square, 48px). */
+.app .btn { border-radius: 0; text-decoration: none; }
+.app .btn:not(.small) { height: 48px; min-height: 0; padding: 0 22px; font-size: 16px; }
 .pill { border-radius: 2px; height: auto; min-height: 22px; padding: 2px 8px; font-size: 13px; white-space: normal; background: transparent; border: 1px solid var(--ui-line); color: var(--muted); }
 .pill.ok { color: var(--fg); border-color: #5a524a; } .pill.warn { color: #e8b4b4; border-color: #4a3434; } .pill.wait { color: var(--muted); }
 .seg { border-radius: 2px; } .seg button { border-radius: 2px; }
@@ -457,3 +460,82 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .proof-sum h2 { font-size: 28px; margin: 0 0 8px; }
 .proof-sum p { margin: 0; color: var(--muted); }
 .attrow details.raw summary { cursor: pointer; color: var(--muted); }
+
+/* ---------- the money packet page (/packet/$id): the page is the packet ----------
+   A gift card in the site's one accent: the amount, a dark strip with the words to say (where a gift card has its
+   code), who it is from and a coin for every share. Beside it, the slip of who got what. Sizes inside the card
+   follow the card's width (cqi), so it reads the same at 480px and on a phone. */
+.pk { --pk-paper: var(--fg); --pk-ink: var(--bg); max-width: 1120px; margin: 0 auto; padding: 32px 24px 96px; font-size: 17px; line-height: 1.5; }
+.pk .brandrow { display: flex; align-items: center; margin-bottom: 56px; font-size: 16px; }
+.pk-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 72px; align-items: start; }
+
+.pk-card { position: sticky; top: 48px; container-type: inline-size; aspect-ratio: 1.586; display: flex; flex-direction: column; border-radius: clamp(14px, 1.5vw, 22px); background: var(--accent); color: var(--on-accent); overflow: hidden; transform: rotate(-3deg); animation: pk-drop 560ms var(--ease) both; }
+.pk-card p { margin: 0; }
+.pk-top { display: flex; justify-content: space-between; align-items: baseline; gap: 3cqi; padding: 5cqi 6cqi 0; font-size: max(13px, 3.3cqi); font-weight: 600; }
+.pk-brand { font: 400 max(16px, 5.2cqi)/1 var(--head); }
+.pk-amt { flex: 1; display: flex; align-items: center; gap: 2.4cqi; padding: 0 6cqi; font: 400 25cqi/0.85 var(--head); letter-spacing: -0.02em; }
+.pk-amt span { align-self: flex-end; margin-bottom: 5.5cqi; font-size: 5.4cqi; line-height: 1; letter-spacing: 0; }
+/* Where a gift card has its code: the words to say. */
+.pk-say { display: flex; align-items: baseline; gap: 2cqi; padding: 3cqi 6cqi; background: var(--bg); color: var(--fg); font-size: max(13px, 3.5cqi); }
+.pk-say b { font: 400 max(17px, 6.2cqi)/1.1 var(--head); overflow-wrap: anywhere; }
+.pk-foot { display: flex; justify-content: space-between; align-items: center; gap: 3cqi; padding: 3.2cqi 6cqi 4.4cqi; font-size: max(13px, 3.3cqi); }
+.pk-foot > span:first-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-left { display: flex; align-items: center; gap: 2.4cqi; font-weight: 600; white-space: nowrap; }
+/* A coin for every share: filled once it is opened. */
+.pk-dots { display: flex; gap: 1.4cqi; }
+.pk-dots i { width: max(10px, 3.2cqi); height: max(10px, 3.2cqi); border-radius: 50%; box-shadow: inset 0 0 0 max(2px, .6cqi) var(--on-accent); transition: background-color 300ms ease; animation: pk-dot 360ms var(--ease) both; animation-delay: calc(520ms + var(--d, 0) * 60ms); } /* taste-skill-ignore: a coin's outline */
+.pk-dots i.on { background: var(--on-accent); }
+.pk-dots i:nth-child(2) { --d: 1; } .pk-dots i:nth-child(3) { --d: 2; } .pk-dots i:nth-child(4) { --d: 3; } .pk-dots i:nth-child(n+5) { --d: 4; }
+.pk-card.shut { background: #3b3733; color: #d9d2c6; }
+.pk-card.shut .pk-dots i { box-shadow: inset 0 0 0 max(2px, .6cqi) #d9d2c6; }
+.pk-card.shut .pk-dots i.on { background: #d9d2c6; }
+
+.pk-side { padding-top: 16px; }
+/* Each part of the side rises in turn; the slip's rows follow. */
+.pk-side > * { animation: pk-rise 520ms var(--ease) both; }
+.pk-side > :nth-child(1) { animation-delay: 80ms; } .pk-side > :nth-child(2) { animation-delay: 150ms; } .pk-side > :nth-child(3) { animation-delay: 220ms; }
+.pk-side > :nth-child(4) { animation-delay: 290ms; } .pk-side > :nth-child(5) { animation-delay: 360ms; } .pk-side > :nth-child(n+6) { animation-delay: 430ms; }
+.pk-side h1 { font-size: clamp(40px, 4.4vw, 64px); line-height: 1; margin: 0; }
+.pk-blank { display: flex; flex-wrap: wrap; align-items: center; gap: 0 .5em; margin: 36px 0 0; font: 400 24px/1.4 var(--head); }
+.pk-blank input { flex: 1 1 9em; min-width: 0; height: 2em; padding: 0 .5em; border: 0; border-radius: 0; background: var(--surface); color: var(--fg); font: inherit; }
+.pk-blank input::placeholder { color: #8a8378; }
+.pk-blank input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pk-blank input[aria-invalid="true"] { outline: 2px solid #ff8c7a; outline-offset: 2px; }
+.pk-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; margin: 20px 0 0; }
+.pk-acts a:not(.btn) { color: var(--fg); }
+.pk-lead { margin: 32px 0 0; max-width: 48ch; color: var(--fg); }
+.pk-note { margin: 16px 0 0; max-width: 54ch; font-size: 16px; color: var(--muted); }
+.pk-note a { color: var(--fg); }
+.pk-dry b { color: var(--fg); }
+
+/* The slip: what came out of the packet. Paper on the dark ground, a torn lower edge, dotted leaders between name and amount. */
+.pk-slip { margin: 48px 0 0; padding: 28px 28px 44px; background: var(--pk-paper); color: var(--pk-ink); font-variant-numeric: tabular-nums;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), 96% 100%, 92% calc(100% - 12px), 88% 100%, 84% calc(100% - 12px), 80% 100%, 76% calc(100% - 12px), 72% 100%, 68% calc(100% - 12px), 64% 100%, 60% calc(100% - 12px), 56% 100%, 52% calc(100% - 12px), 48% 100%, 44% calc(100% - 12px), 40% 100%, 36% calc(100% - 12px), 32% 100%, 28% calc(100% - 12px), 24% 100%, 20% calc(100% - 12px), 16% 100%, 12% calc(100% - 12px), 8% 100%, 4% calc(100% - 12px), 0 100%); }
+.pk-slip > * { animation: pk-rise 420ms var(--ease) both; animation-delay: calc(560ms + var(--i, 0) * 70ms); }
+.pk-slip > :nth-child(2) { --i: 1; } .pk-slip > :nth-child(3) { --i: 2; } .pk-slip > :nth-child(4) { --i: 3; } .pk-slip > :nth-child(n+5) { --i: 4; }
+.pk-slip h2 { margin: 0 0 12px; font-size: 24px; line-height: 1.1; color: var(--pk-ink); }
+.pk-row { display: flex; align-items: baseline; gap: 10px; margin: 0; padding: 9px 0; }
+.pk-row span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-row i { flex: 1 1 24px; align-self: flex-end; height: 0; margin-bottom: 7px; border-bottom: 4px dotted #b9b2a6; }
+.pk-row b { white-space: nowrap; }
+.pk-row a, .pk-slip a { color: var(--pk-ink); }
+.pk-row em { margin-left: 8px; padding: 2px 8px; background: var(--accent); color: var(--on-accent); font-style: normal; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.pk-total { display: flex; justify-content: space-between; gap: 12px; margin: 14px 0 0; padding: 0 14px; min-height: 44px; align-items: center; background: var(--pk-ink); color: var(--pk-paper); font-weight: 600; }
+
+@keyframes pk-drop { from { opacity: 0; transform: translateY(-22px) rotate(-9deg); } to { opacity: 1; transform: rotate(-3deg); } }
+@keyframes pk-dot { from { opacity: 0; transform: scale(.4); } to { opacity: 1; } }
+@keyframes pk-drop-s { from { opacity: 0; transform: translateY(-22px) rotate(-8deg); } to { opacity: 1; transform: rotate(-2deg); } }
+@keyframes pk-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pk-card, .pk-side > *, .pk-slip > *, .pk-dots i { animation: none; } .pk-dots i { transition: none; } }
+/* The shared footer keeps the packet page's margins. */
+.pk + .site-foot { max-width: 1120px; margin-inline: auto; padding-inline: 24px; }
+@media (max-width: 860px) {
+  .pk { padding: 24px 20px 72px; }
+  .pk + .site-foot { padding-inline: 20px; }
+  .pk .brandrow { margin-bottom: 28px; }
+  .pk-grid { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .pk-card { position: relative; top: 0; transform: rotate(-2deg); animation-name: pk-drop-s; }
+  .pk-side { padding-top: 0; }
+  .pk-side h1 { font-size: 40px; } .pk-blank { margin-top: 20px; } .pk-acts { margin-top: 16px; } .pk-lead { margin-top: 24px; }
+  .pk-slip { margin-top: 40px; padding: 24px 20px 40px; }
+}
