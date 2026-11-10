@@ -125,6 +125,11 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
         return refuse(`I can't send that myself: ${over || `${to} is a new recipient`}. A link to sign it in your own wallet is on WhatsApp.`, { linkSent: true });
       }
     }
+    // ponytail: no contract state (dry run, RPC down): fall back to the configured per-send limit; the contract still has the final say.
+    if (!state && asset === 'near' && t.base > toYocto(env.walletDefaults.nearPerTx)) {
+      links.set(call.id, { url: selfSign(t), label: `Sign ${readBack(t)} in your own wallet` });
+      return refuse(`I can't send that myself: that is over your ${env.walletDefaults.nearPerTx} NEAR per-transfer limit. A link to sign it in your own wallet is on WhatsApp.`, { linkSent: true });
+    }
     // Every send needs the spoken PIN; larger NEAR sends also need the Approve tap on WhatsApp after it.
     t.tier = asset === 'near' && t.base > toYocto(env.smallLimitNear) ? 'approve' : 'pin';
     t.until = Date.now() + PENDING_MS;

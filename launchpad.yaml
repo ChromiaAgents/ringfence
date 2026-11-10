@@ -19,4 +19,4 @@ blocked_tickers: [NEAR, WNEAR, BTC, WBTC, ETH, WETH, USDC, USDT, DAI, SOL, BNB, 
 blocked_names: [near protocol, bitcoin, ethereum, tether, circle, binance, coinbase, solana, tesla, spacex, apple, google, nvidia, openai, anthropic, meta, microsoft, amazon, disney, nike, elon, musk, trump, melania, biden, obama, kamala, vitalik, satoshi, illia, taylor swift, beyonce, drake, kanye, messi, ronaldo, mrbeast, pope, dildo]
 
 # Phrases the desk must never say. Replies containing them are replaced before they are spoken.
-forbidden_claims: ["guaranteed", "guarantee", "100x", "1000x", "to the moon", "risk-free", "risk free", "can't lose", "cannot lose", "will go up", "will pump", "passive income", "financial advice", "get rich", "sure thing", "easy money"]
+forbidden_claims: ["guaranteed", "guarantee", "100x", "1000x", "to the moon", "risk-free", "risk free", "can't lose", "cannot lose", "will go up", "will pump", "passive income", "financial advice", "get rich", "easy money"]
