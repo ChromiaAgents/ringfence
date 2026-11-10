@@ -30,8 +30,14 @@ async fn red_packets_in_sandbox() -> anyhow::Result<()> {
         .deposit(NearToken::from_near(10)).transact().await?.into_result()?;
     let fee = bal(owner.clone()).await - o0;
     assert_eq!(fee, Y / 2 + 39 * Y / 1000, "campaign fee reached the owner");
-    let total = 10 * Y - fee;
-    assert_eq!(packet("brand-1").await["total"], total.to_string());
+    // The brand also pays the packet's storage (and room for its 3 openers): taken off the packet, well under 0.01 NEAR.
+    let total: u128 = packet("brand-1").await["total"].as_str().unwrap().parse()?;
+    let storage = 10 * Y - fee - total;
+    println!("COST packet storage paid by the funder (NEAR): {}", storage as f64 / Y as f64);
+    assert!(storage > 0 && storage < Y / 100, "storage {storage}");
+    // A junk packet that can't pay its storage is refused.
+    assert!(err(brand.call(c.id(), "create").args_json(json!({ "id": "junk", "count": 1, "lucky": false, "expires_in_sec": 1, "phrase_hash": "x" }))
+        .deposit(NearToken::from_millinear(2)).transact().await?).contains("storage"));
 
     // 2. Lucky split: three people open it, the shares differ and add up to the packet exactly.
     let mut got = vec![];
@@ -78,6 +84,19 @@ async fn red_packets_in_sandbox() -> anyhow::Result<()> {
     brand.call(c.id(), "refund").args_json(json!({ "id": "mum-1" })).transact().await?.into_result()?;
     assert_eq!(bal(mum.clone()).await - m0, Y, "the unopened share went back to Mum");
     assert!(err(brand.call(c.id(), "refund").args_json(json!({ "id": "mum-1" })).transact().await?).contains("already refunded"));
+
+    // 7. Owner's emergency controls: pause stops every claim; the owner cancels a phone-wallet packet early and the money goes back.
+    mum.transfer_near(c.id(), NearToken::from_near(1)).await?.into_result()?;
+    agent.call(c.id(), "create_for").args_json(json!({ "id": "mum-3", "creator": mum.id(), "amount": Y.to_string(), "count": 2, "lucky": false, "expires_in_sec": 3600, "phrase_hash": "ef" }))
+        .transact().await?.into_result()?;
+    owner.call(c.id(), "set_paused").args_json(json!({ "paused": true })).deposit(NearToken::from_yoctonear(1)).transact().await?.into_result()?;
+    assert!(err(claim("mum-3", kids[2].id()).await?).contains("paused"));
+    assert!(err(agent.call(c.id(), "cancel").args_json(json!({ "id": "mum-3" })).deposit(NearToken::from_yoctonear(1)).transact().await?).contains("only the creator or the owner"));
+    let m0 = bal(mum.clone()).await;
+    owner.call(c.id(), "cancel").args_json(json!({ "id": "mum-3" })).deposit(NearToken::from_yoctonear(1)).transact().await?.into_result()?;
+    assert_eq!(bal(mum.clone()).await - m0, Y, "cancelled packet went back to Mum");
+    owner.call(c.id(), "set_paused").args_json(json!({ "paused": false })).deposit(NearToken::from_yoctonear(1)).transact().await?.into_result()?;
+    assert_eq!(c.view("is_paused").await?.json::<bool>()?, false);
     let cfg: serde_json::Value = c.view("get_config").await?.json()?;
     assert_eq!(cfg[4], "0", "nothing is owed once every packet is opened or refunded");
     Ok(())

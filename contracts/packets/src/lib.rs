@@ -13,6 +13,10 @@ pub const MAX_COUNT: u32 = 100;
 /// No share is smaller than this (0.001 NEAR).
 pub const MIN_SHARE: u128 = 1_000_000_000_000_000_000_000;
 pub const MAX_EXPIRY_SEC: u64 = 30 * 86_400;
+/// Storage kept for each future opener's account id in `claimers` (64 bytes + 4 length + slack).
+pub const CLAIMER_BYTES: u64 = 72;
+/// Raw storage key for the owner's pause switch (outside the state struct, so older state still loads).
+const PAUSED: &[u8] = b"paused";
 
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
@@ -62,7 +66,16 @@ impl RedPackets {
         let campaign = campaign.unwrap_or(false);
         let fee = if campaign { paid / 10_000 * self.fee_bps as u128 + count as u128 * self.claim_fee } else { 0 };
         require!(paid > fee, "the deposit doesn't cover the campaign fee");
-        let p = self.open(id, env::predecessor_account_id(), paid - fee, count, lucky, expires_in_sec, phrase_hash, campaign);
+        // The funder pays the packet's storage, including room for every opener, so junk packets can't eat other packets' money.
+        let before = env::storage_usage();
+        let mut p = self.open(id.clone(), env::predecessor_account_id(), paid - fee, count, lucky, expires_in_sec, phrase_hash, campaign);
+        self.packets.flush(); // store::LookupMap writes at the end of the call; flush so storage_usage counts the new packet
+        let storage = ((env::storage_usage() - before) + count as u64 * CLAIMER_BYTES) as u128 * env::storage_byte_cost().as_yoctonear();
+        require!(p.total.0 >= storage + count as u128 * MIN_SHARE, "the deposit doesn't cover the packet's storage and 0.001 NEAR per share");
+        p.total.0 -= storage;
+        p.remaining.0 -= storage;
+        self.held -= storage;
+        self.packets.insert(id, p.clone());
         if fee > 0 { let _ = Promise::new(self.owner.clone()).transfer(NearToken::from_yoctonear(fee)); }
         p
     }
@@ -70,14 +83,17 @@ impl RedPackets {
     /// The agent records a packet for money a phone wallet already sent here by plain transfer.
     pub fn create_for(&mut self, id: String, creator: AccountId, amount: U128, count: u32, lucky: bool, expires_in_sec: u64, phrase_hash: String) -> Packet {
         self.only_agent();
-        let locked = env::storage_usage() as u128 * env::storage_byte_cost().as_yoctonear() + self.held;
-        require!(env::account_balance().as_yoctonear() >= locked + amount.0, "that money has not arrived here");
+        self.not_paused();
+        // Also keep the storage this packet and its openers will need (paid from the contract's spare balance).
+        let reserve = (env::storage_usage() + 400 + count as u64 * CLAIMER_BYTES) as u128 * env::storage_byte_cost().as_yoctonear();
+        require!(env::account_balance().as_yoctonear() >= reserve + self.held + amount.0, "that money has not arrived here");
         self.open(id, creator, amount.0, count, lucky, expires_in_sec, phrase_hash, false)
     }
 
     /// Opens one share for `to`. Returns the share. One share per account per packet.
     pub fn claim(&mut self, id: String, to: AccountId) -> U128 {
         self.only_agent();
+        self.not_paused();
         let mut p = self.packet(&id);
         require!(!p.refunded && env::block_timestamp() < p.expires_ns.0, "this packet has expired");
         require!(p.claimed < p.count, "every share has been opened");
@@ -120,8 +136,30 @@ impl RedPackets {
 
     /// After the expiry, anyone can send what is left back to whoever funded the packet.
     pub fn refund(&mut self, id: String) -> U128 {
+        require!(env::block_timestamp() >= self.packet(&id).expires_ns.0, "not expired yet");
+        self.close(id)
+    }
+
+    /// The creator or the owner ends a packet at any time: what is left goes back to the creator.
+    /// (A phone wallet can't call contracts, so for its packets this is the owner's emergency stop.)
+    #[payable]
+    pub fn cancel(&mut self, id: String) -> U128 {
+        near_sdk::assert_one_yocto();
+        let who = env::predecessor_account_id();
+        require!(who == self.packet(&id).creator || who == self.owner, "only the creator or the owner");
+        self.close(id)
+    }
+
+    /// Owner's switch: while paused, no share can be opened and no packet recorded. Refunds and cancels still work.
+    #[payable]
+    pub fn set_paused(&mut self, paused: bool) {
+        self.only_owner();
+        if paused { env::storage_write(PAUSED, &[1]); } else { env::storage_remove(PAUSED); }
+    }
+    pub fn is_paused(&self) -> bool { env::storage_has_key(PAUSED) }
+
+    fn close(&mut self, id: String) -> U128 {
         let mut p = self.packet(&id);
-        require!(env::block_timestamp() >= p.expires_ns.0, "not expired yet");
         require!(!p.refunded, "already refunded");
         let rest = p.remaining.0;
         p.remaining.0 = 0;
@@ -150,6 +188,7 @@ impl RedPackets {
     }
 
     fn only_agent(&self) { require!(env::predecessor_account_id() == self.agent, "only the agent"); }
+    fn not_paused(&self) { require!(!self.is_paused(), "packets are paused by the owner"); }
     fn only_owner(&self) {
         near_sdk::assert_one_yocto();
         require!(env::predecessor_account_id() == self.owner, "only the owner");
@@ -200,11 +239,12 @@ mod tests {
         for seed in 0..40u8 {
             let mut c = fresh();
             let id = format!("cny{seed}"); // a fresh id each round: the previous round's map is flushed into the mock storage on drop
-            ctx(2, 1000, NEAR, seed); c.create(id.clone(), 5, true, 3600, "h".into(), None);
+            ctx(2, 1000, NEAR, seed); let total = c.create(id.clone(), 5, true, 3600, "h".into(), None).total.0;
+            assert!(total < NEAR && total > NEAR / 2, "storage comes off the deposit");
             let mut sum = 0;
             let mut shares = vec![];
             for i in 0..5 { ctx(1, 1001, 0, seed.wrapping_add(i as u8)); let s = c.claim(id.clone(), who(i)).0; assert!(s >= MIN_SHARE); sum += s; shares.push(s); }
-            assert_eq!(sum, NEAR, "seed {seed}");
+            assert_eq!(sum, total, "seed {seed}");
             let p = c.get_packet(id).unwrap();
             assert_eq!((p.remaining.0, p.claimed), (0, 5));
             if seed == 7 { assert!(shares.iter().any(|s| *s != shares[0]), "a lucky split is not equal"); }
@@ -213,10 +253,10 @@ mod tests {
     #[test]
     fn equal_split() {
         let mut c = fresh();
-        ctx(2, 1000, NEAR, 1); c.create("eq".into(), 3, false, 3600, "h".into(), None);
+        ctx(2, 1000, NEAR, 1); let t = c.create("eq".into(), 3, false, 3600, "h".into(), None).total.0;
         ctx(1, 1001, 0, 1);
         let a = c.claim("eq".into(), who(0)).0; let b = c.claim("eq".into(), who(1)).0; let d = c.claim("eq".into(), who(2)).0;
-        assert_eq!(a, NEAR / 3); assert_eq!(b, (NEAR - a) / 2); assert_eq!(a + b + d, NEAR);
+        assert_eq!(a, t / 3); assert_eq!(b, (t - a) / 2); assert_eq!(a + b + d, t);
     }
     #[test]
     #[should_panic(expected = "already opened its share")]
@@ -256,9 +296,9 @@ mod tests {
     #[test]
     fn refund_returns_what_is_left_once() {
         let mut c = fresh();
-        ctx(2, 1000, NEAR, 1); c.create("p".into(), 2, false, 60, "h".into(), None);
+        ctx(2, 1000, NEAR, 1); let t = c.create("p".into(), 2, false, 60, "h".into(), None).total.0;
         ctx(1, 1001, 0, 1); let s = c.claim("p".into(), who(0)).0;
-        ctx(5, 1060, 0, 1); assert_eq!(c.refund("p".into()).0, NEAR - s);
+        ctx(5, 1060, 0, 1); assert_eq!(c.refund("p".into()).0, t - s);
         let p = c.get_packet("p".into()).unwrap();
         assert!(p.refunded && p.remaining.0 == 0 && c.get_config().4 .0 == 0);
         assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { ctx(5, 1061, 0, 1); c.refund("p".into()); })).is_err(), "no second refund");
@@ -268,11 +308,13 @@ mod tests {
         let mut c = fresh();
         ctx(3, 1000, 10 * NEAR, 1);
         let p = c.create("brand".into(), 10, true, 3600, "h".into(), Some(true));
-        // 5% of 10 NEAR + 10 x 0.013 NEAR
-        assert_eq!(p.total.0, 10 * NEAR - NEAR / 2 - 130 * MIN_SHARE);
+        // 5% of 10 NEAR + 10 x 0.013 NEAR, then the packet's storage
+        let after_fee = 10 * NEAR - NEAR / 2 - 130 * MIN_SHARE;
+        assert!(p.total.0 < after_fee && p.total.0 > after_fee - 20 * MIN_SHARE, "fee, then storage (under 0.02 NEAR)");
         assert!(p.campaign);
         ctx(2, 1000, NEAR, 1);
-        assert_eq!(c.create("family".into(), 2, true, 3600, "h".into(), None).total.0, NEAR, "family packets pay no fee");
+        let fam = c.create("family".into(), 2, true, 3600, "h".into(), None).total.0;
+        assert!(fam > NEAR - 5 * MIN_SHARE, "family packets pay no fee, only storage");
     }
     #[test]
     #[should_panic(expected = "that money has not arrived here")]
@@ -297,5 +339,40 @@ mod tests {
         assert!(bad(&|c| { ctx(2, 1000, NEAR, 1); c.create("p".into(), 2, true, 60, "h".into(), None); c.create("p".into(), 2, true, 60, "h".into(), None); }), "taken id");
         assert!(bad(&|c| { ctx(2, 1000, NEAR, 1); c.create("p".into(), 2, true, 31 * 86_400, "h".into(), None); }), "expiry too long");
         assert!(bad(&|c| { ctx(2, 1000, MIN_SHARE, 1); c.create("p".into(), 1, true, 60, "h".into(), Some(true)); }), "deposit under the campaign fee");
+    }
+
+    #[test]
+    #[should_panic(expected = "doesn't cover the packet's storage")]
+    fn junk_packets_pay_their_storage() {
+        let mut c = fresh();
+        ctx(2, 1000, 2 * MIN_SHARE, 1); c.create("junk".into(), 1, false, 1, "h".into(), None);
+    }
+    #[test]
+    fn creator_or_owner_cancels_any_time() {
+        let mut c = fresh();
+        ctx(2, 1000, NEAR, 1); let t = c.create("a".into(), 2, false, 3600, "h".into(), None).total.0;
+        ctx(2, 1001, 1, 1); assert_eq!(c.cancel("a".into()).0, t, "creator, before expiry");
+        ctx(2, 1002, NEAR, 1); let t2 = c.create("b".into(), 2, false, 3600, "h".into(), None).total.0;
+        ctx(1, 1003, 0, 1); let s = c.claim("b".into(), who(0)).0;
+        ctx(0, 1004, 1, 1); assert_eq!(c.cancel("b".into()).0, t2 - s, "owner stops it");
+        assert_eq!(c.get_config().4 .0, 0, "nothing owed after both");
+        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { ctx(1, 1005, 0, 1); c.claim("b".into(), who(1)); })).is_err(), "no share after cancel");
+    }
+    #[test]
+    #[should_panic(expected = "only the creator or the owner")]
+    fn agent_cannot_cancel() {
+        let mut c = fresh();
+        ctx(2, 1000, NEAR, 1); c.create("a".into(), 2, false, 3600, "h".into(), None);
+        ctx(1, 1001, 1, 1); c.cancel("a".into());
+    }
+    #[test]
+    fn owner_pause_stops_claims_not_refunds() {
+        let mut c = fresh();
+        ctx(2, 1000, NEAR, 1); c.create("p".into(), 2, false, 3600, "h".into(), None);
+        ctx(0, 1001, 1, 1); c.set_paused(true); assert!(c.is_paused());
+        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { ctx(1, 1002, 0, 1); c.claim("p".into(), who(0)); })).is_err(), "no claim while paused");
+        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { ctx(2, 1002, 1, 1); c.set_paused(false); })).is_err(), "only the owner unpauses");
+        ctx(2, 1003, 1, 1); assert!(c.cancel("p".into()).0 > 0, "the creator can still take it back");
+        ctx(0, 1004, 1, 1); c.set_paused(false); assert!(!c.is_paused());
     }
 }
