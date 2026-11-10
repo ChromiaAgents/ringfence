@@ -10,6 +10,7 @@ import { db, save, id as newId, log } from './store.ts';
 import { yoctoToNear } from './near.ts';
 import { live, callContract, explorer, bindingOf, sendNear } from './wallet.ts';
 import { chat } from './ai.ts';
+import { notify } from './notify.ts';
 
 export type PacketClaim = { to: string; yocto: string; at: number; url?: string; how: 'exact' | 'ai' };
 export type PacketRow = {
@@ -69,10 +70,6 @@ export function shareOf(left: bigint, people: number, lucky: boolean, rand: () =
 }
 
 /** Records a packet for money that is already in the packets contract (the wallet's transfer went first). */
-/** Set by src/whatsapp.ts: tells the sender when a share is opened or the packet expires. */
-let tell: ((phone: string, text: string) => void) | undefined;
-export const setPacketNews = (f: typeof tell) => (tell = f);
-
 export async function createPacket(o: { from: string; fromName?: string; fromPhone?: string; fundUrl?: string; yocto: bigint; count: number; lucky: boolean; words: string; hint?: string; demo?: boolean; dry?: boolean; callId?: string }): Promise<PacketRow> {
   const id = newId(), now = Date.now();
   const p: PacketRow = { id, createdAt: now, expiresAt: now + env.packetExpirySec * 1000, from: o.from, fromName: o.fromName, yocto: o.yocto.toString(), left: o.yocto.toString(),
@@ -120,7 +117,7 @@ export async function openPacket(id: string, to: string | null, heard: string[],
     p.claims.push({ to, yocto: yocto.toString(), at: Date.now(), url, how });
     save();
     log({ kind: 'packet', callId, detail: `${p.dryRun ? 'DRY RUN: ' : ''}money packet ${p.id}: ${to} opened ${yoctoToNear(yocto)} NEAR (words: ${how})${url ? `: ${url}` : ''}` });
-    if (p.fromPhone) tell?.(p.fromPhone, `${to} opened ${yoctoToNear(yocto)} NEAR from your money packet${p.dryRun ? ' (dry run)' : ''}. ${p.count - p.claims.length} of ${p.count} left.${url ? ` ${url}` : ''}`);
+    notify(p.fromPhone, `${to} opened ${yoctoToNear(yocto)} NEAR from your money packet${p.dryRun ? ' (dry run)' : ''}. ${p.count - p.claims.length} of ${p.count} left.${url ? ` ${url}` : ''}`);
     return { ok: true, near: yoctoToNear(yocto), dryRun: p.dryRun, url, left: p.count - p.claims.length, total: yoctoToNear(p.yocto) };
   } finally { opening.delete(key); }
 }
@@ -132,7 +129,7 @@ export async function refundExpired(now = Date.now()) {
     p.refunded = true; // once, whatever happens: the contract refuses a second refund anyway
     if (!p.dryRun && BigInt(p.left) > 0n) await callContract(env.packetsAccountId, 'refund', { id: p.id }).catch((e) => console.error('packet refund', p.id, (e as Error).message.slice(0, 120)));
     log({ kind: 'packet', detail: `money packet ${p.id} expired: ${yoctoToNear(p.left)} NEAR back to ${p.from}` });
-    if (p.fromPhone && BigInt(p.left) > 0n) tell?.(p.fromPhone, `Your money packet expired with ${p.count - p.claims.length} of ${p.count} unopened: ${yoctoToNear(p.left)} NEAR ${p.dryRun ? 'would be' : 'is'} back in your wallet.`);
+    if (BigInt(p.left) > 0n) notify(p.fromPhone, `Your money packet expired with ${p.count - p.claims.length} of ${p.count} unopened: ${yoctoToNear(p.left)} NEAR ${p.dryRun ? 'would be' : 'is'} back in your wallet.`);
     p.left = '0';
   }
   save();

@@ -190,6 +190,16 @@ export async function sendNear(b: Binding, to: string, yocto: bigint) {
   return { txHash: r.hash, url: explorer.near(r.hash), queuedId: r.result as number | null };
 }
 
+/** Runs a transfer the contract queued for a new recipient, once its wait is over. The agent may; the contract checks
+ *  the time and the limits again. */
+export async function runQueued(b: Binding, id: number) {
+  const r = await callContract(b.contract, 'execute', { pending_id: id });
+  return { txHash: r.hash, url: explorer.near(r.hash) };
+}
+/** Phone-only (custodial) wallets: the custody key is the owner, so it can stop a queued transfer and save a recipient. */
+export const cancelQueued = (b: Binding, id: number) => callContract(b.contract, 'cancel', { pending_id: id }, 1n, custody());
+export const saveRecipient = (b: Binding, to: string) => callContract(b.contract, 'allow', { recipient: to }, 1n, custody());
+
 /** USDC (any NEP-141): the contract checks the token's limits and registers the recipient with the token first. */
 export async function sendFt(b: Binding, token: string, to: string, units: bigint) {
   const r = await callContract(b.contract, 'transfer_ft', { token, to, amount: units.toString() });
@@ -235,7 +245,7 @@ export async function createCustodial(phone: string, pin: string, now = Date.now
     log({ kind: 'wallet', desk: 'wallet', detail: `DRY RUN (no CUSTODY_PRIVATE_KEY): would create custodial wallet ${b.contract}` });
     return { ok: true, binding: b, message: `DEMO DRY RUN: this server has no custody key, so nothing was created on chain. Your PIN is saved (hashed), so you can try a call; sends are dry runs too.` };
   }
-  const r = await callContract(env.factoryAccountId, 'create_wallet', { phone_hash: phoneHash(phone), owner: env.custodyAccountId, custodial: true, ...packetRecipient() }, CREATE_DEPOSIT, custody());
+  const r = await callContract(env.factoryAccountId, 'create_wallet', { phone_hash: phoneHash(phone), owner: env.custodyAccountId, custodial: true, new_recipient_delay_sec: env.walletDefaults.delaySec, ...packetRecipient() }, CREATE_DEPOSIT, custody());
   if (!r.result) return { ok: false, reason: 'The factory refused to create the wallet. Try again later.' };
   b.contract = String(r.result);
   db.wallets = db.wallets.filter((x) => x.phone !== phone).concat(b);

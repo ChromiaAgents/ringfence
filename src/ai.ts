@@ -240,6 +240,7 @@ export function mockStep(messages: Msg[], tools: unknown[]): { name: string; arg
     const send = u.match(/(?:send|pay|transfer)\s+([\d.]+)\s*([a-z]+)?\b(?:\s+on\s+([a-z0-9 ]+?))?\s+to\s+(\S+(?:\s+dot\s+\S+)*)/i);
     if (send) return { name: 'prepare_transfer', args: { to: send[4].replace(/[.,!?]$/, ''), amount: send[1], asset: send[3] ? send[3].trim().toLowerCase() : /^near$/i.test(send[2] ?? 'near') ? 'near' : (send[2] ?? '').toLowerCase() } };
     if (u === '[PIN]' || /^[\s\d,.-]+$|^(\s*(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b[\s,.]*)+$/i.test(u)) return { name: 'confirm_transfer', args: { pin: u } };
+    if (names.has('cancel_transfer') && /^\s*(please\s+)?(cancel|stop)\b/i.test(u)) return { name: 'cancel_transfer', args: {} };
     if (/\bbalance\b/i.test(u)) return { name: 'get_balance', args: {} };
     if (/\bspen[dt]\b/i.test(u)) return { name: 'get_spending', args: {} };
   }
@@ -265,6 +266,8 @@ function mockText(messages: Msg[], tools: unknown[] = []): string {
   const tool = prev?.tool_calls?.[0]?.function?.name;
   if (tool === 'end_call') return 'Thanks for calling, take care. Bye!';
   if (tool === 'set_coin' && out.ok !== false && !out.error) return 'Got it. Shall I set it up? Say yes and I’ll put the launch on your screen to check and sign.';
+  if (out.waiting) return `PIN accepted. It is a first payment to that account, so your wallet holds it for ${out.goes_out_in}, then it goes. Say cancel to stop it.`;
+  if (out.cancelled) return `Stopped: ${out.cancelled.join('; ')}. Nothing left your wallet.`;
   if (out.need === 'words') return 'Say the words that came with the money packet to open it.';
   if (out.need === 'account') return 'Those are the words. Which NEAR account should I send your share to?';
   if (tool === 'open_packet' && out.ok) return `You opened ${out.near} NEAR${out.dryRun ? ' (a dry run: no real money moved)' : ''}. ${out.left ? `${out.left} left for the others.` : 'That was the last share.'}`;

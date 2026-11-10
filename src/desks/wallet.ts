@@ -7,10 +7,11 @@ import { parseUnits, formatUnits } from 'ethers';
 import { env } from '../config.ts';
 import { db, log, type Call } from '../store.ts';
 import { yoctoToNear } from '../near.ts';
-import { bindingOf, checkPin, normalizePin, live, devServer, sendEvm, sendNear, sendFt, ftBalance, walletState, ethAddressOf, rejectFreeze, digits, type Binding, type WalletState } from '../wallet.ts';
+import { bindingOf, checkPin, normalizePin, live, devServer, custodyLive, sendEvm, sendNear, sendFt, ftBalance, walletState, ethAddressOf, rejectFreeze, digits, type Binding, type WalletState } from '../wallet.ts';
 import { CHAINS, chainById, findChain, defaultChainIds } from '../chains.ts';
 import { GasShortError, prepareTransfer } from '../eth.ts';
 import { createPacket, packetsTo, packetUrl, norm, MIN_SHARE } from '../packets.ts';
+import { hold, cancelHeld, minutes } from '../held.ts';
 import type { DeskDef } from './types.ts';
 
 /** "near", or "evm:<chainId>" for an EVM chain's native coin. */
@@ -20,7 +21,9 @@ const isFt = (a: Asset): a is `ft:${string}` => a.startsWith('ft:');
 const USDC_DECIMALS = 6;
 type Transfer = { to: string; amount: string; asset: Asset; base: bigint; tier?: 'pin' | 'approve'; until?: number;
   /** A money packet: the transfer goes to the packets contract, and the packet is recorded once it has arrived. */
-  packet?: { count: number; lucky: boolean; words: string } };
+  packet?: { count: number; lucky: boolean; words: string };
+  /** A first payment to a new recipient from a phone-only wallet: the contract holds it this many seconds. */
+  wait?: number };
 const pending = new Map<string, Transfer>();
 const PENDING_MS = 120_000;
 /** Spoken PINs, taken out of the caller's words before the model sees them (see takePin). */
@@ -79,13 +82,14 @@ const tools = [
   { type: 'function', function: { name: 'get_spending', description: 'How much did I spend? Today\'s spending against the daily limit, and the last 5 transfers.', parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'prepare_transfer', description: 'Get a transfer ready. Read back the returned read_back, then ask for the 4-digit PIN.', parameters: { type: 'object', properties: { to: { type: 'string', description: 'NEAR account like liho.near (liho.testnet on testnet), or a 0x address for an EVM chain' }, amount: { type: 'string' }, asset: { type: 'string', description: '"near", "usdc" (US dollars: "send 50 dollars" is 50 USDC), or the EVM chain name for its native coin: base, ethereum, arbitrum, optimism, polygon, bnb, avalanche (sepolia on testnet)' } }, required: ['to', 'amount', 'asset'] } } },
   { type: 'function', function: { name: 'prepare_packet', description: 'Get a money packet (also called a red packet, red envelope, hongbao, angpao, 红包) ready: money for a group, opened by saying the words. Read back the returned read_back, then ask for the 4-digit PIN and call confirm_transfer.', parameters: { type: 'object', properties: { amount: { type: 'string', description: 'total NEAR in the packet' }, count: { type: 'integer', description: 'how many people share it' }, split: { type: 'string', description: '"lucky" (random shares, the default) or "equal"' }, words: { type: 'string', description: 'the short phrase people must say to open it, exactly as the caller said it' } }, required: ['amount', 'count', 'words'] } } },
+  { type: 'function', function: { name: 'cancel_transfer', description: 'Stop the caller\'s payments that are waiting to go out (a first payment to a new account is held for a few minutes).', parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'confirm_transfer', description: 'After the caller says their PIN (you see it as [PIN]). Pass "[PIN]".', parameters: { type: 'object', properties: { pin: { type: 'string' } }, required: ['pin'] } } },
 ];
 
 export const ONLY_NEAR = 'Only NEAR and USDC for now, sorry. I can send NEAR or USDC, or check your balance.';
 const system = (call?: Call) => `${webDemo(call) ? `This is a browser call on the shared website demo wallet: real NEAR on ${env.network}, the contract's limits apply and it only pays its saved recipient ${env.demoRecipient}. The demo PIN is on their screen. Above ${env.smallLimitNear} NEAR the Approve card appears on their screen (not WhatsApp): say so. Their own WhatsApp number can be bound to their own NEAR wallet contract;` : call?.channel === 'web' ? 'This is a browser call: no wallet is bound to it, so a transfer is a labelled demo and nothing is sent. Their WhatsApp number can be bound to their own NEAR wallet contract;' : `The caller's WhatsApp number can be bound to their own NEAR ${env.network} wallet contract;`} ${env.evmEnabled ? `you can send NEAR, or the native coin of an EVM chain the owner allowed (${chainList()}),` : 'you can send NEAR or USDC (stable US dollars on NEAR; politely decline other chains or coins). Amounts in dollars are USDC one to one ("send 50 dollars to the grocer" is 50 USDC),'} within limits the contract enforces.
 For a money packet (a money gift for a group, the Chinese red packet; callers may also say "red packet", "red envelope", "gift", hongbao, angpao, 红包): call prepare_packet with the total in NEAR, how many people, lucky or equal split (lucky unless they ask for equal) and the words people must say to open it; never choose the words yourself: if they gave none, ask (you may suggest "merry christmas" or "happy birthday", and they say it back). Read back its read_back exactly, then the PIN and confirm_transfer as for a transfer. When it is created, tell them to share the link and the words with the family.
-For a transfer: call prepare_transfer and read back its read_back exactly ("0.1 NEAR to liho dot ${suffix()}"). Then ask for their 4-digit PIN; their answer reaches you as [PIN]: call confirm_transfer with pin "[PIN]". Above ${env.smallLimitNear} NEAR, confirm_transfer then sends an Approve button to their WhatsApp: tell them to tap it within two minutes. For "how much did I spend", call get_spending.${env.evmEnabled ? ' If they say just "ETH", ask which chain.\nTheir EVM address is the same on every EVM chain: they fund gas on whichever chain they want to use.' : ''}
+For a transfer: call prepare_transfer and read back its read_back exactly ("0.1 NEAR to liho dot ${suffix()}"). Then ask for their 4-digit PIN; their answer reaches you as [PIN]: call confirm_transfer with pin "[PIN]". Above ${env.smallLimitNear} NEAR, confirm_transfer then sends an Approve button to their WhatsApp: tell them to tap it within two minutes. For "how much did I spend", call get_spending. A first payment to an account a phone-only wallet has never paid is held by the contract for a few minutes before it goes (the tool says how long): tell them, and that saying "cancel" stops it (cancel_transfer).${env.evmEnabled ? ' If they say just "ETH", ask which chain.\nTheir EVM address is the same on every EVM chain: they fund gas on whichever chain they want to use.' : ''}
 If a tool refuses, say why in plain words. ${call?.channel === 'web' ? 'If a link was sent, say it is on their screen.' : 'If a link was sent, say it is on WhatsApp.'} ${env.network === 'mainnet' ? 'Transfers are on mainnet, real money, and an unaudited prototype: suggest small amounts.' : 'Transfers are on testnet: no real money.'} Never give financial advice.`;
 
 /** A browser call has no phone number: it uses the shared website demo wallet when one is configured. */
@@ -121,6 +125,10 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
   if (state instanceof Error) return refuse(state.message.includes('bound') || state.message.includes('agent') ? state.message : 'Your wallet contract is not set up yet. Finish the binding page and sign it.');
   const tag = b.custodial ? ' (demo custodial wallet)' : '';
 
+  if (name === 'cancel_transfer') {
+    const stopped = await cancelHeld(b.phone);
+    return stopped.length ? { ok: true, cancelled: stopped, next: 'Tell them it was stopped and nothing left the wallet.' } : { ok: false, reason: 'Nothing is waiting to go out.' };
+  }
   if (name === 'get_spending') return spending(b, state);
   if (name === 'prepare_transfer' || name === 'confirm_transfer') {
     const lockedTill = demo ? demoLocked.get(call.id) ?? 0 : 0;
@@ -158,8 +166,11 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
         const short = await prepareTransfer(chain, from, to, t.base).then(() => null, (e) => (e instanceof GasShortError ? e.message : null));
         if (short) return refuse(short, { evmAddress: from });
       }
+      // A phone-only wallet has no owner who could sign a first payment themselves: the contract holds it instead.
+      // Not on the shared website demo wallet (it only ever pays its saved recipient).
+      if (isNew && !over && !demo && !packet && !chain && b.custodial && custodyLive()) t.wait = state.new_recipient_delay_sec;
       if (packet && isNew && !over) return refuse(`This wallet was set up before money packets. Its owner saves ${to} as a recipient once, then you can send packets by voice.`);
-      if (over || isNew) {
+      if ((over || isNew) && t.wait == null) {
         if (isFt(asset)) return refuse(`I can't send that: ${over || `${to} is not on your saved list`}. The wallet's owner can raise the USDC limit or save the recipient.`);
         if (asset !== 'near') return refuse(`I can't: ${over || 'that address is not on your saved list'}. Raise the limit or save the address on your wallet page.`);
         links.set(call.id, { url: selfSign(t), label: `Sign ${readBack(t)} in your own wallet` });
@@ -179,7 +190,8 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     pending.set(call.id, t);
     spokenPins.delete(call.id);
     const say = packet ? `${readBack(t)}. The words to open it are "${packet.words}"` : readBack(t);
-    return { ok: true, read_back: say + tag, next: t.tier === 'pin' ? 'Ask for their 4-digit PIN.' : `Ask for their 4-digit PIN; after it, an Approve button goes to ${demo ? 'their screen' : 'their WhatsApp'}.` };
+    const held = t.wait != null ? ` This is their first payment to that account: say it will go out ${minutes(t.wait)} after the PIN, and that saying "cancel" stops it.` : '';
+    return { ok: true, read_back: say + tag, first_payment_wait: t.wait != null ? minutes(t.wait) : undefined, next: (t.tier === 'pin' ? 'Ask for their 4-digit PIN.' : `Ask for their 4-digit PIN; after it, an Approve button goes to ${demo ? 'their screen' : 'their WhatsApp'}.`) + held };
   }
   if (name === 'confirm_transfer') {
     const t = pending.get(call.id);
@@ -230,6 +242,12 @@ async function execute(callId: string, b: Binding, t: Transfer): Promise<{ ok: t
   if (r instanceof Error) return { ok: false, reason: `The wallet contract refused: ${r.message.slice(0, 160)}` };
   log({ kind: 'wallet', desk: 'wallet', callId, detail: `${readBack(t)} from ${b.contract}: ${r.url}${r.queuedId != null ? ` (queued #${r.queuedId})` : ''}` });
   if (t.packet) return packetOf(callId, b, t, false, r.url);
+  if (r.queuedId != null && t.wait != null) {
+    hold({ id: r.queuedId, phone: b.phone, contract: b.contract, to: t.to, what: readBack(t), readyAt: Date.now() + t.wait * 1000 + 3000, callId });
+    links.set(callId, { url: r.url, label: 'Held by your wallet contract, on chain' });
+    return { ok: true, waiting: true, goes_out_in: minutes(t.wait), url: r.url, linkSent: true,
+      next: `Tell them: it is a first payment to this account, so the contract holds it for ${minutes(t.wait)} and then it goes; saying "cancel" stops it; a message arrives when it is sent.` };
+  }
   links.set(callId, { url: r.url, label: r.queuedId != null ? 'Queued transfer' : 'Your transaction' });
   return { ok: true, txHash: r.txHash, url: r.url, linkSent: true, queued: r.queuedId != null };
 }
@@ -315,6 +333,7 @@ export async function onButton(from: string, id: string, now = Date.now()): Prom
   }
   if (verb === 'reject') {
     await rejectFreeze(b, now);
+    await cancelHeld(b.phone).catch(() => []); // anything waiting to go out is stopped too
     say('You tapped Not me on WhatsApp, so nothing was sent. The AI is locked out of your wallet for 15 minutes.');
     return 'Locked. Nothing was sent, and the AI cannot spend from this wallet for 15 minutes. If someone is pressuring you to pay, hang up and call family.';
   }

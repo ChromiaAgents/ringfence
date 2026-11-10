@@ -241,6 +241,48 @@ await t('security: owner data (call transcripts, ledger) is never loaded through
   }
   assert.ok(!readFileSync('app/routes/dashboard.tsx', 'utf8').includes('createServerFn('), 'the dashboard loads its data from /api/state only');
 });
+await t('first payment to a new recipient: held until its wait is over, then sent and the recipient saved; cancel and Not me stop it', async () => {
+  const { hold, runDue, cancelHeld, minutes } = await import('../src/held.ts');
+  const { setNotifier } = await import('../src/notify.ts');
+  const { db } = await import('../src/store.ts');
+  const { hashPin } = await import('../src/wallet.ts');
+  const phone = `1555${String(Date.now()).slice(-7)}7`, contract = 'kid.ringfence-wallet.testnet';
+  db.wallets.push({ phone, owner: 'custody.testnet', contract, custodial: true, ...hashPin('2468'), fails: 0, createdAt: Date.now() } as any);
+  const told: string[] = []; setNotifier((p, text) => { if (p === phone) told.push(text); });
+  const ran: number[] = [], saved: string[] = [], cancelled: number[] = [];
+  const d = { run: async (_b: any, id: number) => { ran.push(id); return { txHash: 'h', url: 'https://explorer/tx' }; }, allow: async (_b: any, to: string) => { saved.push(to); return {} as any; } };
+  try {
+    assert.equal(minutes(60), '60 seconds'); assert.equal(minutes(600), '10 minutes');
+    const t0 = Date.now();
+    hold({ id: 7, phone, contract, to: 'friend.testnet', what: '0.05 NEAR to friend dot testnet', readyAt: t0 + 60_000 });
+    await runDue(t0 + 59_000, d);
+    assert.deepEqual(ran, [], 'not before the wait is over');
+    // Not me was tapped: nothing leaves while the wallet is locked
+    const b = db.wallets.find((w) => w.phone === phone)!;
+    b.frozenUntil = t0 + 900_000;
+    await runDue(t0 + 61_000, d);
+    assert.deepEqual(ran, []);
+    b.frozenUntil = undefined;
+    await runDue(t0 + 61_000, d);
+    assert.deepEqual(ran, [7]); assert.deepEqual(saved, ['friend.testnet'], 'saved, so the next payment is instant');
+    assert.match(told.at(-1)!, /Sent: 0\.05 NEAR.*explorer\/tx[\s\S]*saved recipient/);
+    assert.equal(db.held.filter((h) => h.phone === phone).length, 0);
+    await runDue(t0 + 62_000, d);
+    assert.deepEqual(ran, [7], 'sent once');
+    // a few seconds early on the chain's clock: tried again, not dropped
+    hold({ id: 8, phone, contract, to: 'other.testnet', what: '0.02 NEAR to other dot testnet', readyAt: t0 });
+    await runDue(t0 + 1, { ...d, run: async () => { throw new Error('new recipient: still in the waiting period'); } });
+    assert.equal(db.held.filter((h) => h.phone === phone).length, 1);
+    // cancel: the owner's key takes it out of the contract's queue
+    const stopped = await cancelHeld(phone, { cancel: async (_b: any, id: number) => { cancelled.push(id); return {} as any; } });
+    assert.deepEqual(stopped, ['0.02 NEAR to other dot testnet']); assert.deepEqual(cancelled, [8]);
+    assert.equal(db.held.filter((h) => h.phone === phone).length, 0);
+    // a contract refusal at send time: dropped, and the caller is told nothing left the wallet
+    hold({ id: 9, phone, contract, to: 'x.testnet', what: '5 NEAR to x dot testnet', readyAt: t0 });
+    await runDue(t0 + 1, { ...d, run: async () => { throw new Error('over the daily limit'); } });
+    assert.match(told.at(-1)!, /did not go through/); assert.equal(db.held.filter((h) => h.phone === phone).length, 0);
+  } finally { setNotifier(undefined); db.wallets = db.wallets.filter((w) => w.phone !== phone); }
+});
 await t('chain: a failed cross-contract step is read from the receipts; sends from one account run in order', async () => {
   const { receiptFailure } = await import('../src/wallet.ts');
   assert.equal(receiptFailure({ receipts_outcome: [{ outcome: { status: { SuccessValue: '' } } }] }), null);
