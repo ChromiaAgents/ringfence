@@ -88,6 +88,17 @@ t('ticker format', () => {
 t('ticker impersonation', () => {
   for (const x of ['NEAR', 'usdc', '$BTC', 'PEPE', 'TRUMP', 'ELONCAT', 'TESLA']) assert.equal(checkTicker(x, lp).ok, false, x);
 });
+t('market: a ticker trending right now is refused like a blocked one; live tools never move money', async () => {
+  const { trendingTickers, marketDesk } = await import('../src/desks/market.ts');
+  assert.equal(checkTicker('ZZPNG', lp).ok, true);
+  trendingTickers.add('ZZPNG');
+  assert.match((checkTicker('zzpng', lp) as any).reason, /trending right now/);
+  trendingTickers.delete('ZZPNG');
+  const names = marketDesk.tools.map((x: any) => x.function.name).sort();
+  assert.deepEqual(names, ['check_account', 'get_price', 'get_trends']);
+  assert.match(JSON.stringify(await marketDesk.run({} as any, 'check_account', { account: 'not an account!' })), /does not look like/);
+  assert.match(JSON.stringify(await marketDesk.run({} as any, 'get_price', { currency: 'xyz' })), /I can quote NEAR in/);
+});
 t('name impersonation', () => {
   assert.equal(checkName('Elon Musk Inu', lp).ok, false);
   assert.equal(checkName('Bitcoin Cat', lp).ok, false);

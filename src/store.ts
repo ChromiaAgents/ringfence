@@ -5,7 +5,7 @@ import type { Proof } from './ai.ts';
 import type { LaunchParams } from './near.ts';
 import type { Binding } from './wallet.ts';
 
-export type Desk = 'launch' | 'wallet';
+export type Desk = 'launch' | 'wallet' | 'market';
 /** Per-turn latency in ms, all counted from `start` (when the caller's utterance reached the server). */
 export type Timing = { start?: number; sttMs?: number; firstTokenMs?: number; firstAudioMs?: number; llmMs?: number; totalMs?: number };
 export type Turn = { at: number; who: 'caller' | 'agent' | 'tool'; text: string; proof?: Proof; timing?: Timing };

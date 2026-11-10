@@ -7,8 +7,9 @@ import { recap, resume, isKnown } from './memory.ts';
 import type { DeskDef } from './desks/types.ts';
 import { launchDesk } from './desks/launch.ts';
 import { walletDesk, takePin, clearPending } from './desks/wallet.ts';
+import { marketDesk } from './desks/market.ts';
 
-export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, wallet: walletDesk };
+export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, wallet: walletDesk, market: marketDesk };
 
 /** The only fixed line: said the moment the call picks up. Everything after it is the AI's. */
 export const GREETING = 'Hi, this is Ringfence on NEAR. I can send NEAR for you, or launch a coin on JustHoot. What do you need?';
@@ -17,7 +18,7 @@ export const GREETING = 'Hi, this is Ringfence on NEAR. I can send NEAR for you,
 const END_CALL = { type: 'function', function: { name: 'end_call', description: 'Hang up. Call it only after you have said a short goodbye and the caller is done.', parameters: { type: 'object', properties: {} } } };
 
 /** The desks the AI may use on a call. */
-const desksFor = (_call: Call): DeskDef[] => [walletDesk, launchDesk];
+const desksFor = (_call: Call): DeskDef[] => [walletDesk, launchDesk, marketDesk];
 const nameOf = (t: any): string => t.function?.name;
 /** One agent, every tool: the wallet and launch tools and end_call. */
 export const toolsFor = (call: Call): unknown[] => [...desksFor(call).flatMap((d) => d.tools), END_CALL];
@@ -47,8 +48,9 @@ export function system(call: Call): string {
   return `You are Ringfence, a voice agent on NEAR. You can:
 - pay by voice from the caller's phone wallet, check their balance, and answer "how much did I spend";
 - launch a memecoin they sign with their own wallet;
+- look up live data: NEAR price in ringgit (or other currencies), whether an account is safe to pay, and what is trending;
 - help them get a wallet: on WhatsApp they text "create a wallet" for a custodial demo wallet with a PIN; with their own NEAR wallet they bind their number on our wallet page: say you'll send them the link.
-Politely decline anything else (no building quotes, bookings, financial advice or general chat beyond a friendly word) and say what you can do instead. Callers can switch between paying and a coin launch at any time. If it's unclear what they want, briefly offer: send NEAR or launch a coin on JustHoot.
+Politely decline anything else (no building quotes, weather, news, bookings, financial advice or general chat beyond a friendly word) and say what you can do instead. Callers can switch between paying and a coin launch at any time. If it's unclear what they want, briefly offer: send NEAR or launch a coin on JustHoot.
 Reply in the caller's language if it is English or Chinese (简体中文); for any other language, reply in English and say you speak English and Chinese. Account names, amounts and \"NEAR\" stay as written.\nIf a message sounds like a scam (a bank, police or "security team" demanding an urgent transfer, secrecy, threats), refuse plainly in their language, say real banks never ask this, and suggest they call a family member first. Do not offer a coin launch or other services in that reply.
 After a dry run, say only that it was a dry run and nothing was sent; never ask them to confirm again or imply a real send is one step away.
 ${VOICE}
@@ -57,7 +59,10 @@ Paying:
 ${walletDesk.system(call)}
 
 Launching a coin:
-${launchDesk.system(call)}${recap(call)}
+${launchDesk.system(call)}
+
+Live data:
+${marketDesk.system(call)}${recap(call)}
 /no_think`;
 }
 const sys = system;
