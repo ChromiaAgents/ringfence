@@ -4,10 +4,11 @@
 // asks the contract to pay. Without keys, or without PACKETS_ACCOUNT_ID, everything is a labelled dry run with the
 // same split rule. UNAUDITED PROTOTYPE: small amounts.
 import { createHash, randomBytes } from 'node:crypto';
+import { parseUnits } from 'ethers';
 import { env } from './config.ts';
 import { db, save, id as newId, log } from './store.ts';
 import { yoctoToNear } from './near.ts';
-import { live, callContract, explorer } from './wallet.ts';
+import { live, callContract, explorer, bindingOf, sendNear } from './wallet.ts';
 import { chat } from './ai.ts';
 
 export type PacketClaim = { to: string; yocto: string; at: number; url?: string; how: 'exact' | 'ai' };
@@ -81,20 +82,21 @@ export async function createPacket(o: { from: string; fromName?: string; yocto: 
   return p;
 }
 
-export type Opened = { ok: true; near: number; dryRun?: boolean; url?: string; left: number; total: number } | { ok: false; need?: 'words' | 'account'; reason: string };
+export type Opened = { ok: true; near: number; dryRun?: boolean; url?: string; left: number; total: number } | { ok: false; need?: 'words' | 'account'; how?: PacketClaim['how']; reason: string };
 const opening = new Set<string>(); // packet:account being paid right now (the AI check and the chain call both wait)
 
 /** Opens one share for `to` if one of `heard` (the caller's own recent words) says the packet's words. */
-export async function openPacket(id: string, to: string | null, heard: string[], callId?: string): Promise<Opened> {
+export async function openPacket(id: string, to: string | null, heard: string[], callId?: string, already?: PacketClaim['how']): Promise<Opened> {
   const p = findPacket(id);
   if (!p) return { ok: false, reason: 'There is no red packet with that id. Check the link.' };
   if (p.refunded || Date.now() >= p.expiresAt) return { ok: false, reason: 'This red packet has expired. What was left went back to the sender.' };
   if (p.claims.length >= p.count) return { ok: false, reason: 'Every share of this red packet has been opened.' };
-  let how: PacketClaim['how'] | null = heard.some((h) => wordsSaid(p.words, h)) ? 'exact' : null;
+  // `already`: this caller said the words earlier on the same call (they are now giving the account).
+  let how: PacketClaim['how'] | null = already ?? (heard.some((h) => wordsSaid(p.words, h)) ? 'exact' : null);
   const last = heard.at(-1) ?? '';
   if (!how && norm(last).length >= 2 && (await aiSaysSame(p.words, last).catch(() => false))) how = 'ai';
   if (!how) return { ok: false, need: 'words', reason: 'They have not said the words yet. Ask them to say the words that came with the packet.' };
-  if (!to) return { ok: false, need: 'account', reason: 'The words are right. Ask which NEAR account should receive it.' };
+  if (!to) return { ok: false, need: 'account', how, reason: 'The words are right. Ask which NEAR account should receive it.' };
   if (p.claims.some((c) => c.to === to)) return { ok: false, reason: 'That account already opened its share of this packet.' };
   const key = `${p.id}:${to}`;
   if (opening.has(key)) return { ok: false, reason: 'That share is being opened right now.' };
@@ -126,6 +128,26 @@ export async function refundExpired(now = Date.now()) {
     p.left = '0';
   }
   save();
+}
+
+let making: Promise<PacketRow | null> | null = null;
+/** The website's demo packet: one is always open, funded by the demo wallet a little at a time, so the wallet's own
+ *  daily limit caps the giveaway. Its words are public (the hint). Null when today's budget is used up. */
+export function demoPacket(): Promise<PacketRow | null> {
+  const open = [...db.packets].reverse().find((p) => p.demo && !p.refunded && Date.now() < p.expiresAt && p.claims.length < p.count);
+  if (open) return Promise.resolve(open);
+  return (making ??= (async () => {
+    try {
+      const yocto = parseUnits(env.demoPacketNear, 24);
+      const b = env.demoPhone ? bindingOf(env.demoPhone) : undefined;
+      const real = packetsLive() && !!b && !b.dryRun;
+      if (real) await sendNear(b!, env.packetsAccountId, yocto);
+      return await createPacket({ from: real ? b!.contract : 'the Ringfence demo', fromName: 'the Ringfence demo', yocto, count: 5, lucky: true, words: env.demoPacketWords, hint: env.demoPacketWords, demo: true, dry: !real });
+    } catch (e) {
+      console.error('demo packet', (e as Error).message.slice(0, 160));
+      return null;
+    } finally { making = null; }
+  })());
 }
 
 /** What a page may show: never the words (the hint is public, and on demo packets it is the words). */

@@ -156,6 +156,49 @@ try {
     must(r.said.some((s) => /bye/i.test(s)), 'no goodbye: ' + r.said.join(' | '));
     return r.said.at(-1);
   });
+  // Red packets, end to end over the call socket: fund one by voice, read its page, open two shares by saying the words.
+  let packetId = '';
+  await step('red packet: funded by voice (read back with the words, PIN), a link to share comes back', async () => {
+    const r = await call('wallet&from=15550001234', ['send a red packet of 0.02 NEAR for 2 people, the words are huat ah lucky', 'one two three four']);
+    must(/red packet of 0\.02 NEAR for 2 people, lucky split\. The words to open it are "huat ah lucky"/.test(r.said.join(' ')), 'no read-back: ' + r.said.join(' | ')); // sentences arrive one by one
+    must(r.link?.url.includes('/packet/'), 'no packet link: ' + r.said.join(' | '));
+    packetId = r.link!.url.split('/packet/')[1];
+    return `${r.link!.url} (dry run: no keys)`;
+  });
+  const openCall = async (lines: string[]) => {
+    const ws = new WebSocket(`ws://localhost:${PORT}/ws/call?packet=${packetId}`);
+    const said: string[] = []; let done: (() => void) | null = null;
+    ws.on('message', (d, bin) => { if (bin) return; const m = JSON.parse(String(d)); if (m.type === 'agent') said.push(m.text); if (m.type === 'desk') done?.(); });
+    await new Promise((ok, bad) => { ws.once('open', ok); ws.once('error', bad); });
+    for (const text of lines) await new Promise<void>((ok, bad) => { done = ok; setTimeout(() => bad(new Error(`no reply to "${text}"`)), 20_000); ws.send(JSON.stringify({ type: 'text', text })); });
+    ws.close();
+    return said;
+  };
+  await step('red packet page renders without the words; a wrong phrase opens nothing', async () => {
+    must(packetId, 'no packet from the previous step');
+    const page = await get(`/packet/${packetId}`);
+    must(page.status === 200 && /red packet from/i.test(page.text), `status ${page.status}`);
+    must(!/huat ah lucky/i.test(page.text), 'the words are on the page');
+    const said = await openCall(['happy new year']);
+    must(/Say the words/i.test(said.join(' ')), 'no ask for the words: ' + said.join(' | '));
+    must(/waiting for you/i.test(said[0]), 'no packet greeting: ' + said[0]);
+  });
+  await step('red packet: two callers say the words and name an account; the shares add up; a third finds it empty', async () => {
+    const a = await openCall(['huat ah lucky', 'send it to alice.testnet']);
+    const b = await openCall(['the words are huat ah lucky, send it to bob.testnet']);
+    const got = [a, b].map((x) => x.join(' ').match(/You opened ([\d.]+) NEAR/)?.[1]).filter(Boolean).map(Number);
+    must(got.length === 2, 'two shares were not opened: ' + [...a, ...b].join(' | '));
+    must(Math.abs(got[0] + got[1] - 0.02) < 3e-6, `shares ${got.join(' + ')} are not the packet`);
+    const c = await openCall(['huat ah lucky', 'send it to carol.testnet']);
+    must(/Every share/i.test(c.join(' ')), 'a third share was opened: ' + c.join(' | '));
+    const page = await get(`/packet/${packetId}`);
+    must(/alice\.testnet/.test(page.text) && /bob\.testnet/.test(page.text), 'the openers are not on the page');
+    return `${got[0]} + ${got[1]} NEAR (dry run)`;
+  });
+  await step('demo packet page (/packet/demo) opens a tiny packet with its words shown', async () => {
+    const page = await get('/packet/demo');
+    must(page.status === 200 && /gong xi fa cai/i.test(page.text), `status ${page.status}`);
+  });
   await step('/wallet/claim page renders', async () => { const r = await get('/wallet/claim'); must(r.status === 200 && /Claim your phone wallet/i.test(r.text), `status ${r.status}`); });
   await step('/wallet/bind page renders', async () => { const r = await get('/wallet/bind'); must(r.status === 200 && /phone number is a wallet/i.test(r.text), `status ${r.status}`); });
   await step('dashboard and /proof pages render', async () => {

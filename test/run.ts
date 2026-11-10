@@ -151,7 +151,11 @@ t('red packets: funded through the wallet (PIN, limits), opened by saying the wo
   assert.match(((await walletDesk.run(mum, 'prepare_packet', { amount: '0.5', count: 0, words: 'wan shi ru yi' })) as any).reason, /How many people/);
   assert.match(((await walletDesk.run(mum, 'prepare_packet', { amount: '0.5', count: 3, words: '' })) as any).reason, /What should people say/);
   assert.match(((await walletDesk.run(mum, 'prepare_packet', { amount: '0.002', count: 3, words: 'wan shi ru yi' })) as any).reason, /0\.001 NEAR per person/);
+  mum.turns.push({ at: Date.now(), who: 'caller', text: 'a red packet of 2 NEAR for 3 people, the words are wan shi ru yi' });
   assert.match(((await walletDesk.run(mum, 'prepare_packet', { amount: '2', count: 3, words: 'wan shi ru yi' })) as any).reason, /1 NEAR per-transfer limit/, 'a packet cannot be bigger than the wallet\'s limit');
+  // the words must be the caller's own: the model can't make them up
+  assert.match(((await walletDesk.run(mum, 'prepare_packet', { amount: '0.1', count: 2, words: 'something the model made up' })) as any).reason, /have not said which words/);
+  mum.turns.push({ at: Date.now(), who: 'caller', text: 'send a red packet of 0.1 NEAR for 2 people, the words are Wan Shi Ru Yi' });
   // 0.1 NEAR for 2 people: read back with the words, then the PIN
   const p0: any = await walletDesk.run(mum, 'prepare_packet', { amount: '0.1', count: 2, split: 'lucky', words: 'Wan Shi Ru Yi' });
   assert.match(p0.read_back, /a red packet of 0\.1 NEAR for 2 people, lucky split\. The words to open it are "Wan Shi Ru Yi"/);
@@ -254,7 +258,7 @@ await t('one agent: every tool on one list, dispatched to the desk code that own
   const { startCall, toolsFor, deskOfTool, system, GREETING } = await import('../src/agent.ts');
   const names = (c: any) => (toolsFor(c) as any[]).map((t) => t.function.name);
   const c = startCall('web').call;
-  assert.equal(GREETING, 'Hi, this is Ringfence on NEAR. I can send NEAR for you, or launch a coin on JustHoot. What do you need?');
+  assert.equal(GREETING, 'Hi, this is Ringfence on NEAR. I can send NEAR or a red packet for you, or launch a coin on JustHoot. What do you need?');
   for (const n of ['prepare_transfer', 'confirm_transfer', 'get_spending', 'set_coin', 'prepare_launch', 'end_call']) assert.ok(names(c).includes(n), n);
   for (const n of ['propose_rules', 'confirm_rules', 'quote_job', 'book_visit', 'save_caller', 'take_message']) assert.ok(!names(c).includes(n), n);
   assert.equal(deskOfTool(c, 'prepare_transfer')?.id, 'wallet');

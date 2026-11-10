@@ -16,6 +16,8 @@ const tools = [
 const MAX_TRIES = 5;
 const tries = new Map<string, number>(); // call:packet -> wrong tries
 const linkOf = new Map<string, { url: string; label: string }>();
+/** call:packet -> how the words were accepted on this call, so they are not asked again once the account is given. */
+const said = new Map<string, 'exact' | 'ai'>();
 
 async function run(call: Call, name: string, a: any): Promise<unknown> {
   const id = String(a.packet_id || call.packetId || '').trim().toLowerCase();
@@ -35,8 +37,9 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
   if (a.account && !to && call.channel !== 'whatsapp') return { ok: false, need: 'account', reason: `That is not a NEAR ${env.network} account. Ask again: it looks like alice dot ${env.network === 'mainnet' ? 'near' : 'testnet'}.` };
   // Only what the caller said themselves counts, never what the model passes.
   const heard = call.turns.filter((t) => t.who === 'caller' && t.text !== '[PIN]').slice(-3).map((t) => t.text);
-  const r = await openPacket(id, to, heard, call.id);
+  const r = await openPacket(id, to, heard, call.id, said.get(key));
   if (!r.ok) {
+    if (r.need === 'account' && r.how) said.set(key, r.how);
     if (r.need === 'words') { tries.set(key, (tries.get(key) ?? 0) + 1); log({ kind: 'refused', desk: 'packet', callId: call.id, detail: `red packet ${id}: the words were not said (try ${tries.get(key)})` }); }
     return r;
   }

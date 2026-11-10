@@ -24,7 +24,7 @@ export const Route = createFileRoute('/')({
 const i = (n: number) => ({ '--i': n }) as CSSProperties;
 
 const TRY: Record<Desk | 'auto', string[]> = {
-  auto: ['Send 0.1 NEAR to liho00.near.', 'Send 0.3 NEAR to liho00.near.', 'How much is that in dollars?', 'Send 5 NEAR to stranger.near.', 'What is my balance?', 'I want to launch a memecoin.'],
+  auto: ['Send a red packet of 0.02 NEAR for 5 people, the words are huat ah.', 'Send 0.1 NEAR to liho00.near.', 'Send 0.3 NEAR to liho00.near.', 'How much is that in dollars?', 'Send 5 NEAR to stranger.near.', 'What is my balance?', 'I want to launch a memecoin.'],
   launch: ['It’s a coin about a sleepy otter.', 'Call it Sleepy Otter, ticker ZZZ.', 'Make the ticker NEAR.', 'Yes, set it up.'],
 };
 const DESK_LABEL: Record<Desk | 'auto', string> = { auto: 'Let it ask', launch: 'Launch a coin' };
@@ -117,7 +117,10 @@ const Meter = ({ label, value, w, lim }: { label: string; value: string; w: numb
 // ---------- the real browser call (app/call.ts), in the dark-room card ----------
 function LiveCall({ network, demo }: { network: string; demo: { pin: string; to: string; max: string; wallet: string } | null }) {
   const [pick, setPick] = useState<Desk | 'auto'>('auto');
-  const call = useCall(pick);
+  // Arriving from a red packet's page (/?packet=<id>&say=<hint>#call): this call opens that packet.
+  const [packet, setPacket] = useState<{ id: string; say: string } | null>(null);
+  useEffect(() => { const q = new URLSearchParams(location.search), id = q.get('packet'); if (id) setPacket({ id, say: q.get('say') ?? '' }); }, []);
+  const call = useCall(pick, packet?.id);
   const [typed, setTyped] = useState('');
   const [secs, setSecs] = useState(0);
   const logRef = useRef<HTMLDivElement>(null);
@@ -179,12 +182,13 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
           ))}
         </div>
       </div>
-      {demo
+      {packet && <p className="help">You’re opening <a href={`/packet/${packet.id}`}>red packet {packet.id}</a>. Press Call, then say the words{packet.say ? <>: <b>“{packet.say}”</b></> : ' the sender gave you'}. Then say which NEAR account gets your share.</p>}
+      {packet ? null : demo
         ? <p className="help">Real NEAR {network}. No phone needed. Say <b>“send 0.1 NEAR to {demo.to}”</b>, then the demo PIN <b>{demo.pin}</b>. Try <b>0.3</b> and an Approve card appears here (it would go to WhatsApp). Try <b>5 NEAR</b>, or a stranger, and the <a href={`https://nearblocks.io/address/${demo.wallet}`} target="_blank" rel="noreferrer">demo wallet</a> contract refuses.</p>
         : !call.live && !call.lines.length && <p className="help">Press Call, then speak or type. NEAR {network}. Sends stop at a labelled dry run.</p>}
       {(call.live || call.lines.length > 0) && <>
       <div className="tries" role="group" aria-label="Things to say">
-        {TRY[active].map((t) => <button key={t} type="button" onClick={() => (call.live ? call.say(t) : setTyped(t))}>{t}</button>)}
+        {(packet ? [packet.say, 'Send it to liho00.near.'].filter(Boolean) : TRY[active]).map((t) => <button key={t} type="button" onClick={() => (call.live ? call.say(t) : setTyped(t))}>{t}</button>)}
       </div>
       <form onSubmit={(e) => { e.preventDefault(); if (call.say(typed)) setTyped(''); }}>
         <label className="vh" htmlFor="typed">Type instead of speaking</label>

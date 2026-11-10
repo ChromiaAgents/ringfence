@@ -13,7 +13,7 @@ import { packetDesk } from './desks/packet.ts';
 export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, wallet: walletDesk, market: marketDesk, packet: packetDesk };
 
 /** The only fixed line: said the moment the call picks up. Everything after it is the AI's. */
-export const GREETING = 'Hi, this is Ringfence on NEAR. I can send NEAR for you, or launch a coin on JustHoot. What do you need?';
+export const GREETING = 'Hi, this is Ringfence on NEAR. I can send NEAR or a red packet for you, or launch a coin on JustHoot. What do you need?';
 
 /** The AI ends the call itself, after saying goodbye. The channel hangs up once the goodbye has played. */
 const END_CALL = { type: 'function', function: { name: 'end_call', description: 'Hang up. Call it only after you have said a short goodbye and the caller is done.', parameters: { type: 'object', properties: {} } } };
