@@ -4,7 +4,9 @@
 
 ![Three steps: she calls and asks for a money packet, her contract checks the limits and locks the money, each person says the words on a call and gets a share](public/infographic.png)
 
-[Live demo](https://ringfence.evalengine.ai) · [Open the demo packet](https://ringfence.evalengine.ai/packet/demo) · [Deck](https://ringfence.evalengine.ai/deck.html) · [Live numbers](https://ringfence.evalengine.ai/stats)
+[![Watch the 75-second film: Mum sends a money packet by phone call, a grandkid opens a share by saying happy new year, and the contract refuses a 5 NEAR scam, all on NEAR mainnet](public/ringfence-film.jpg)](https://ringfence.evalengine.ai/ringfence-film.mp4)
+
+**[▶ Watch the film (75 s)](https://ringfence.evalengine.ai/ringfence-film.mp4)** · [Live demo](https://ringfence.evalengine.ai) · [Open the demo packet](https://ringfence.evalengine.ai/packet/demo) · [Deck](https://ringfence.evalengine.ai/deck.html) · [Live numbers](https://ringfence.evalengine.ai/stats)
 
 Ringfence is a phone line for NEAR. You call it (in the browser or on WhatsApp), say what you want, and one AI agent does it from a wallet that is tied to your phone number. Two things happen on that line:
 
@@ -123,7 +125,7 @@ Every row is a real transaction on NEAR mainnet. Nothing here is a mock-up.
 | **The contract refuses the AI:** the agent key asks the wallet for 5 NEAR. On chain: `Smart contract panicked: over the per-transfer limit` | [`GmPzx6Ug…`](https://nearblocks.io/txns/GmPzx6UgxX9jJsDpHEZRodEhSmABZ3uRqFr2WzANCUd8) |
 | **A money packet funded** from the phone wallet (0.02 NEAR, 5 lucky shares) | [`7HkYdRt4…`](https://nearblocks.io/txns/7HkYdRt4W8gqbZWHShHN22qfmUsJHw4CZXmqBWZ46xFT) then [`4noicreq…`](https://nearblocks.io/txns/4noicreqHQgZmYz8iQpCmH8CV3fy3wYuC7ndHTYnsVa1) |
 | **A share opened by voice:** "happy new year" said on the call, 0.0034 NEAR to liho00.near | [`8EyQjwqW…`](https://nearblocks.io/txns/8EyQjwqWo5vJYqaSKVuo3586zqQQrs86JMvRzGBvZxH) |
-| Demo video | pending |
+| Demo video (75 s): the real packet, share and refusal above, on screen | [ringfence-film.mp4](https://ringfence.evalengine.ai/ringfence-film.mp4) |
 
 ### Verify the deployed code
 

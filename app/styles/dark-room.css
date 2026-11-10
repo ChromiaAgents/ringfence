@@ -559,3 +559,8 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 /* The three-step picture under the hero: opens the deck. */
 .dr .info { display: block; margin: 0 var(--m) 96px; }
 .dr .info img { display: block; width: 100%; height: auto; }
+
+/* The film, above the three-step picture. */
+.dr .film { margin: 0 var(--m) 56px; }
+.dr .film video { display: block; width: 100%; height: auto; background: #000; }
+.dr .film p { margin-top: 12px; color: var(--muted); font-size: 16px; }

@@ -65,6 +65,12 @@ function Landing() {
       </header>
 
       <main>
+        <section className="film rise" aria-label="The film">
+          <video controls preload="none" poster="/ringfence-film.jpg" width={1920} height={1080} playsInline>
+            <source src="/ringfence-film.mp4" type="video/mp4" />
+          </video>
+          <p>The 75-second film. Every number and transaction in it is real, on NEAR mainnet.</p>
+        </section>
         <a className="info rise" href="/deck.html" aria-label="Open the deck">
           <img src="/infographic.png" width={1600} height={900} loading="lazy" alt="Three steps: Mum calls and asks for a money packet with the words merry christmas; her contract checks the limits and locks the money; each grandchild says the words on a call and gets a share." />
         </a>

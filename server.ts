@@ -23,13 +23,23 @@ if (dev) {
   const entry = new URL('./dist/server/server.js', import.meta.url);
   if (!existsSync(entry)) throw new Error('No build found: run `npm run build` first.');
   const { default: start } = await import(entry.href);
-  const types: Record<string, string> = { '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.html': 'text/html; charset=utf-8' };
+  const types: Record<string, string> = { '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.html': 'text/html; charset=utf-8', '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
   const client = new URL('./dist/client/', import.meta.url).pathname;
   app = async (req, res) => {
     const path = normalize(decodeURIComponent((req.url ?? '/').split('?')[0]));
     const file = join(client, path);
     if (file.startsWith(client) && path !== '/' && existsSync(file) && statSync(file).isFile()) {
-      res.writeHead(200, { 'content-type': types[extname(file)] ?? 'application/octet-stream', 'cache-control': path.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache' });
+      const size = statSync(file).size, type = types[extname(file)] ?? 'application/octet-stream';
+      const cache = path.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache';
+      // Byte ranges, so the film plays and seeks in Safari and on phones.
+      const m = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? ''));
+      if (m && (m[1] || m[2])) {
+        const start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2])), end = m[1] && m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
+        if (start > end || start >= size) return res.writeHead(416, { 'content-range': `bytes */${size}` }).end();
+        res.writeHead(206, { 'content-type': type, 'content-range': `bytes ${start}-${end}/${size}`, 'content-length': end - start + 1, 'accept-ranges': 'bytes', 'cache-control': cache });
+        return createReadStream(file, { start, end }).pipe(res);
+      }
+      res.writeHead(200, { 'content-type': type, 'content-length': size, 'accept-ranges': 'bytes', 'cache-control': cache });
       return createReadStream(file).pipe(res);
     }
     const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : (req as any);
