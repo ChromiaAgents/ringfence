@@ -103,7 +103,7 @@ await t('one agent: every tool on one list, dispatched to the desk code that own
   const { startCall, toolsFor, deskOfTool, system, GREETING } = await import('../src/agent.ts');
   const names = (c: any) => (toolsFor(c) as any[]).map((t) => t.function.name);
   const c = startCall('web').call;
-  assert.equal(GREETING, 'Hi, this is Ringfence. How can I help?');
+  assert.equal(GREETING, 'Hi, this is Ringfence on NEAR. I can send NEAR for you, or launch a coin on JustHoot. What do you need?');
   for (const n of ['prepare_transfer', 'confirm_transfer', 'get_spending', 'set_coin', 'prepare_launch', 'end_call']) assert.ok(names(c).includes(n), n);
   for (const n of ['propose_rules', 'confirm_rules', 'quote_job', 'book_visit', 'save_caller', 'take_message']) assert.ok(!names(c).includes(n), n);
   assert.equal(deskOfTool(c, 'prepare_transfer')?.id, 'wallet');

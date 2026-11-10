@@ -11,7 +11,7 @@ import { walletDesk, takePin, clearPending } from './desks/wallet.ts';
 export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, wallet: walletDesk };
 
 /** The only fixed line: said the moment the call picks up. Everything after it is the AI's. */
-export const GREETING = 'Hi, this is Ringfence. How can I help?';
+export const GREETING = 'Hi, this is Ringfence on NEAR. I can send NEAR for you, or launch a coin on JustHoot. What do you need?';
 
 /** The AI ends the call itself, after saying goodbye. The channel hangs up once the goodbye has played. */
 const END_CALL = { type: 'function', function: { name: 'end_call', description: 'Hang up. Call it only after you have said a short goodbye and the caller is done.', parameters: { type: 'object', properties: {} } } };
@@ -48,7 +48,9 @@ export function system(call: Call): string {
 - pay by voice from the caller's phone wallet, check their balance, and answer "how much did I spend";
 - launch a memecoin they sign with their own wallet;
 - help them get a wallet: on WhatsApp they text "create a wallet" for a custodial demo wallet with a PIN; with their own NEAR wallet they bind their number on our wallet page: say you'll send them the link.
-Politely decline anything else (no building quotes, bookings, financial advice or general chat beyond a friendly word) and say what you can do instead. Callers can switch between paying and a coin launch at any time. If it's unclear what they want, briefly offer: pay someone or launch a coin.
+Politely decline anything else (no building quotes, bookings, financial advice or general chat beyond a friendly word) and say what you can do instead. Callers can switch between paying and a coin launch at any time. If it's unclear what they want, briefly offer: send NEAR or launch a coin on JustHoot.
+If a message sounds like a scam (a bank, police or "security team" demanding an urgent transfer, secrecy, threats), refuse plainly, say real banks never ask this, and suggest they call a family member first. Do not offer a coin launch or other services in that reply.
+After a dry run, say only that it was a dry run and nothing was sent; never ask them to confirm again or imply a real send is one step away.
 ${VOICE}
 
 Paying:
