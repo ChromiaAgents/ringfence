@@ -1,0 +1,84 @@
+<!doctype html>
+<!-- Source for public/infographic.png (1600x900): how a money packet works, in three steps.
+     Rendered with headless Chrome at 1600x900 from this file (fonts and logos are read from ../public). -->
+<meta charset="utf-8">
+<style>
+@font-face { font-family: Battlefin; src: url(../public/fonts/battlefin-black.woff2); font-weight: 400; }
+@font-face { font-family: Geist; src: url(../public/fonts/geist-latin.woff2); font-weight: 100 900; }
+* { margin: 0; box-sizing: border-box; }
+body { width: 1600px; height: 900px; background: #0c0a08; color: #f4f3f1; font-family: Geist, sans-serif; padding: 52px 64px 48px; display: flex; flex-direction: column; overflow: hidden; }
+.top { display: flex; align-items: center; gap: 18px; color: #6f6a62; font-size: 22px; }
+.top img { height: 28px; } .top .near { height: 24px; }
+.brand { font-family: Battlefin; font-size: 34px; color: #f4f3f1; margin-right: auto; }
+h1 { margin-top: 30px; font: 400 60px/1.04 Battlefin; letter-spacing: -0.01em; }
+h1 span { color: #b8b2a8; }
+.steps { flex: 1; display: grid; grid-template-columns: 1fr 56px 1fr 56px 1fr; align-items: stretch; margin-top: 34px; }
+.step { display: flex; flex-direction: column; }
+.step h2 { font: 400 30px/1.1 Battlefin; }
+.step p.sub { margin-top: 8px; font-size: 21px; line-height: 1.35; color: #b8b2a8; min-height: 58px; }
+.pic { flex: 1; margin-top: 20px; background: #181512; padding: 22px; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+.arrow { display: grid; place-items: center; font: 400 44px/1 Battlefin; color: #00ec97; padding-top: 150px; }
+.msg { max-width: 88%; padding: 12px 16px; font-size: 20px; line-height: 1.35; background: #241f1a; }
+.msg small { display: block; font-size: 15px; color: #b8b2a8; margin-bottom: 4px; }
+.msg.you { align-self: flex-end; background: #2c2722; }
+.pin i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #f4f3f1; margin-right: 8px; }
+.kv { display: flex; justify-content: space-between; gap: 16px; font-size: 20px; padding: 9px 0; }
+.kv span:first-child { color: #b8b2a8; }
+.kv b { font-weight: 600; }
+.ok { color: #00ec97; font-weight: 600; font-size: 20px; }
+.meter { height: 14px; background: #2c2722; } .meter i { display: block; height: 100%; width: 33%; background: #00ec97; }
+.card { background: #00ec97; color: #0c0a08; border-radius: 18px; overflow: hidden; transform: rotate(-3deg); margin: 4px 8px 10px; }
+.card .r { display: flex; justify-content: space-between; align-items: baseline; padding: 16px 20px 0; font-size: 16px; font-weight: 600; }
+.card .r b { font: 400 22px/1 Battlefin; }
+.card .amt { padding: 0 20px 4px; font: 400 128px/0.9 Battlefin; letter-spacing: -0.02em; }
+.card .amt span { font-size: 22px; letter-spacing: 0; margin-left: 10px; }
+.card .say { background: #0c0a08; color: #f4f3f1; padding: 10px 20px; font-size: 16px; }
+.card .say b { font: 400 26px/1.1 Battlefin; margin-left: 8px; }
+.card .f { display: flex; justify-content: space-between; padding: 10px 20px 14px; font-size: 16px; font-weight: 600; }
+.slip { background: #f4f3f1; color: #0c0a08; padding: 12px 18px; font-size: 18px; }
+.slip div { display: flex; justify-content: space-between; padding: 4px 0; }
+.slip em { font-style: normal; background: #00ec97; padding: 0 8px; margin-left: 8px; font-size: 14px; font-weight: 600; }
+.foot { margin-top: 26px; display: flex; align-items: baseline; gap: 28px; font-size: 22px; color: #b8b2a8; }
+.foot b { color: #f4f3f1; font-weight: 600; }
+.foot .url { margin-left: auto; color: #f4f3f1; }
+</style>
+<div class="top"><span class="brand">Ringfence</span><img src="../public/brand/chromia-logo-dark.svg" alt=""><span>×</span><img src="../public/brand/evalengine-wordmark-light.svg" alt=""><span>×</span><img class="near" src="../public/brand/near-mark-light.svg" alt=""></div>
+<h1>Mum sends a money gift by phone call.<br><span>You open it by saying the magic words.</span></h1>
+<div class="steps">
+  <div class="step">
+    <h2>She calls and says it</h2>
+    <p class="sub">On WhatsApp or in the browser. One AI agent on NEAR AI, inside a TEE.</p>
+    <div class="pic">
+      <div class="msg you"><small>Mum</small>A money packet, 1 NEAR, five grandkids. The words are merry christmas.</div>
+      <div class="msg"><small>Ringfence</small>A money packet of 1 NEAR for 5 people, lucky split. Your PIN, please.</div>
+      <div class="msg you pin"><small>Mum</small><i></i><i></i><i></i><i></i></div>
+    </div>
+  </div>
+  <div class="arrow">→</div>
+  <div class="step">
+    <h2>Her contract decides</h2>
+    <p class="sub">Every phone number has its own NEAR contract. The AI can only ask it.</p>
+    <div class="pic">
+      <div class="kv"><span>Owner</span><b>the family</b></div>
+      <div class="kv"><span>Per send / per day</span><b>1 / 3 NEAR</b></div>
+      <div class="kv"><span>This packet</span><b>1 NEAR, 5 shares</b></div>
+      <div class="meter"><i></i></div>
+      <div class="ok">Approved · 1 of 3 NEAR today · locked in the packet</div>
+    </div>
+  </div>
+  <div class="arrow">→</div>
+  <div class="step">
+    <h2>They say the words</h2>
+    <p class="sub">Each person opens one share on a call. The split is rolled on chain.</p>
+    <div class="pic">
+      <div class="card">
+        <div class="r"><b>Ringfence</b><span>5 shares, lucky split</span></div>
+        <div class="amt">1<span>NEAR</span></div>
+        <div class="say">say<b>“merry christmas”</b></div>
+        <div class="f"><span>from Mum</span><span>2 of 5 left</span></div>
+      </div>
+      <div class="slip"><div><span>ming.near<em>top</em></span><b>0.41 NEAR</b></div><div><span>wei.near</span><b>0.07 NEAR</b></div><div><span>anna.near</span><b>0.22 NEAR</b></div></div>
+    </div>
+  </div>
+</div>
+<div class="foot"><span><b>The AI only asks.</b> The contract the family owns decides.</span><span>A wallet per phone number for 0.013 NEAR</span><span class="url">ringfence.evalengine.ai</span></div>

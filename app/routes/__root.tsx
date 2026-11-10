@@ -13,7 +13,7 @@ export const Route = createRootRoute({
       { property: 'og:description', content: 'Mum can make a phone call. She doesn’t know how to use Meteor Wallet. A NEAR contract the family owns caps what the AI can spend.' },
       { property: 'og:url', content: 'https://ringfence.evalengine.ai/' },
       { property: 'og:image', content: 'https://ringfence.evalengine.ai/og.png' }, { property: 'og:image:width', content: '1200' }, { property: 'og:image:height', content: '630' },
-      { property: 'og:image:alt', content: 'Ringfence: Mum can make a phone call. She doesn’t know how to use Meteor Wallet.' },
+      { property: 'og:image:alt', content: 'Ringfence: Mum sends a money gift by phone call. You open it by saying the magic words.' },
       { name: 'twitter:card', content: 'summary_large_image' }, { name: 'twitter:image', content: 'https://ringfence.evalengine.ai/og.png' },
       { name: 'twitter:title', content: 'Ringfence: pay by phone call, inside limits your family sets' },
       { name: 'twitter:description', content: 'A NEAR contract the family owns caps what the AI can spend.' }],

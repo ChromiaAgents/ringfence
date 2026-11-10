@@ -2,6 +2,10 @@
 
 **Mum sends a money gift by phone call. You open it by saying the magic words.**
 
+![Three steps: she calls and asks for a money packet, her contract checks the limits and locks the money, each person says the words on a call and gets a share](public/infographic.png)
+
+[Live demo](https://ringfence.evalengine.ai) · [Open the demo packet](https://ringfence.evalengine.ai/packet/demo) · [Deck](https://ringfence.evalengine.ai/deck.html) · [Live numbers](https://ringfence.evalengine.ai/stats)
+
 Ringfence is a phone line for NEAR. You call it (in the browser or on WhatsApp), say what you want, and one AI agent does it from a wallet that is tied to your phone number. Two things happen on that line:
 
 - **Pay by voice.** "Send 0.1 NEAR to liho00.near" or "send 5 dollars to liho00.near" (USDC). The agent reads it back, takes a spoken PIN, and the wallet contract sends it.
@@ -44,7 +48,7 @@ Node 22 or newer.
 
 ```bash
 npm ci
-npm test            # 51 checks: PIN, limits, tiers, money packets, the words check, security
+npm test            # 52 checks: PIN, limits, tiers, money packets, the words check, security
 npm run demo:check  # builds, starts the server with a scripted model, walks 19 steps over the call socket
 ```
 

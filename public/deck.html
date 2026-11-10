@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ringfence: the deck</title>
+<meta name="description" content="Ringfence in nine slides: money packets and payments by phone call on NEAR.">
+<style>
+@font-face { font-family: Battlefin; src: url(/fonts/battlefin-black.woff2); font-weight: 400; font-display: swap; }
+@font-face { font-family: Geist; src: url(/fonts/geist-latin.woff2); font-weight: 100 900; font-display: swap; }
+:root { --bg: #0c0a08; --surface: #181512; --fg: #f4f3f1; --muted: #b8b2a8; --accent: #00ec97; --on: #0c0a08; }
+* { margin: 0; box-sizing: border-box; }
+html { scroll-snap-type: y mandatory; background: var(--bg); }
+body { overflow-x: clip; color: var(--fg); font: 400 clamp(17px, 1.5vw, 24px)/1.45 Geist, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: var(--fg); text-underline-offset: 3px; }
+.slide { min-height: 100svh; scroll-snap-align: start; padding: clamp(28px, 5vw, 80px) clamp(20px, 6vw, 96px); display: flex; flex-direction: column; justify-content: center; gap: clamp(18px, 2.4vw, 36px); }
+h1, h2 { font: 400 clamp(36px, 5.2vw, 84px)/1.02 Battlefin, Geist, sans-serif; letter-spacing: -0.01em; max-width: 20ch; }
+h2 { font-size: clamp(30px, 4vw, 64px); max-width: 24ch; }
+h1 span, h2 span { color: var(--muted); }
+p { max-width: 62ch; }
+.muted { color: var(--muted); }
+.brand { font: 400 clamp(22px, 2vw, 32px)/1 Battlefin; }
+.makers { display: flex; align-items: center; gap: 14px; color: #6f6a62; }
+.makers img { height: clamp(18px, 1.8vw, 28px); }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(20px, 4vw, 72px); align-items: center; }
+.rows { display: grid; gap: 8px; }
+.row { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 20px; padding: 16px 20px; background: var(--surface); }
+.row b { font-weight: 600; }
+.row span { color: var(--muted); }
+.row span.tag { color: var(--on); }
+.row span.tag.no { color: #d9d2c6; }
+.tag { display: inline-block; padding: 0 10px; background: var(--accent); color: var(--on); font-weight: 600; font-size: .8em; }
+.tag.no { background: #3b3733; color: #d9d2c6; }
+.card { container-type: inline-size; aspect-ratio: 1.586; display: flex; flex-direction: column; border-radius: 4cqi; background: var(--accent); color: var(--on); overflow: hidden; transform: rotate(-3deg); max-width: 560px; justify-self: center; width: 100%; }
+.card .r { display: flex; justify-content: space-between; align-items: baseline; padding: 5cqi 6cqi 0; font-size: 3.3cqi; font-weight: 600; }
+.card .r b { font: 400 5.2cqi/1 Battlefin; }
+.card .amt { flex: 1; display: flex; align-items: center; gap: 2.4cqi; padding: 0 6cqi; font: 400 34cqi/0.85 Battlefin; letter-spacing: -0.02em; }
+.card .amt span { align-self: flex-end; margin-bottom: 5.5cqi; font-size: 5.4cqi; letter-spacing: 0; }
+.card .say { padding: 3cqi 6cqi; background: var(--bg); color: var(--fg); font-size: 3.5cqi; }
+.card .say b { font: 400 6.2cqi/1.1 Battlefin; margin-left: 2cqi; }
+.card .f { display: flex; justify-content: space-between; padding: 3.2cqi 6cqi 4.4cqi; font-size: 3.3cqi; font-weight: 600; }
+img.wide { width: 100%; height: auto; display: block; }
+.big { font: 400 clamp(44px, 7vw, 120px)/0.95 Battlefin; }
+.nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.nums div { padding: 20px; background: var(--surface); }
+.nums p.big { font-size: clamp(36px, 4.6vw, 72px); }
+.cta { display: inline-block; padding: 14px 26px; background: var(--fg); color: var(--bg); font-weight: 600; text-decoration: none; }
+@media (max-width: 800px) { .two { grid-template-columns: minmax(0, 1fr); } .row { grid-template-columns: minmax(0, 1fr); gap: 4px; } .nums { grid-template-columns: minmax(0, 1fr); } }
+@media print { @page { size: 1600px 900px; margin: 0; } html { scroll-snap-type: none; } body { font-size: 22px; } .slide { height: 900px; min-height: 0; padding: 64px 88px; page-break-after: always; break-after: page; } h1 { font-size: 80px; } h2 { font-size: 58px; } .big { font-size: 110px; } .nums p.big { font-size: 64px; } }
+</style>
+
+<section class="slide">
+  <div class="makers"><span class="brand" style="color:#f4f3f1;margin-right:auto">Ringfence</span><img src="/brand/chromia-logo-dark.svg" alt="Chromia"><span>×</span><img src="/brand/evalengine-wordmark-light.svg" alt="evalengine"><span>×</span><img src="/brand/near-mark-light.svg" alt="NEAR"></div>
+  <h1>Mum sends a money gift by phone call. <span>You open it by saying the magic words.</span></h1>
+  <p>Money packets and payments on NEAR, for people who can make a phone call but will never install a wallet app. Built at NEAR HACKATHON, November 2026.</p>
+</section>
+
+<section class="slide">
+  <h2>She can make a phone call. <span>She will never set up a wallet.</span></h2>
+  <div class="rows">
+    <div class="row"><b>Wallets are apps</b><span>Seed phrases, browser extensions, gas. Most of the people we would like to send money to stop at step one.</span></div>
+    <div class="row"><b>Phones are where the scams are</b><span>Malaysia alone lost RM 2.97 billion to online scams in 2025, up from RM 1.57 billion the year before (Home Ministry figures). An AI that can move money on a call has to be impossible to talk into it.</span></div>
+    <div class="row"><b>So the AI gets no say over the money</b><span>Every phone number gets its own NEAR contract, owned by the person or their family. The contract holds the limits. The AI can only ask.</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>One call in, one packet out</h2>
+  <img class="wide" src="/infographic.png" width="1600" height="900" alt="Three steps: Mum calls and asks for a money packet of 1 NEAR for five grandchildren with the words merry christmas; her contract checks the limits and locks the money; each grandchild says the words on a call and gets a share.">
+</section>
+
+<section class="slide">
+  <div class="two">
+    <div>
+      <h2>Say the words. Get paid.</h2>
+      <p style="margin-top:24px">A money packet is the Chinese red packet made digital: one gift, split between a group, equal or lucky. The lucky split is rolled by the contract, so one person pulls most of it and another pulls dust.</p>
+      <p style="margin-top:16px" class="muted">The agent that talks to the opener never knows the words. Code compares them with what the caller said, and a second model call in the TEE judges by sound when speech-to-text spells them differently.</p>
+    </div>
+    <div class="card"><div class="r"><b>Ringfence</b><span>5 shares, lucky split</span></div><div class="amt">1<span>NEAR</span></div><div class="say">say<b>“merry christmas”</b></div><div class="f"><span>from Mum</span><span>2 of 5 left</span></div></div>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>The AI only asks. <span>The contract decides.</span></h2>
+  <div class="rows">
+    <div class="row"><b>Up to 0.2 NEAR or 10 USDC, saved recipient</b><span>A spoken 4-digit PIN. Three wrong tries lock the line for 15 minutes.</span></div>
+    <div class="row"><b>More than that, inside the limits</b><span>The PIN, then an Approve / Cancel / Not me tap on WhatsApp. “Not me” locks the AI out for 15 minutes.</span></div>
+    <div class="row"><b>Over a limit</b><span>Not sent. The contract refuses it whatever the AI says.</span></div>
+    <div class="row"><b>First payment to a new account</b><span>Held by the contract for a few minutes, then sent. Saying “cancel” stops it. A scammer cannot get money out in a hurry.</span></div>
+    <div class="row"><b>Worst case, with a bad operator</b><span>The daily limit, to saved recipients only. The owner ends it with one transaction.</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>What NEAR does here</h2>
+  <div class="rows">
+    <div class="row"><b>A wallet for every phone number</b><span>A factory creates one per number. The wallet code is published once as a global contract, so a new wallet costs 0.013 NEAR.</span></div>
+    <div class="row"><b>The rules, in a contract</b><span>Per-send and per-day limits for NEAR and USDC, saved recipients, a wait for new ones, freeze, owner-only withdraw.</span></div>
+    <div class="row"><b>The packets contract</b><span>Fund, split from the block’s random seed, one share per account, refund after expiry.</span></div>
+    <div class="row"><b>Private AI with proof</b><span>Chat and speech-to-text run on NEAR AI Cloud inside TEEs. Our server verifies the Intel and NVIDIA attestation and shows it on /proof.</span></div>
+    <div class="row"><b>Names you can say out loud</b><span>“liho dot near” is read back before anything moves.</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>Who pays</h2>
+  <div class="rows">
+    <div class="row"><b>Brands and communities <span class="tag">in the contract</span></b><span>They fund packets as promotions: “say our slogan, get paid”. The contract takes 5% plus the cost of each new wallet when the packet is funded. Family packets are free.</span></div>
+    <div class="row"><b>Every packet makes wallets</b><span>Opening a share gives you a wallet tied to your phone number with money in it. Red packets signed up an estimated 100 to 200 million bank cards for WeChat Pay in one 2015 holiday.</span></div>
+    <div class="row"><b>Packets that grow <span class="tag no">next, not built</span></b><span>A packet staked until it is opened. The opener gets the gift plus the staking yield; Ringfence keeps a share of the yield.</span></div>
+    <div class="row"><b>Cash-out and swap fees <span class="tag no">later</span></b><span>A small fee when money leaves through NEAR Intents.</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>Where it stands, <span>10 November 2026</span></h2>
+  <div class="nums">
+    <div><p class="big">52</p><p>server checks pass, including the PIN, the limits, the words check and the security tests</p></div>
+    <div><p class="big">60 + 6</p><p>contract unit tests, plus six runs on a local NEAR sandbox with the exact files to be deployed</p></div>
+    <div><p class="big">0</p><p>transactions on mainnet so far. The hosted site is a labelled dry run until the three contracts are deployed</p></div>
+  </div>
+  <p class="muted">Tested with the real model in English and Chinese, typed and spoken. WhatsApp runs on Meta’s test number until business verification clears; everything on WhatsApp also works in the browser call. The contracts are unaudited.</p>
+</section>
+
+<section class="slide">
+  <h1>Open one. <span>It takes a minute and no wallet.</span></h1>
+  <p><a class="cta" href="/packet/demo">Open the demo packet</a></p>
+  <p><a href="https://ringfence.evalengine.ai">ringfence.evalengine.ai</a> · <a href="https://github.com/ChromiaAgents/ringfence">github.com/ChromiaAgents/ringfence</a> · <a href="/stats">live numbers</a> · <a href="/proof">attestation</a></p>
+  <p class="muted">Tracks: Social Money, Real-World Money, AI Security &amp; Defense, Privacy &amp; Private AI, Open Innovation. Made by Chromia x evalengine x NEAR.</p>
+</section>
+<script>
+// Arrow keys and space move one slide.
+addEventListener('keydown', (e) => { const d = { ArrowDown: 1, ArrowRight: 1, PageDown: 1, ' ': 1, ArrowUp: -1, ArrowLeft: -1, PageUp: -1 }[e.key]; if (!d) return; e.preventDefault(); scrollBy({ top: d * innerHeight, behavior: 'smooth' }); });
+</script>
+</html>
