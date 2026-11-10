@@ -7,7 +7,10 @@ import { CODE_URL, Makers, Phone, SiteFooter, Wordmark } from '../ui';
 // What the page needs from the config, read on the server.
 const getInfo = createServerFn({ method: 'GET' }).handler(async () => {
   const { env } = await import('../../src/config.ts');
-  return { network: env.network };
+  const { bindingOf } = await import('../../src/wallet.ts');
+  // The website demo wallet's PIN is public on purpose: the contract's limits and saved recipient are the protection.
+  const demo = env.demoPhone && env.demoPin && bindingOf(env.demoPhone) ? { pin: env.demoPin, to: env.demoRecipient, max: env.smallLimitNear, wallet: bindingOf(env.demoPhone)!.contract } : null;
+  return { network: env.network, demo };
 });
 
 export const Route = createFileRoute('/')({
@@ -20,7 +23,7 @@ const WA_URL = 'https://wa.me/15551444220?text=hi';
 const i = (n: number) => ({ '--i': n }) as CSSProperties;
 
 const TRY: Record<Desk | 'auto', string[]> = {
-  auto: ['Send 0.1 NEAR to liho.near.', 'What is my balance?', 'I want to launch a memecoin.'],
+  auto: ['Send 0.1 NEAR to liho00.near.', 'How much is that in ringgit?', 'Send 5 NEAR to stranger.near.', 'What is my balance?', 'I want to launch a memecoin.'],
   launch: ['It’s a coin about a sleepy otter.', 'Call it Sleepy Otter, ticker ZZZ.', 'Make the ticker NEAR.', 'Yes, set it up.'],
 };
 const DESK_LABEL: Record<Desk | 'auto', string> = { auto: 'Let it ask', launch: 'Launch a coin' };
@@ -50,7 +53,7 @@ function Landing() {
             <p className="note rise" style={i(4)}>WhatsApp runs on a test number, so ask us to add yours. The contract is unaudited: keep amounts small.</p>
           </div>
           <div className="callcol rise" style={i(2)}>
-            <LiveCall network={d.network} />
+            <LiveCall network={d.network} demo={d.demo} />
           </div>
         </div>
       </header>
@@ -111,7 +114,7 @@ const Meter = ({ label, value, w, lim }: { label: string; value: string; w: numb
 );
 
 // ---------- the real browser call (app/call.ts), in the dark-room card ----------
-function LiveCall({ network }: { network: string }) {
+function LiveCall({ network, demo }: { network: string; demo: { pin: string; to: string; max: string; wallet: string } | null }) {
   const [pick, setPick] = useState<Desk | 'auto'>('auto');
   const call = useCall(pick);
   const [typed, setTyped] = useState('');
@@ -164,7 +167,9 @@ function LiveCall({ network }: { network: string }) {
           ))}
         </div>
       </div>
-      {!call.live && !call.lines.length && <p className="help">Press Call, then speak or type. NEAR {network}. Sends stop at a labelled dry run.</p>}
+      {demo
+        ? <p className="help">Real NEAR {network}. Say <b>“send 0.1 NEAR to {demo.to}”</b>, then the demo PIN <b>{demo.pin}</b>. The <a href={`https://nearblocks.io/address/${demo.wallet}`} target="_blank" rel="noreferrer">demo wallet</a> contract caps it at {demo.max} NEAR a send and only pays {demo.to}: try more, or someone else, and watch it refuse.</p>
+        : !call.live && !call.lines.length && <p className="help">Press Call, then speak or type. NEAR {network}. Sends stop at a labelled dry run.</p>}
       {(call.live || call.lines.length > 0) && <>
       <div className="tries" role="group" aria-label="Things to say">
         {TRY[active].map((t) => <button key={t} type="button" onClick={() => (call.live ? call.say(t) : setTyped(t))}>{t}</button>)}

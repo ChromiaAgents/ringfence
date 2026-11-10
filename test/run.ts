@@ -88,6 +88,23 @@ t('ticker format', () => {
 t('ticker impersonation', () => {
   for (const x of ['NEAR', 'usdc', '$BTC', 'PEPE', 'TRUMP', 'ELONCAT', 'TESLA']) assert.equal(checkTicker(x, lp).ok, false, x);
 });
+t('website demo wallet: browser calls use it, sends capped at the PIN tier, no shared lockout', async () => {
+  const { env } = await import('../src/config.ts');
+  const { db } = await import('../src/store.ts');
+  const { hashPin, checkPin, bindingOf } = await import('../src/wallet.ts');
+  const { startCall } = await import('../src/agent.ts');
+  const { walletDesk } = await import('../src/desks/wallet.ts');
+  db.wallets.push({ phone: '19990000001', owner: 'c.testnet', contract: 'demo.testnet', ...hashPin('4821'), fails: 0, createdAt: Date.now() } as any);
+  Object.assign(env, { demoPhone: '19990000001', demoPin: '4821' });
+  try {
+    const b = bindingOf('19990000001')!;
+    for (let i = 0; i < 5; i++) assert.match((checkPin(b, '0000') as any).reason, /demo PIN: it's 4821/);
+    assert.equal(b.lockedUntil, undefined, 'never locked');
+    const c = startCall('web').call;
+    assert.match(((await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.5', asset: 'near' })) as any).reason, /website demo sends up to/);
+    assert.equal(((await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' })) as any).ok, true);
+  } finally { Object.assign(env, { demoPhone: '', demoPin: '' }); db.wallets = db.wallets.filter((w: any) => w.phone !== '19990000001'); }
+});
 t('market: a ticker trending right now is refused like a blocked one; live tools never move money', async () => {
   const { trendingTickers, marketDesk } = await import('../src/desks/market.ts');
   assert.equal(checkTicker('ZZPNG', lp).ok, true);

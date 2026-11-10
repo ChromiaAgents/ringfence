@@ -51,6 +51,11 @@ export const env = {
   waNumber: (process.env.WHATSAPP_NUMBER ?? '').replace(/\D/g, ''),
   // Tiered confirmation: up to SMALL_LIMIT NEAR to a saved recipient is confirmed by spoken PIN; more needs the WhatsApp Approve tap.
   smallLimitNear: process.env.SMALL_LIMIT ?? '0.2',
+  // Website demo: browser calls (no phone number) use this shared wallet, PIN shown on the page. Its contract limits
+  // and saved recipient are what keep it safe; leave DEMO_WALLET_PHONE empty to keep browser sends a labelled dry run.
+  demoPhone: (process.env.DEMO_WALLET_PHONE ?? '').replace(/\D/g, ''),
+  demoPin: process.env.DEMO_PIN ?? '',
+  demoRecipient: process.env.DEMO_RECIPIENT ?? 'liho00.near',
   // Custodial demo wallets: spends stop above this balance; at most this many are created per day (protects the custody account).
   custodialMaxNear: process.env.CUSTODIAL_MAX_NEAR ?? '5',
   custodialDailyCap: Number(process.env.CUSTODIAL_DAILY_CAP ?? 20),

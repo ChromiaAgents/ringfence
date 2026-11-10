@@ -73,12 +73,16 @@ const tools = [
 ];
 
 export const ONLY_NEAR = 'Only NEAR transfers for now, sorry. I can send NEAR, or check your balance.';
-const system = (call?: Call) => `${call?.channel === 'web' ? 'This is a browser call: no wallet is bound to it, so a transfer is a labelled demo and nothing is sent. Their WhatsApp number can be bound to their own NEAR wallet contract;' : `The caller's WhatsApp number can be bound to their own NEAR ${env.network} wallet contract;`} ${env.evmEnabled ? `you can send NEAR, or the native coin of an EVM chain the owner allowed (${chainList()}),` : 'you can send NEAR (only NEAR for now: politely decline other chains or coins),'} within limits the contract enforces.
+const system = (call?: Call) => `${webDemo(call) ? `This is a browser call on the shared website demo wallet: real NEAR on ${env.network}, up to ${env.smallLimitNear} NEAR a send, and the contract only pays its saved recipient ${env.demoRecipient}. The demo PIN is on their screen. Their own WhatsApp number can be bound to their own NEAR wallet contract;` : call?.channel === 'web' ? 'This is a browser call: no wallet is bound to it, so a transfer is a labelled demo and nothing is sent. Their WhatsApp number can be bound to their own NEAR wallet contract;' : `The caller's WhatsApp number can be bound to their own NEAR ${env.network} wallet contract;`} ${env.evmEnabled ? `you can send NEAR, or the native coin of an EVM chain the owner allowed (${chainList()}),` : 'you can send NEAR (only NEAR for now: politely decline other chains or coins),'} within limits the contract enforces.
 For a transfer: call prepare_transfer and read back its read_back exactly ("0.1 NEAR to liho dot ${suffix()}"). Then ask for their 4-digit PIN; their answer reaches you as [PIN]: call confirm_transfer with pin "[PIN]". Above ${env.smallLimitNear} NEAR, confirm_transfer then sends an Approve button to their WhatsApp: tell them to tap it within two minutes. For "how much did I spend", call get_spending.${env.evmEnabled ? ' If they say just "ETH", ask which chain.\nTheir EVM address is the same on every EVM chain: they fund gas on whichever chain they want to use.' : ''}
 If a tool refuses, say why in plain words. ${call?.channel === 'web' ? 'If a link was sent, say it is on their screen.' : 'If a link was sent, say it is on WhatsApp.'} ${env.network === 'mainnet' ? 'Transfers are on mainnet, real money, and an unaudited prototype: suggest small amounts.' : 'Transfers are on testnet: no real money.'} Never give financial advice.`;
 
+/** A browser call has no phone number: it uses the shared website demo wallet when one is configured. */
+const webDemo = (call?: Call) => call?.channel === 'web' && !call.from && !!env.demoPhone && !!bindingOf(env.demoPhone);
+
 async function run(call: Call, name: string, a: any): Promise<unknown> {
-  const b = bindingOf(call.from);
+  const demo = webDemo(call);
+  const b = demo ? bindingOf(env.demoPhone) : bindingOf(call.from);
   const refuse = (reason: string, extra: object = {}) => { log({ kind: 'refused', desk: 'wallet', callId: call.id, detail: `${name}: ${reason}` }); return { ok: false, reason, ...extra }; };
   // EVM sends are off unless EVM_ENABLED: anything but NEAR (a chain name, "ETH", an unknown coin) gets the same polite no.
   if (name === 'prepare_transfer' && !env.evmEnabled && parseAsset(a.asset) !== 'near') return refuse(ONLY_NEAR);
@@ -135,6 +139,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
       links.set(call.id, { url: selfSign(t), label: `Sign ${readBack(t)} in your own wallet` });
       return refuse(`I can't send that myself: that is over your ${env.walletDefaults.nearPerTx} NEAR per-transfer limit. A link to sign it in your own wallet is on WhatsApp.`, { linkSent: true });
     }
+    if (demo && t.base > toYocto(env.smallLimitNear)) return refuse(`The website demo sends up to ${env.smallLimitNear} NEAR. Bigger sends need your own wallet on WhatsApp.`);
     // Every send needs the spoken PIN; larger NEAR sends also need the Approve tap on WhatsApp after it.
     t.tier = asset === 'near' && t.base > toYocto(env.smallLimitNear) ? 'approve' : 'pin';
     t.until = Date.now() + PENDING_MS;

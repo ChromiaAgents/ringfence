@@ -64,6 +64,8 @@ export function checkPin(b: Binding, said: string, now = Date.now()): { ok: true
   const pin = normalizePin(said);
   const good = !!pin && timingSafeEqual(Buffer.from(hashPin(pin, b.salt).pinHash, 'hex'), Buffer.from(b.pinHash, 'hex'));
   if (good) { b.fails = 0; b.lockedUntil = undefined; save(); return { ok: true }; }
+  // The website demo wallet's PIN is public: a lockout would only let one visitor block everyone else.
+  if (env.demoPhone && b.phone === env.demoPhone) return { ok: false, reason: `That's not the demo PIN: it's ${env.demoPin}, shown on the page.` };
   b.fails = (b.fails ?? 0) + 1;
   if (b.fails >= MAX_FAILS) { b.fails = 0; b.lockedUntil = now + LOCK_MS; save(); return { ok: false, reason: 'Wrong PIN three times. The wallet is locked for 15 minutes.' }; }
   save();
