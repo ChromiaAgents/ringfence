@@ -329,18 +329,21 @@ async function verifyLater(p: Proof, pre: Attested | null) {
 
 export async function transcribe(audio: Uint8Array, mime = 'audio/wav'): Promise<string> {
   if (env.mockLlm) { await new Promise((ok) => setTimeout(ok, Number(process.env.MOCK_STT_MS ?? 350))); return 'I want to launch a memecoin about sleepy otters.'; }
-  // English and Chinese only: auto-detect, and if Whisper hears any other script (short words like 'bye' came back as Korean), retry as English.
-  const text = await stt(audio, mime);
-  return /^[\p{Script=Latin}\p{Script=Han}\p{N}\p{P}\p{Zs}\p{S}]*$/u.test(text) ? text : stt(audio, mime, 'en');
+  // English and Chinese only: auto-detect, and if Whisper hears any other language (English heard as Malay, 'bye' as Korean), retry as English.
+  const { text, lang } = await stt(audio, mime);
+  const ok = (!lang || /^(en|english|zh|chinese)$/i.test(lang)) && /^[\p{Script=Latin}\p{Script=Han}\p{N}\p{P}\p{Zs}\p{S}]*$/u.test(text);
+  return ok ? text : (await stt(audio, mime, 'en')).text;
 }
 
-async function stt(audio: Uint8Array, mime: string, language?: string): Promise<string> {
+async function stt(audio: Uint8Array, mime: string, language?: string): Promise<{ text: string; lang?: string }> {
   const fd = new FormData();
   fd.set('model', env.sttModel);
   if (language) fd.set('language', language);
+  fd.set('response_format', 'verbose_json'); // adds the detected language
   fd.set('prompt', 'A phone call about sending NEAR or launching a coin on JustHoot. 发送 NEAR。'); // vocabulary hint, both languages
   fd.set('file', new Blob([audio as BlobPart], { type: mime }), mime.includes('webm') ? 'a.webm' : mime.includes('ogg') ? 'a.ogg' : 'a.wav');
   const r = await again(undefined, () => fetch(`${BASE}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${env.nearAiKey}` }, body: fd }));
   if (!r.ok) throw new Error(`stt ${r.status}: ${(await r.text()).slice(0, 200)}`);
-  return ((await r.json()) as any).text?.trim() ?? '';
+  const j = (await r.json()) as any;
+  return { text: j.text?.trim() ?? '', lang: j.language };
 }

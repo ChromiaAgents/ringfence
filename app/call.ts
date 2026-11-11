@@ -23,7 +23,7 @@ export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string, payTo
   const [desk, setDesk] = useState<Desk | 'wallet' | 'agent' | null>(null);
   // The website demo wallet's Approve card (WhatsApp buttons, shown on the page instead).
   const [approval, setApproval] = useState<{ body: string; token: string } | null>(null);
-  const r = useRef<{ ws?: WebSocket; ctx?: AudioContext; stream?: MediaStream; playing: boolean; srcs?: AudioBufferSourceNode[]; next?: number }>({ playing: false });
+  const r = useRef<{ ws?: WebSocket; ctx?: AudioContext; stream?: MediaStream; playing: boolean; srcs?: AudioBufferSourceNode[]; next?: number; decode?: Promise<AudioBuffer | null> }>({ playing: false });
   const add = (who: Line['who'], text: string) => setLines((l) => [...l, { who, text }]);
 
   // Stop everything queued to play (barge-in).
@@ -60,9 +60,9 @@ export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string, payTo
         const f = new Float32Array(e.inputBuffer.getChannelData(0));
         const rms = Math.sqrt(f.reduce((a, x) => a + x * x, 0) / f.length);
         if (s.playing) {
-          // Barge-in: ~200 ms of clearly loud speech while the agent talks (echo cancellation removes most of our own audio).
-          loudRun = rms > Math.max(0.05, floor * 6) ? loudRun + 1 : 0;
-          if (loudRun < 3) return;
+          // Barge-in: ~500 ms of clearly loud speech while the agent talks. Phone speakers leak our own voice past echo cancellation, so a short or soft burst must not cut the agent off.
+          loudRun = rms > Math.max(0.12, floor * 10) ? loudRun + 1 : 0;
+          if (loudRun < 8) return;
           loudRun = 0;
           hush();
           s.ws.send(JSON.stringify({ type: 'barge' }));
@@ -90,8 +90,11 @@ export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string, payTo
       if (typeof m.data !== 'string') {
         if (!s.ctx) return;
         // Clips (one per sentence) arrive while earlier ones play: schedule them back to back.
-        let buf: AudioBuffer;
-        try { buf = await s.ctx.decodeAudioData((m.data as ArrayBuffer).slice(0)); } catch { return; } // empty/undecodable clip (TTS off or failed)
+        // Decode in arrival order: a short clip must not jump ahead of a longer one still decoding.
+        const decoded = (s.decode ?? Promise.resolve()).then(() => s.ctx!.decodeAudioData((m.data as ArrayBuffer).slice(0))).catch(() => null);
+        s.decode = decoded;
+        const buf = await decoded;
+        if (!buf || !s.ctx) return; // empty/undecodable clip (TTS off or failed), or call ended
         const src = s.ctx.createBufferSource(); src.buffer = buf; src.connect(s.ctx.destination);
         const at = Math.max(s.ctx.currentTime + 0.02, s.next ?? 0);
         s.next = at + buf.duration;
