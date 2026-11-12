@@ -5,7 +5,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { useCall } from '../call';
-import { Wordmark, WaIcon } from '../ui';
+
 import { Host, type HostHandle } from '../host';
 
 export const Route = createFileRoute('/room/$account')({
@@ -15,8 +15,13 @@ export const Route = createFileRoute('/room/$account')({
 
 type Gift = { to: string; near: number; from: string; at: number; via: 'call' | 'chain'; landsAt?: number; url?: string };
 type Packet = { id: string; near: number; count: number; hint: string | null; expired: boolean; claims: { to: string; near: number; at: number }[] };
-const GIFTS = [{ name: 'Rose', icon: '🌹', near: 0.01 }, { name: 'Heart', icon: '💖', near: 0.02 }, { name: 'Packet', icon: '🧧', near: 0.05 }, { name: 'Rocket', icon: '🚀', near: 0.1 }];
-const iconOf = (n: number) => [...GIFTS].reverse().find((g) => n >= g.near)?.icon ?? '🌹';
+const GIFTS = [
+  { name: 'Heart', icon: '💖', near: 0.01, tab: 'Popular' }, { name: 'Duck', icon: '🐥', near: 0.02, tab: 'Popular' }, { name: 'Kiss', icon: '😘', near: 0.03, tab: 'Popular', tag: 'Hot' }, { name: 'Star', icon: '🌟', near: 0.05, tab: 'Popular', tag: 'Combo' },
+  { name: 'Rose', icon: '🌹', near: 0.01, tab: 'Popular' }, { name: 'Red packet', icon: '🧧', near: 0.05, tab: 'Lucky', tag: 'Lucky' }, { name: 'Gold ingot', icon: '🪙', near: 0.08, tab: 'Lucky' }, { name: 'Lotus', icon: '🪷', near: 0.1, tab: 'Lucky', tag: 'New' },
+  { name: 'Sports car', icon: '🏎️', near: 0.5, tab: 'Luxury' }, { name: 'Rocket', icon: '🚀', near: 0.2, tab: 'Luxury' }, { name: 'Crown', icon: '👑', near: 0.3, tab: 'Luxury', tag: 'Top' }, { name: 'Castle', icon: '🏰', near: 1, tab: 'Luxury' },
+];
+const TABS = ['Popular', 'Lucky', 'Luxury'];
+const iconOf = (n: number) => [...GIFTS].sort((a, b) => b.near - a.near).find((g) => n >= g.near)?.icon ?? '💖';
 
 function Room() {
   const { account } = Route.useParams();
@@ -32,6 +37,10 @@ function Room() {
   const call = useCall('auto');
   const queued = useRef<string | null>(null);
   const host = useRef<HostHandle>(null);
+  const [sheet, setSheet] = useState(true);
+  const [tab, setTab] = useState('Popular');
+  const [pick, setPick] = useState('Heart');
+  const [follow, setFollow] = useState(false);
   const [sound, setSound] = useState(false);
   const soundRef = useRef(false);
   const idleN = useRef(0), lastTalk = useRef(Date.now());
@@ -75,49 +84,71 @@ function Room() {
   const lastAgent = [...call.lines].reverse().find((l) => l.who === 'agent')?.text;
 
   return (
-    <div className="room">
-      <div className="room-stage">
-        {yt ? <iframe title="Live stream" src={`https://www.youtube.com/embed/${encodeURIComponent(yt)}?autoplay=1&mute=1`} allow="autoplay; encrypted-media" allowFullScreen />
-          : twitch ? <iframe title="Live stream" src={`https://player.twitch.tv/?channel=${encodeURIComponent(twitch)}&parent=${typeof location !== 'undefined' ? location.hostname : 'ringfence.evalengine.ai'}&muted=true`} allowFullScreen />
-          : null}
-        <Host ref={host} className={yt || twitch ? 'room-host3d small' : 'room-host3d'} />
-        {!sound && <button type="button" className="room-sound" onClick={() => { setSound(true); soundRef.current = true; lastTalk.current = 0; }}>🔊 Tap to hear the host</button>}
-        <div className="room-top">
-          <div className="room-host"><span className="room-ava">{account[0]?.toUpperCase()}</span><div><b>{account}</b><small>{total} NEAR in gifts</small></div></div>
-          <span className="room-live">LIVE</span>
-        </div>
-        <div className="room-pops" aria-live="polite">
-          {pop.map((g) => (
-            <div className={`room-pop ${g.landsAt ? 'landing' : ''}`} key={g.key}>
-              <span className="room-gico">{iconOf(g.near)}</span>
-              <div><b>{g.from}</b><small>{g.landsAt ? `sending ${g.near} NEAR · lands in ${Math.max(0, Math.ceil((g.landsAt - now) / 1000))}s` : `sent ${g.near} NEAR${g.via === 'chain' ? ' from a wallet' : ' by phone call'}`}</small></div>
-              <em>x{g.near}</em>
+    <div className="lr">
+      <div className="lr-phone">
+        <div className="lr-stage">
+          {yt ? <iframe title="Live stream" src={`https://www.youtube.com/embed/${encodeURIComponent(yt)}?autoplay=1&mute=1`} allow="autoplay; encrypted-media" allowFullScreen />
+            : twitch ? <iframe title="Live stream" src={`https://player.twitch.tv/?channel=${encodeURIComponent(twitch)}&parent=${typeof location !== 'undefined' ? location.hostname : 'ringfence.evalengine.ai'}&muted=true`} allowFullScreen />
+            : null}
+          <Host ref={host} className={yt || twitch ? 'lr-host small' : 'lr-host'} />
+          <div className="lr-top">
+            <div className="lr-anchor">
+              <span className="lr-ava">{account[0]?.toUpperCase()}</span>
+              <div><b>{account.replace(/\.near$/, '')}</b><small>{total} NEAR gifted today</small></div>
+              <button type="button" className={`lr-follow ${follow ? 'on' : ''}`} onClick={() => setFollow((f) => !f)}>{follow ? 'Following' : 'Follow'}</button>
             </div>
-          ))}
+            <div className="lr-right">
+              <div className="lr-fans">{top.slice(0, 3).map((t, i) => <span key={t.from} title={t.from} style={{ zIndex: 3 - i }}>{t.from[0]?.toUpperCase()}</span>)}</div>
+              <span className="lr-count">{Math.max(1, top.length)}</span>
+              <a className="lr-x" href="/" aria-label="Leave">✕</a>
+            </div>
+          </div>
+          <div className="lr-row2">
+            <span className="lr-chip">Hourly rank</span>
+            <a className="lr-chip right" href="/whatsapp">Call on WhatsApp ›</a>
+          </div>
+          {packet && !packet.expired && left > 0 && (
+            <a className="lr-event" href={`/packet/${packet.id}`} target="_blank" rel="noreferrer">
+              <div><small>Money packet</small><b>{packet.claims.length}/{packet.count}</b></div><span>🧧</span>
+              <p>Say “{words || packet.hint || 'the words'}” · tap to grab</p>
+            </a>
+          )}
+          {!sound && <button type="button" className="lr-sound" onClick={() => { setSound(true); soundRef.current = true; lastTalk.current = 0; }}>🔊 Tap to hear the host</button>}
+          <div className="lr-feed" aria-live="polite">
+            {pop.map((g) => (
+              <div className={`lr-pop ${g.landsAt ? 'landing' : ''}`} key={g.key}>
+                <span className="lr-pop-ico">{iconOf(g.near)}</span>
+                <div><b>{g.from}</b><small>{g.landsAt ? `sending · lands in ${Math.max(0, Math.ceil((g.landsAt - now) / 1000))}s` : g.via === 'chain' ? 'sent from a wallet' : 'sent by phone call'}</small></div>
+                <em>x{g.near}</em>
+              </div>
+            ))}
+            {feed.slice(-4).map((g, i) => <p key={i} className="lr-msg"><span>{iconOf(g.near)}</span> <b>{g.from}</b> {g.landsAt ? 'is sending' : 'sent'} {g.near} NEAR</p>)}
+            {call.live && lastAgent && <p className="lr-msg agent"><b>Ringfence</b> {lastAgent}</p>}
+          </div>
+          {!sheet && <button type="button" className="lr-giftbtn" onClick={() => setSheet(true)} aria-label="Send a gift">🎁</button>}
         </div>
-        {packet && !packet.expired && left > 0 && (
-          <a className="room-packet" href={`/packet/${packet.id}`} target="_blank" rel="noreferrer">
-            <span>🧧</span><b>{packet.near} NEAR</b><small>{left}/{packet.count} left · say “{words || packet.hint || 'the words'}”</small><i>Grab</i>
-          </a>
+        {sheet && (
+          <div className="lr-sheet">
+            <div className="lr-tabs">
+              {TABS.map((t) => <button key={t} type="button" className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>)}
+              <span className="lr-bal" title="Your gifts are real NEAR">Ⓝ NEAR</span>
+              <button type="button" className="lr-close" onClick={() => setSheet(false)} aria-label="Close">✕</button>
+            </div>
+            <div className="lr-banner"><span>💖</span><div><b>Every gift is real NEAR</b><small>{call.live ? `On the call · ${call.state}. Say your PIN when asked (demo PIN 4821).` : 'Tap a gift, then Send: a phone call sends it on mainnet.'}</small></div>
+              {call.live ? <button type="button" onClick={call.stop}>Hang up</button> : <a href="/whatsapp">WhatsApp</a>}</div>
+            <div className="lr-grid">
+              {GIFTS.filter((g) => g.tab === tab).map((g) => (
+                <button key={g.name} type="button" className={`lr-gift ${pick === g.name ? 'on' : ''}`} onClick={() => setPick(g.name)}>
+                  {g.tag && <i>{g.tag}</i>}
+                  <span>{g.icon}</span>
+                  {pick === g.name ? <><small>{g.near} NEAR</small><b className="lr-send" onClick={(e) => { e.stopPropagation(); gift(g.near); }}>Send</b></> : <><b>{g.name}</b><small>{g.near} NEAR</small></>}
+                </button>
+              ))}
+            </div>
+            <p className="lr-credit">Gifts go to {account}. Gifts from any NEAR wallet show too. Host: open VRM sample (© pixiv Inc., VRM Public License 1.0).</p>
+          </div>
         )}
-        <div className="room-chat">
-          {feed.slice(-7).map((g, i) => <p key={i}><b>{g.from}</b> {g.landsAt ? 'is sending' : 'sent'} {iconOf(g.near)} {g.near} NEAR</p>)}
-          {call.live && lastAgent && <p className="agent"><b>Ringfence</b> {lastAgent}</p>}
-        </div>
       </div>
-      <aside className="room-side">
-        <div className="room-brand"><Wordmark /><span>on NEAR</span></div>
-        <h2>Send a gift</h2>
-        <div className="room-gifts">
-          {GIFTS.map((g) => <button key={g.name} type="button" onClick={() => gift(g.near)}><span>{g.icon}</span><b>{g.name}</b><small>{g.near} NEAR</small></button>)}
-        </div>
-        <p className="room-callstate">{call.live ? <>On the call · {call.state}. Say your PIN when asked (demo PIN 4821).</> : 'Tap a gift: a call starts and sends it. Real NEAR, on mainnet.'}</p>
-        {call.live && <button className="btn small" type="button" onClick={call.stop}>Hang up</button>}
-        <a className="room-wa" href="/whatsapp"><WaIcon size={18} /> Or gift by WhatsApp call</a>
-        <h2>Top gifters</h2>
-        <ol className="room-top3">{top.length ? top.map((t, i) => <li key={t.from}><span>{['🥇', '🥈', '🥉'][i] ?? i + 1}</span><b>{t.from}</b><em>{t.near} NEAR</em></li>) : <li className="muted">Be the first.</li>}</ol>
-        <p className="muted small">Every gift is a real NEAR transfer to {account}. Gifts from any wallet show here too. Phone numbers are never shown in full. Host: open-source VRM sample (© pixiv Inc., VRM Public License 1.0), voiced by our agent.</p>
-      </aside>
     </div>
   );
 }
