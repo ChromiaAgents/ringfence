@@ -41,7 +41,8 @@ export const hasLive = (callId: string) => { const p = byCall.get(callId); retur
 function tellOnce(p: Panel): string {
   if (p.told) return '';
   p.told = true;
-  return `I can't text you right now. Open ringfence dot evalengine dot ai slash live and enter code ${p.code.split('').join(', ')}.`;
+  const d = p.code.split('').join(', ');
+  return `I can't text you right now. Open ringfence dot evalengine dot ai slash live and enter code ${d}. Again, the code is ${d}.`;
 }
 /** A link WhatsApp could not deliver. Returns the line to say ('' when already said), or null when this call has no panel. */
 export function liveLink(callId: string, link: { label: string; url: string }): string | null {
