@@ -6,6 +6,7 @@
 import { db, save, log } from './store.ts';
 import { bindingOf, runQueued, cancelQueued, saveRecipient } from './wallet.ts';
 import { notify } from './notify.ts';
+import { startRefundLoop } from './packets.ts';
 
 export type Held = { id: number; phone: string; contract: string; to: string; what: string; readyAt: number; callId?: string; tries?: number };
 
@@ -48,4 +49,5 @@ export async function cancelHeld(phone: string, d = { cancel: cancelQueued }): P
   return out;
 }
 
-export const startHeldLoop = () => setInterval(() => runDue().catch((e) => console.error('held payments', e)), 15_000).unref();
+/** The server's background loop: held payments every 15 s, and expired money packets sent back every minute. */
+export const startHeldLoop = () => { startRefundLoop(); return setInterval(() => runDue().catch((e) => console.error('held payments', e)), 15_000).unref(); };

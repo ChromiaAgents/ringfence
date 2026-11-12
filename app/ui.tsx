@@ -13,14 +13,14 @@ export function Wordmark({ href = '/' }: { href?: string }) {
   );
 }
 
-// The makers' lockup: "Chromia × evalengine × NEAR" (light-on-dark marks; the -dark files are for light grounds).
+// The makers' lockup: "Chromia × evalengine on NEAR" (light-on-dark marks; the -dark files are for light grounds).
 export function Makers({ size = 'sm' }: { size?: 'sm' | 'lg' }) {
   return (
     <span className={`makers ${size}`} aria-label="By Chromia and evalengine, built on NEAR">
       <img src="/brand/chromia-logo-dark.svg" alt="Chromia" width={800} height={184} />
       <span className="x" aria-hidden="true">×</span>
       <img src="/brand/evalengine-wordmark-light.svg" alt="evalengine" width={600} height={120} />
-      <span className="x" aria-hidden="true">×</span>
+      <span className="x" aria-hidden="true">on</span>
       <span className="near"><img src="/brand/near-mark-light.svg" alt="" width={24} height={24} />NEAR</span>
     </span>
   );

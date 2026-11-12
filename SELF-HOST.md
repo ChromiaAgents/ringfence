@@ -1,6 +1,6 @@
-# Self-host Ringfence in about 15 minutes
+# Self-host Ringfence
 
-Mum can make a phone call. She doesn't know how to use Meteor Wallet. The family (the guardian) owns her phone wallet, and the contract caps what the AI agent can spend.
+This guide is for a phone wallet that is bound to your own NEAR account (see `/wallet/bind` in the README). You are its owner. The contract caps what the AI agent can spend. A phone-only wallet is custodial until it is claimed, and its contract does not allow `set_agent`, so claim it first.
 
 With the hosted Ringfence, our server holds the agent key. If you would rather trust your own server, run your own operator and point your wallet's agent at it. The contract rules stay the same: the agent spends only within your limits, and only the owner can withdraw, change limits or revoke the agent.
 
@@ -8,9 +8,9 @@ With the hosted Ringfence, our server holds the agent key. If you would rather t
 
 | Level | Who holds the agent key | What they could do at worst | What still protects you |
 | --- | --- | --- | --- |
-| Hosted (ringfence-agent.near) | Us | Spend up to your daily limit, to your saved recipients | Contract limits, `revoke_agent`, `withdraw` |
+| Hosted (ringfence-agent.near) | Us | Spend up to your daily limit: to saved recipients at once, to any other account after the wait for new recipients | Contract limits, `cancel` during the wait, `revoke_agent`, `freeze`, `withdraw` |
 | Self-hosted (this guide) | You, on your VPS | Same, but the operator is you | Same, plus no third party in the path |
-| TEE-held key (next) | An attested enclave | Only what the attested code does | Same, plus a remote attestation you can check |
+| TEE-held key (next, not built) | An attested enclave | Only what the attested code does | Same, plus a remote attestation you can check |
 
 The agent can never become the owner (enforced in `contracts/phone-wallet/src/lib.rs`). The contract is unaudited: keep small amounts in it.
 
@@ -19,7 +19,8 @@ The agent can never become the owner (enforced in `contracts/phone-wallet/src/li
 - A Linux VPS (Ubuntu 24.04, 2 vCPU / 4 GB) with a domain pointing at it, Docker and Caddy
 - Your own WhatsApp Business number (Meta's free test number works to start)
 - A NEAR AI Cloud API key (cloud.near.ai, API Keys)
-- Your own NEAR agent account with a full-access key (for example `mum-agent.near`, a little NEAR for gas). It must not be the wallet owner.
+- Your own NEAR agent account (for example `mum-agent.near`) with a full-access key and a little NEAR for gas. It must not be the wallet owner. This is the same key type the hosted `ringfence-agent.near` uses; the README section "The agent's key" says why. Function-call keys are not used and not tested. Keep only gas money in this account: what it can do to your wallet is set by your wallet contract.
+- Money packets on your own server need your own deployment of `contracts/packets`, because the hosted packets contract only accepts the hosted agent.
 - The phone wallet's owner account (the guardian), to sign `set_agent`
 - Locally: `git`, `node` 22 (for `scripts/setup.sh` checks), the `near` CLI (only for `set_agent`)
 

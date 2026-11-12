@@ -1,7 +1,7 @@
 {
   "name": "Ringfence",
   "version": "1.0.0",
-  "description": "Ringfence: your phone number is a wallet on every chain. Call, say what to do, confirm by voice; limits enforced by a NEAR contract, AI in NEAR AI TEEs.",
+  "description": "Ringfence: a phone line for NEAR. Call in the browser or on WhatsApp, say what to send, confirm with a spoken PIN. A NEAR contract per phone number caps what the AI agent can spend. Money packets split a pot between people who say the agreed words.",
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=.env server.ts --dev",
     "build": "vite build",
@@ -13,7 +13,11 @@
     "attest": "tsx scripts/attest.ts",
     "test:justhoot": "tsx test/justhoot-cost.ts",
     "test:latency": "MOCK_LLM=1 DB_FILE=data/latency-db.json tsx test/latency.ts",
-    "verify:contracts": "tsx scripts/verify-contracts.ts"
+    "verify:contracts": "tsx scripts/verify-contracts.ts",
+    "verify:evidence": "tsx scripts/verify-evidence.ts",
+    "live:check": "tsx scripts/live-check.ts",
+    "attack": "tsx scripts/attack.ts",
+    "import:packet": "tsx --env-file-if-exists=.env scripts/import-packet.ts"
   },
   "keywords": [],
   "author": "",

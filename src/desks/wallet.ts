@@ -10,7 +10,7 @@ import { yoctoToNear } from '../near.ts';
 import { bindingOf, checkPin, normalizePin, live, devServer, custodyLive, sendEvm, sendNear, sendFt, ftBalance, walletState, ethAddressOf, rejectFreeze, digits, type Binding, type WalletState } from '../wallet.ts';
 import { CHAINS, chainById, findChain, defaultChainIds } from '../chains.ts';
 import { GasShortError, prepareTransfer } from '../eth.ts';
-import { createPacket, packetsTo, packetUrl, norm, MIN_SHARE } from '../packets.ts';
+import { createPacket, refundExpired, packetsTo, packetUrl, norm, MIN_SHARE } from '../packets.ts';
 import { hold, cancelHeld, minutes } from '../held.ts';
 import type { DeskDef } from './types.ts';
 
@@ -21,7 +21,7 @@ const isFt = (a: Asset): a is `ft:${string}` => a.startsWith('ft:');
 const USDC_DECIMALS = 6;
 type Transfer = { to: string; amount: string; asset: Asset; base: bigint; tier?: 'pin' | 'approve'; until?: number;
   /** A money packet: the transfer goes to the packets contract, and the packet is recorded once it has arrived. */
-  packet?: { count: number; lucky: boolean; words: string };
+  packet?: { count: number; lucky: boolean; words: string; expirySec?: number };
   /** A first payment to a new recipient from a phone-only wallet: the contract holds it this many seconds. */
   wait?: number };
 const pending = new Map<string, Transfer>();
@@ -72,7 +72,7 @@ export const readBack = (t: { to: string; amount: string; asset: Asset; packet?:
 const selfSign = (t: Transfer) => `${env.publicUrl}/wallet/send?to=${encodeURIComponent(t.to)}&amount=${t.amount}`;
 const fmt = (asset: string, base: bigint | string) => {
   if (asset === 'near') return `${yoctoToNear(base)} NEAR`;
-  if (asset.startsWith('ft:')) return `${formatUnits(BigInt(base), USDC_DECIMALS)} USDC`;
+  if (asset.startsWith('ft:')) return `${formatUnits(BigInt(base), USDC_DECIMALS).replace(/\.0$/, '')} USDC`;
   const c = chainById(Number(asset.replace(/^evm:/, '')));
   return `${formatUnits(BigInt(base), c?.decimals ?? 18)} ${c?.symbol ?? ''} on ${c?.name ?? asset}`;
 };
@@ -87,13 +87,97 @@ const tools = [
 ];
 
 export const ONLY_NEAR = 'Only NEAR and USDC for now, sorry. I can send NEAR or USDC, or check your balance.';
-const system = (call?: Call) => `${webDemo(call) ? `This is a browser call on the shared website demo wallet: real NEAR on ${env.network}, the contract's limits apply and it only pays its saved recipient ${env.demoRecipient}. The demo PIN is on their screen. Above ${env.smallLimitNear} NEAR the Approve card appears on their screen (not WhatsApp): say so. Their own WhatsApp number can be bound to their own NEAR wallet contract;` : call?.channel === 'web' ? 'This is a browser call: no wallet is bound to it, so a transfer is a labelled demo and nothing is sent. Their WhatsApp number can be bound to their own NEAR wallet contract;' : `The caller's WhatsApp number can be bound to their own NEAR ${env.network} wallet contract;`} ${env.evmEnabled ? `you can send NEAR, or the native coin of an EVM chain the owner allowed (${chainList()}),` : 'you can send NEAR or USDC (stable US dollars on NEAR; politely decline other chains or coins). Amounts in dollars are USDC one to one ("send 50 dollars to the grocer" is 50 USDC),'} within limits the contract enforces.
+const system = (call?: Call) => `${webDemo(call) ? `This is a browser call on the shared website demo wallet: real NEAR on ${env.network}, the contract's limits apply and it only pays its saved recipient ${env.demoRecipient} and money packets. A money packet from this wallet holds at most ${env.demoVisitorPacketNear} NEAR and expires after ${minutes(env.demoVisitorPacketExpirySec)}, then what is left goes back. If the wallet is too low for what they ask, the tool says so: tell them plainly. The demo PIN is on their screen. Above ${env.smallLimitNear} NEAR the Approve card appears on their screen (not WhatsApp): say so. Their own WhatsApp number can be bound to their own NEAR wallet contract;` : call?.channel === 'web' ? 'This is a browser call: no wallet is bound to it, so a transfer is a labelled demo and nothing is sent. Their WhatsApp number can be bound to their own NEAR wallet contract;' : `The caller's WhatsApp number can be bound to their own NEAR ${env.network} wallet contract;`} ${env.evmEnabled ? `you can send NEAR, or the native coin of an EVM chain the owner allowed (${chainList()}),` : 'you can send NEAR or USDC (stable US dollars on NEAR; politely decline other chains or coins). Amounts in dollars are USDC one to one ("send 50 dollars to the grocer" is 50 USDC),'} within limits the contract enforces.
 For a money packet (a money gift for a group, the Chinese red packet; callers may also say "red packet", "red envelope", "gift", hongbao, angpao, 红包): call prepare_packet with the total in NEAR, how many people, lucky or equal split (lucky unless they ask for equal) and the words people must say to open it; never choose the words yourself: if they gave none, ask (you may suggest "merry christmas", "trick or treat" or "happy new year", and they say it back). Read back its read_back exactly, then the PIN and confirm_transfer as for a transfer. When it is created, tell them to share the link and the words with the family.
-For a transfer: call prepare_transfer and read back its read_back exactly ("0.1 NEAR to liho dot ${suffix()}"). Then ask for their 4-digit PIN; their answer reaches you as [PIN]: call confirm_transfer with pin "[PIN]". Above ${env.smallLimitNear} NEAR, confirm_transfer then sends an Approve button to their WhatsApp: tell them to tap it within two minutes. For "how much did I spend", call get_spending. A first payment to an account a phone-only wallet has never paid is held by the contract for a few minutes before it goes (the tool says how long): tell them, and that saying "cancel" stops it (cancel_transfer).${env.evmEnabled ? ' If they say just "ETH", ask which chain.\nTheir EVM address is the same on every EVM chain: they fund gas on whichever chain they want to use.' : ''}
+For a transfer: as soon as you have an amount and a recipient, your first tool call is prepare_transfer: it checks the limits before anything else. Never look up the account first and never ask "shall I go ahead" before prepare_transfer has answered. If it refuses because of a limit, say the amount, the limit and that nothing was sent, in that same reply. Read back its read_back exactly ("0.1 NEAR to liho dot ${suffix()}"). Then ask for their 4-digit PIN; their answer reaches you as [PIN]: call confirm_transfer with pin "[PIN]". Above ${env.smallLimitNear} NEAR, confirm_transfer then sends an Approve button to their WhatsApp: tell them to tap it within two minutes. For "how much did I spend", call get_spending. A first payment to an account a phone-only wallet has never paid is held by the contract for a few minutes before it goes (the tool says how long): tell them, and that saying "cancel" stops it (cancel_transfer).${env.evmEnabled ? ' If they say just "ETH", ask which chain.\nTheir EVM address is the same on every EVM chain: they fund gas on whichever chain they want to use.' : ''}
 If a tool refuses, say why in plain words. ${call?.channel === 'web' ? 'If a link was sent, say it is on their screen.' : 'If a link was sent, say it is on WhatsApp.'} ${env.network === 'mainnet' ? 'Transfers are on mainnet, real money, and an unaudited prototype: suggest small amounts.' : 'Transfers are on testnet: no real money.'} Never give financial advice.`;
 
 /** A browser call has no phone number: it uses the shared website demo wallet when one is configured. */
 const webDemo = (call?: Call) => call?.channel === 'web' && !call.from && !!env.demoPhone && !!bindingOf(env.demoPhone);
+
+/** The wallet for DEMO_WALLET_PHONE: its PIN is public, so visitors get tighter rules than a real user's wallet. */
+const isDemoWallet = (b?: Pick<Binding, 'phone'> | null) => !!b && !!env.demoPhone && b.phone === env.demoPhone;
+const linkPlace = (call: Call) => (call.channel === 'web' ? 'on your screen' : 'on WhatsApp');
+const demoLow = (balance?: string) => `The shared demo wallet is too low for that right now${balance != null ? `: it holds ${fmt('near', balance)}` : ''}. Nothing was sent. Try a smaller amount, or come back after it is topped up.`;
+
+/** Why a send of this size cannot go, or '': the per-transfer limit first, then the daily one. Read from the wallet
+ *  contract's state; without one (dry run, RPC down), the configured per-transfer default. */
+function overWhy(asset: Asset, base: bigint, state: WalletState | null, shared: boolean): string {
+  const whose = shared ? 'the' : 'your', where = shared ? ' on this shared demo wallet' : '', what = fmt(asset, base);
+  if (state) {
+    const l = state.limits[asset];
+    if (!l) return 'no limit is set for that asset';
+    if (base > BigInt(l.per_tx)) return `${what} is over ${whose} ${fmt(asset, l.per_tx)} per-transfer limit${where}`;
+    return BigInt(state.spent_today[asset] ?? 0) + base > BigInt(l.per_day) ? `${what} would pass ${whose} ${fmt(asset, l.per_day)} daily limit${where}` : '';
+  }
+  if (asset === 'near' && base > toYocto(env.walletDefaults.nearPerTx)) return `${what} is over ${whose} ${env.walletDefaults.nearPerTx} NEAR per-transfer limit${where}`;
+  if (isFt(asset) && base > parseUnits(env.walletDefaults.usdcPerTx, USDC_DECIMALS)) return `${what} is over ${whose} ${env.walletDefaults.usdcPerTx} USDC per-transfer limit${where}`;
+  return '';
+}
+/** The refusal for a send over a limit, worded for where the caller is: the shared demo wallet has no owner on the
+ *  line (no link), a browser caller's link is on their screen, a WhatsApp caller's is on WhatsApp. */
+function overStop(call: Call, t: { to?: string; amount: string; asset: Asset; base: bigint }, why: string, shared: boolean): { reason: string; extra: object } {
+  const next = 'Say this now: the amount, the limit, and that nothing was sent. Do not look up the account and do not ask whether to go ahead.';
+  if (shared) return { reason: `I can't send that: ${why}. Nothing was sent.`, extra: { next } };
+  if (isFt(t.asset)) return { reason: `I can't send that: ${why}. The wallet's owner can raise the USDC limit.`, extra: { next } };
+  if (t.asset !== 'near') return { reason: `I can't: ${why}. Raise the limit on your wallet page.`, extra: { next } };
+  if (!t.to) return { reason: `I can't send that myself: ${why}. Nothing was sent.`, extra: { next } };
+  links.set(call.id, { url: selfSign(t as Transfer), label: `Sign ${readBack(t as Transfer)} in your own wallet` });
+  return { reason: `I can't send that myself: ${why}. A link to sign it in your own wallet is ${linkPlace(call)}.`, extra: { linkSent: true, next } };
+}
+
+/** A visitor's money packet from the shared demo wallet: why it cannot be made, or null. */
+async function demoPacketStop(b: Binding, yocto: bigint, now = Date.now()): Promise<string | null> {
+  const cap = env.demoVisitorPacketNear, life = minutes(env.demoVisitorPacketExpirySec);
+  if (yocto > toYocto(cap)) return `On this shared demo wallet a money packet can hold at most ${cap} NEAR, and it expires after ${life}, then what is left goes back. Try ${cap} NEAR for 3 people.`;
+  await refundExpired(now).catch(() => {}); // expired ones go back first, so they do not count as open
+  const mine = db.packets.filter((p) => p.from === b.contract && !p.demo);
+  const open = mine.filter((p) => !p.refunded && now < p.expiresAt && p.claims.length < p.count).length;
+  if (open >= env.demoVisitorPacketsOpen) return `This shared demo wallet already has ${open} visitor money packets open, and ${env.demoVisitorPacketsOpen} is the most at once. Each one expires after ${life}. Try again later, or open the demo packet on the page.`;
+  if (mine.filter((p) => p.createdAt > now - 86_400_000).length >= env.demoVisitorPacketsPerDay) return `Visitors have made ${env.demoVisitorPacketsPerDay} money packets from this shared demo wallet in the last 24 hours, and that is the most allowed. Try again later, or open the demo packet on the page.`;
+  return null;
+}
+
+const NUM: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, fifteen: 15, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90, hundred: 100, thousand: 1000,
+  一: 1, 二: 2, 两: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10, 百: 100, 千: 1000 };
+const SEND_AMOUNT = new RegExp(`(?:\\b(?:send|pay|transfer|wire|give|move)\\b|[发發转轉付汇匯])[^.?!。？！]*?(\\$\\s*)?(\\d+(?:\\.\\d+)?|\\b(?:${Object.keys(NUM).filter((k) => /^[a-z]/.test(k)).join('|')})\\b|[一二两兩三四五六七八九十百千])\\s*[个個]?\\s*(near|usdc|usd|dollars?|bucks|美元|美金)?`, 'i');
+/** Does this reply name the limit ("1 NEAR", "one NEAR", "一")? */
+export const namesLimit = (reply: string, limit: string) => {
+  const n = limit.split(' ')[0].replace(/\.0+$/, ''), words = Object.entries(NUM).filter(([, v]) => String(v) === n).map(([k]) => k);
+  return new RegExp(`(^|[^\\d.])${n.replace('.', '\\.')}(?![\\d]|\\.\\d)`).test(reply) || words.some((w) => (/^[a-z]/.test(w) ? new RegExp(`\\b${w}\\b`, 'i').test(reply) : reply.includes(w)));
+};
+
+/** Run by the agent on what the caller just said, before the model answers: a send over the wallet's limit is refused
+ *  here, on that turn, whichever tool the model would have picked (it used to look the account up first and ask "shall
+ *  I go ahead?"). Only refusals come from here; a send within the limits takes the normal road through prepare_transfer.
+ *  Returns the tool call to record and its result, the limit to name, and a sentence to add if the model leaves it out. */
+export async function limitCheck(call: Call, text: string): Promise<{ args: object; out: { ok: false; reason: string }; limit: string; say: string } | null> {
+  const m = text.match(SEND_AMOUNT);
+  if (!m || (!m[1] && !m[3])) return null; // a number with no coin named is not an amount
+  const amount = /^\d/.test(m[2]) ? m[2] : String(NUM[m[2].toLowerCase()]);
+  if (!AMOUNT.test(amount)) return null;
+  const asset: Asset = m[1] || !/^near$/i.test(m[3] ?? '') ? `ft:${env.usdcToken}` : 'near';
+  const base = asset === 'near' ? toYocto(amount) : parseUnits(amount, USDC_DECIMALS);
+  const args = { amount, asset: asset === 'near' ? 'near' : 'usdc' };
+  const done = (reason: string, limit: string, extra: object = {}) => {
+    log({ kind: 'refused', desk: 'wallet', callId: call.id, detail: `limit check on the caller's words: ${reason}` });
+    return { args, out: { ok: false as const, reason, ...extra }, limit, say: `That is over the ${limit} per-transfer limit, so nothing was sent.` };
+  };
+  const b = webDemo(call) ? bindingOf(env.demoPhone) : bindingOf(call.from);
+  if (!b) {
+    // No wallet: a browser call walks the contract's default limit; an unbound WhatsApp number is told to get a wallet.
+    if (call.channel !== 'web' || asset !== 'near' || Number(amount) <= DEMO_LIMIT.per_tx) return null;
+    return done(browserOver(), `${DEMO_LIMIT.per_tx} ${DEMO_LIMIT.unit}`, { demo: true });
+  }
+  const state = live() && !b.dryRun ? await walletState(b).catch(() => null) : null;
+  const l = state?.limits[asset]?.per_tx;
+  const limit = l != null ? fmt(asset, l) : asset === 'near' ? `${env.walletDefaults.nearPerTx} NEAR` : `${env.walletDefaults.usdcPerTx} USDC`;
+  const why = overWhy(asset, base, state, isDemoWallet(b));
+  if (!/per-transfer limit/.test(why)) return null; // the daily limit and the rest are prepare_transfer's to say
+  const to = parseRecipient(text.match(/\bto\s+([a-z0-9_-]+(?:(?:\.|\s+dot\s+)[a-z0-9_-]+)+)/i)?.[1] ?? '', asset) ?? undefined;
+  const s = overStop(call, { to, amount, asset, base }, why, isDemoWallet(b));
+  return done(s.reason, limit, s.extra);
+}
 
 async function run(call: Call, name: string, a: any): Promise<unknown> {
   // A money packet is a NEAR transfer to the packets contract plus what to record there: it takes the same road as any
@@ -120,6 +204,13 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
   if (!b) {
     links.set(call.id, { url: `${env.publicUrl}/wallet/bind`, label: 'No wallet yet. Reply "create a wallet" for a demo custodial wallet, or bind your own NEAR wallet' });
     return refuse('This number has no wallet yet. Two ways in: text "create a wallet" to this number for a demo custodial wallet, or bind your own NEAR wallet: the link is on WhatsApp.', { linkSent: true });
+  }
+  const shared = isDemoWallet(b);
+  // The shared demo wallet's PIN is public: a visitor's packet is small, short-lived and one of a few.
+  if (packet && shared) {
+    const stop = await demoPacketStop(b, toYocto(a.amount));
+    if (stop) return refuse(stop);
+    packet.expirySec = env.demoVisitorPacketExpirySec;
   }
   const state = live() && !b.dryRun ? await walletState(b).catch((e) => e as Error) : null;
   if (state instanceof Error) return refuse(state.message.includes('bound') || state.message.includes('agent') ? state.message : 'Your wallet contract is not set up yet. Finish the binding page and sign it.');
@@ -154,13 +245,16 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     if (!AMOUNT.test(amount) || Number(amount) <= 0) return refuse('How much? Say a number, with at most 18 decimals.');
     if (isFt(asset) && !/^\d+(\.\d{1,6})?$/.test(amount)) return refuse('USDC has at most 6 decimals: say the amount in dollars and cents.');
     const t: Transfer = { to, amount, asset, base: asset === 'near' ? toYocto(amount) : parseUnits(amount, isFt(asset) ? USDC_DECIMALS : chain!.decimals), packet };
-    // The contract would refuse these anyway; here we say so early and hand over a self-sign link.
+    // The contract would refuse these anyway; here we say so early (and hand over a self-sign link where one helps).
+    if (state && chain && !(state.chains ?? []).includes(chain.id)) return refuse(`${chain.name} is not enabled on your wallet. You can allow it on your wallet contract with allow_chain, with its own limits.`);
+    // ponytail: no contract state (dry run, RPC down): overWhy falls back to the configured per-send limit; the contract still has the final say.
+    const over = overWhy(asset, t.base, state, shared);
+    if (over) { const s = overStop(call, t, over, shared); return refuse(s.reason, s.extra); }
     if (state) {
-      if (chain && !(state.chains ?? []).includes(chain.id)) return refuse(`${chain.name} is not enabled on your wallet. You can allow it on your wallet contract with allow_chain, with its own limits.`);
-      const l = state.limits[asset], spent = BigInt(state.spent_today[asset] ?? 0);
-      const over = !l ? 'no limit is set for that asset' : t.base > BigInt(l.per_tx) ? `that is over your ${fmt(asset, l.per_tx)} per-transfer limit` : spent + t.base > BigInt(l.per_day) ? `that would pass your ${fmt(asset, l.per_day)} daily limit` : '';
+      // The shared demo wallet is small: say so before the PIN, not as a failed transaction after it.
+      if (shared && asset === 'near' && t.base > BigInt(state.balance)) return refuse(demoLow(state.balance));
       const isNew = !state.allowlist.includes(to);
-      if (!over && !isNew && chain) {
+      if (!isNew && chain) {
         // No signature request without gas: say how much is missing and where to send it.
         const from = await ethAddressOf(b);
         const short = await prepareTransfer(chain, from, to, t.base).then(() => null, (e) => (e instanceof GasShortError ? e.message : null));
@@ -168,28 +262,22 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
       }
       // A phone-only wallet has no owner who could sign a first payment themselves: the contract holds it instead.
       // Not on the shared website demo wallet (it only ever pays its saved recipient).
-      if (isNew && !over && !demo && !packet && !chain && b.custodial && custodyLive()) t.wait = state.new_recipient_delay_sec;
-      if (packet && isNew && !over) return refuse(`This wallet was set up before money packets. Its owner saves ${to} as a recipient once, then you can send packets by voice.`);
-      if ((over || isNew) && t.wait == null) {
-        if (isFt(asset)) return refuse(`I can't send that: ${over || `${to} is not on your saved list`}. The wallet's owner can raise the USDC limit or save the recipient.`);
-        if (asset !== 'near') return refuse(`I can't: ${over || 'that address is not on your saved list'}. Raise the limit or save the address on your wallet page.`);
+      if (isNew && !demo && !packet && !chain && b.custodial && custodyLive()) t.wait = state.new_recipient_delay_sec;
+      if (packet && isNew) return refuse(`This wallet was set up before money packets. Its owner saves ${to} as a recipient once, then you can send packets by voice.`);
+      if (isNew && t.wait == null) {
+        if (shared) return refuse(`I can't send that: this shared demo wallet only pays accounts its owner saved (${env.demoRecipient}) and money packets, and ${to} is not one of them. Nothing was sent.`);
+        if (isFt(asset)) return refuse(`I can't send that: ${to} is not on your saved list. The wallet's owner can save the recipient.`);
+        if (asset !== 'near') return refuse(`I can't: that address is not on your saved list. Save the address on your wallet page.`);
         links.set(call.id, { url: selfSign(t), label: `Sign ${readBack(t)} in your own wallet` });
-        return refuse(`I can't send that myself: ${over || `${to} is a new recipient`}. A link to sign it in your own wallet is on WhatsApp.`, { linkSent: true });
+        return refuse(`I can't send that myself: ${to} is a new recipient. A link to sign it in your own wallet is ${linkPlace(call)}.`, { linkSent: true });
       }
-    }
-    // ponytail: no contract state (dry run, RPC down): fall back to the configured per-send limit; the contract still has the final say.
-    if (!state && isFt(asset) && t.base > parseUnits(env.walletDefaults.usdcPerTx, USDC_DECIMALS))
-      return refuse(`I can't send that: it is over your ${env.walletDefaults.usdcPerTx} USDC per-transfer limit. The wallet's owner can raise it.`);
-    if (!state && asset === 'near' && t.base > toYocto(env.walletDefaults.nearPerTx)) {
-      links.set(call.id, { url: selfSign(t), label: `Sign ${readBack(t)} in your own wallet` });
-      return refuse(`I can't send that myself: that is over your ${env.walletDefaults.nearPerTx} NEAR per-transfer limit. A link to sign it in your own wallet is on WhatsApp.`, { linkSent: true });
     }
     // Every send needs the spoken PIN; larger NEAR sends also need the Approve tap on WhatsApp after it.
     t.tier = (asset === 'near' && t.base > toYocto(env.smallLimitNear)) || (isFt(asset) && t.base > parseUnits(env.smallLimitUsdc, USDC_DECIMALS)) ? 'approve' : 'pin';
     t.until = Date.now() + PENDING_MS;
     pending.set(call.id, t);
     spokenPins.delete(call.id);
-    const say = packet ? `${readBack(t)}. The words to open it are "${packet.words}"` : readBack(t);
+    const say = packet ? `${readBack(t)}. The words to open it are "${packet.words}"${packet.expirySec ? `. On this shared demo wallet it expires after ${minutes(packet.expirySec)}, then what is left goes back` : ''}` : readBack(t);
     const held = t.wait != null ? ` This is their first payment to that account: say it will go out ${minutes(t.wait)} after the PIN, and that saying "cancel" stops it.` : '';
     return { ok: true, read_back: say + tag, first_payment_wait: t.wait != null ? minutes(t.wait) : undefined, next: (t.tier === 'pin' ? 'Ask for their 4-digit PIN.' : `Ask for their 4-digit PIN; after it, an Approve button goes to ${demo ? 'their screen' : 'their WhatsApp'}.`) + held };
   }
@@ -239,6 +327,7 @@ async function execute(callId: string, b: Binding, t: Transfer): Promise<{ ok: t
   }
   const r = await (t.asset === 'near' ? sendNear(b, t.to, t.base) : isFt(t.asset) ? sendFt(b, t.asset.slice(3), t.to, t.base) : sendEvm(b, chainOf(t.asset)!.id, t.to, t.base)).catch((e) => e as Error);
   if (r instanceof GasShortError) return { ok: false, reason: r.message };
+  if (r instanceof Error && isDemoWallet(b) && /balance|not enough|insufficient|lack/i.test(r.message)) return { ok: false, reason: demoLow() };
   if (r instanceof Error) return { ok: false, reason: `The wallet contract refused: ${r.message.slice(0, 160)}` };
   log({ kind: 'wallet', desk: 'wallet', callId, detail: `${readBack(t)} from ${b.contract}: ${r.url}${r.queuedId != null ? ` (queued #${r.queuedId})` : ''}` });
   if (t.packet) return packetOf(callId, b, t, false, r.url);
@@ -356,6 +445,7 @@ export async function onButton(from: string, id: string, now = Date.now()): Prom
 // A browser call has no phone number, so no wallet is bound to it. It walks the same steps (read back, spoken PIN,
 // the contract's mainnet default limits) and always stops at a labelled dry run: nothing is read from or sent to a chain.
 const DEMO_LIMIT = { per_tx: 1, unit: 'NEAR' };
+const browserOver = () => `That is over the ${DEMO_LIMIT.per_tx} ${DEMO_LIMIT.unit} per-transfer default, so the contract would refuse it. Try 0.5 NEAR.`;
 async function browserDemo(call: Call, name: string, a: any, packet?: Transfer['packet']): Promise<unknown> {
   const note = 'BROWSER DEMO: a browser call has no phone number, so no wallet is bound and nothing is sent. Say so plainly.';
   if (name === 'get_balance' || name === 'get_spending') return { ok: true, dryRun: true, demo: true, note };
@@ -366,7 +456,7 @@ async function browserDemo(call: Call, name: string, a: any, packet?: Transfer['
     if (!/^([a-z0-9_-]+\.)*[a-z0-9_-]+\.(near|testnet)$/.test(to)) return { ok: false, reason: 'I need a NEAR account, like liho dot near.' };
     const amount = String(a.amount ?? '').trim();
     if (!AMOUNT.test(amount) || Number(amount) <= 0) return { ok: false, reason: 'How much? Say a number.' };
-    if (Number(amount) > DEMO_LIMIT.per_tx) return { ok: false, demo: true, reason: `That is over the ${DEMO_LIMIT.per_tx} ${DEMO_LIMIT.unit} per-transfer default, so the contract would refuse it. Try 0.5 NEAR.` };
+    if (Number(amount) > DEMO_LIMIT.per_tx) return { ok: false, demo: true, reason: browserOver() };
     const t: Transfer = { to, amount, asset, base: toYocto(amount), packet };
     if (Number(amount) > Number(env.smallLimitNear)) return { ok: true, demo: true, approvalDemo: true, read_back: readBack(t), note: `${note} Above ${env.smallLimitNear} NEAR, a bound wallet also needs an Approve tap on WhatsApp after the PIN.` };
     pending.set(call.id, t);

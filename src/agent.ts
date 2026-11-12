@@ -6,7 +6,7 @@ import { db, save, id, log, type Call, type Desk, type Timing } from './store.ts
 import { recap, resume, isKnown } from './memory.ts';
 import type { DeskDef } from './desks/types.ts';
 import { launchDesk } from './desks/launch.ts';
-import { walletDesk, takePin, clearPending } from './desks/wallet.ts';
+import { walletDesk, takePin, clearPending, limitCheck, namesLimit } from './desks/wallet.ts';
 import { marketDesk, webSearch } from './desks/market.ts';
 import { packetDesk, autoOpen } from './desks/packet.ts';
 
@@ -130,6 +130,15 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
     call.turns.push({ at: Date.now(), who: 'tool', text: `open_packet(auto) → ${JSON.stringify(auto)}` });
     h.push({ role: 'system', content: `The packet check already ran on what the caller just said. Result: ${JSON.stringify(auto)}. Do not call open_packet for this line; tell the caller what happened.` });
   }
+  // A send over the wallet's per-transfer limit is refused here, in code, on this turn: the model gets the refusal as
+  // a prepare_transfer result it never had to choose to ask for (it used to look the account up and ask "go ahead?").
+  const stop = auto ? null : await limitCheck(call, text).catch(() => null);
+  if (stop) {
+    const tc = { id: `limit-${call.turns.length}`, type: 'function' as const, function: { name: 'prepare_transfer', arguments: JSON.stringify(stop.args) } };
+    call.desk = 'wallet';
+    call.turns.push({ at: Date.now(), who: 'tool', text: `prepare_transfer(limit check) → ${JSON.stringify(stop.out)}` });
+    h.push({ role: 'assistant', content: null, tool_calls: [tc] }, { role: 'tool', tool_call_id: tc.id, content: JSON.stringify(stop.out) });
+  }
   const tools = toolsFor(call);
   const before = new Set(linksOf(call).map((l) => l.url));
   const said: string[] = [];
@@ -183,6 +192,8 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
       }
       continue;
     }
+    // Whatever the model made of it, the caller hears the limit on this turn.
+    if (stop && !namesLimit(said.join(' '), stop.limit)) emit([stop.say]);
     const say = said.join(' ');
     if (timing) timing.llmMs = Date.now() - t0;
     call.turns.push({ at: Date.now(), who: 'agent', text: say, proof, timing });

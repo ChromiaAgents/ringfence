@@ -1,0 +1,51 @@
+# Ringfence
+
+> A phone line for NEAR. A caller in a browser or on WhatsApp talks to one AI agent, and the agent acts from a NEAR wallet contract tied to the caller's phone number. The wallet contract holds the spending rules, so the agent can only ask it. A money packet is NEAR locked in a second contract; each person opens one share by saying the packet's words on a call.
+
+Site: https://ringfence.evalengine.ai
+Source: https://github.com/ChromiaAgents/ringfence (MIT). AGENTS.md in the repository has the full version of this file.
+Status: on NEAR mainnet since 10 November 2026, small amounts. The contracts are AI-reviewed, not audited.
+
+## Pages
+
+- https://ringfence.evalengine.ai/ : the call page
+- https://ringfence.evalengine.ai/packet/demo : the open demo money packet. The words to say are shown on the page.
+- https://ringfence.evalengine.ai/proof : attestation results for the AI models. JSON: https://ringfence.evalengine.ai/api/proof
+- https://ringfence.evalengine.ai/stats : usage numbers
+- https://ringfence.evalengine.ai/wallet/bind : bind a phone number to your own NEAR account
+
+## Call socket (typed text, no voice needed)
+
+- wss://ringfence.evalengine.ai/ws/call
+- Send: {"type":"text","text":"..."}
+- Read: {"type":"agent","text":"..."} per sentence; {"type":"desk"} ends the turn. Binary frames are audio.
+- A call about one money packet: /ws/call?packet=<id>&to=<account>. The id is in the Call link on /packet/demo.
+- This is mainnet. A typed PIN after a prepared transfer sends real NEAR from the demo wallet. The right packet words with an account pay a real share.
+
+## Commands (from a clone of the repository, Node 22 or newer, no keys)
+
+- npm ci : about 15 s
+- npm test : about 15 s, last line "<n> passed" (55 on 12 Nov 2026)
+- npm run demo:check : about 15 s, last line "all steps passed"
+- npm run verify:contracts : about 10 s, 3 blocks starting with "ok" (code on mainnet equals contracts/release/)
+- npm run attest : about 10 s, "3/3 models fully verified"
+- npm run verify:evidence : about 5 s, last line "11 of 11 transactions match" (reads the README evidence transactions from an archival RPC)
+- npm run attack : about 2 s, last line "5 of 5 attacks blocked" (prompt-injection replay with a scripted model, in process)
+- npm run live:check : 30 to 90 s, last line "5 of 5 checks passed" (types 5 lines into the call socket above; no PIN, nothing paid; replies come from a real model, so wording varies between runs)
+- cargo test in contracts/phone-wallet, contracts/factory, contracts/packets : about 7 minutes in total on a first run, each ends with "test result: ok."
+
+## Contracts on NEAR mainnet
+
+- ringfence-wallet.near : wallet factory (contracts/factory)
+- <id>.ringfence-wallet.near : one phone wallet per phone number (contracts/phone-wallet, published once as a global contract)
+- f18d3a55399e.ringfence-wallet.near : the website's demo wallet. View get_state: owner ringfence-custody.near, custodial, 1 NEAR per transfer, 3 NEAR per day, 60 second wait for a new recipient.
+- packets.ringfence-wallet.near : money packets (contracts/packets)
+- ringfence-agent.near : the account the server signs with. It holds one full-access key.
+
+## Not built or not covered
+
+- The spoken voice is made by Cartesia and is not attested. Chat, speech-to-text and image models run on NEAR AI Cloud in a TEE.
+- The demo wallet is custodial. A wallet is owned by the user only after they bind their own NEAR account at /wallet/bind.
+- Sputnik DAO and Trezu are not used.
+- Staking for packets is not built.
+- Spoken languages: English and Chinese.

@@ -65,6 +65,14 @@ export const env = {
   demoPhone: (process.env.DEMO_WALLET_PHONE ?? '').replace(/\D/g, ''),
   demoPin: process.env.DEMO_PIN ?? '',
   demoRecipient: process.env.DEMO_RECIPIENT ?? 'liho00.near',
+  // The demo PIN is public, so what a visitor can take out of the shared demo wallet is capped in code: a packet a
+  // visitor makes holds at most this much, expires this soon (what is left goes back), and only this many may be open
+  // at once or made in 24 hours. The page's own demo packet is remade at most demoPacketsPerDay times in 24 hours.
+  demoVisitorPacketNear: process.env.DEMO_VISITOR_PACKET_NEAR ?? '0.02',
+  demoVisitorPacketExpirySec: Number(process.env.DEMO_VISITOR_PACKET_EXPIRY_SEC ?? 3600),
+  demoVisitorPacketsOpen: Number(process.env.DEMO_VISITOR_PACKETS_OPEN ?? 3),
+  demoVisitorPacketsPerDay: Number(process.env.DEMO_VISITOR_PACKETS_PER_DAY ?? 10),
+  demoPacketsPerDay: Number(process.env.DEMO_PACKETS_PER_DAY ?? 10),
   // Custodial demo wallets: spends stop above this balance; at most this many are created per day (protects the custody account).
   custodialMaxNear: process.env.CUSTODIAL_MAX_NEAR ?? '5',
   custodialDailyCap: Number(process.env.CUSTODIAL_DAILY_CAP ?? 20),

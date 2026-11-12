@@ -28,7 +28,7 @@ function Proof() {
         <h2>{atts ? `${atts.filter(passed).length} of ${atts.length} models checked live, just now` : err || 'Checking the models live…'}</h2>
         {atts && <p>{atts.map((a) => `${ROLE[a.model] ?? 'Model'}: ${passed(a) ? 'verified' : 'not verified'}`).join(' · ')}</p>}
       </div>
-      <p>Every model Ringfence uses runs on NEAR AI Cloud inside an Intel TDX confidential VM with NVIDIA confidential-computing GPUs. For each model this server fetches the attestation report with a fresh random nonce and checks three things.</p>
+      <p>The chat, speech-to-text and image models Ringfence uses run on NEAR AI Cloud inside an Intel TDX confidential VM with NVIDIA confidential-computing GPUs. The spoken voice comes from Cartesia and is not attested. For each model this server fetches the attestation report with a fresh random nonce and checks three things.</p>
       <ol>
         <li>Intel signed the TDX attestation report, and the platform is up to date (<a href="https://github.com/Phala-Network/dcap-qvl">dcap-qvl</a>, collateral from Intel PCS).</li>
         <li>The model’s signing key and our nonce are inside that report, so the key was made in that TEE, just now.</li>

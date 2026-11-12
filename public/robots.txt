@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+# Facts and commands for machine readers: https://ringfence.evalengine.ai/llms.txt

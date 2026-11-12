@@ -70,12 +70,12 @@ export function shareOf(left: bigint, people: number, lucky: boolean, rand: () =
 }
 
 /** Records a packet for money that is already in the packets contract (the wallet's transfer went first). */
-export async function createPacket(o: { from: string; fromName?: string; fromPhone?: string; fundUrl?: string; yocto: bigint; count: number; lucky: boolean; words: string; hint?: string; demo?: boolean; dry?: boolean; callId?: string }): Promise<PacketRow> {
-  const id = newId(), now = Date.now();
-  const p: PacketRow = { id, createdAt: now, expiresAt: now + env.packetExpirySec * 1000, from: o.from, fromName: o.fromName, yocto: o.yocto.toString(), left: o.yocto.toString(),
+export async function createPacket(o: { from: string; fromName?: string; fromPhone?: string; fundUrl?: string; yocto: bigint; count: number; lucky: boolean; words: string; hint?: string; demo?: boolean; dry?: boolean; callId?: string; expirySec?: number }): Promise<PacketRow> {
+  const id = newId(), now = Date.now(), expirySec = o.expirySec ?? env.packetExpirySec;
+  const p: PacketRow = { id, createdAt: now, expiresAt: now + expirySec * 1000, from: o.from, fromName: o.fromName, yocto: o.yocto.toString(), left: o.yocto.toString(),
     count: o.count, lucky: o.lucky, words: o.words, hint: o.hint, demo: o.demo, fundUrl: o.fundUrl, fromPhone: o.fromPhone, claims: [] };
   if (!o.dry && packetsLive()) {
-    const r = await callContract(env.packetsAccountId, 'create_for', { id, creator: o.from, amount: p.yocto, count: o.count, lucky: o.lucky, expires_in_sec: env.packetExpirySec,
+    const r = await callContract(env.packetsAccountId, 'create_for', { id, creator: o.from, amount: p.yocto, count: o.count, lucky: o.lucky, expires_in_sec: expirySec,
       phrase_hash: createHash('sha256').update(`${id}:${norm(o.words)}`).digest('hex') });
     p.url = explorer.near(r.hash);
   } else p.dryRun = true;
@@ -83,6 +83,34 @@ export async function createPacket(o: { from: string; fromName?: string; fromPho
   save();
   log({ kind: 'packet', callId: o.callId, detail: `${p.dryRun ? 'DRY RUN: ' : ''}money packet ${id}: ${yoctoToNear(p.yocto)} NEAR for ${o.count}, ${o.lucky ? 'lucky' : 'equal'} split, from ${o.from}${p.url ? `: ${p.url}` : ''}` });
   return p;
+}
+
+/** A packet as the packets contract returns it from `get_packet`. */
+export type ChainPacket = { creator: string; total: string; remaining: string; count: number; claimed: number; lucky: boolean; expires_ns: string; claimers: string[]; phrase_hash: string; campaign?: boolean; refunded: boolean };
+/** Adds to the store a packet that someone else funded on chain with `create` (a wallet, a DAO proposal), so a caller
+ *  can open a share by saying its words. `chain` is what `get_packet` returned. Refuses unless the words give the
+ *  on-chain hash and the packet is still open with money in it. Signs nothing; `dry` checks without saving. */
+export function importPacket(id: string, words: string, chain: ChainPacket | null, o: { hint?: string; dry?: boolean; now?: number } = {}): { ok: true; packet: PacketRow } | { ok: false; reason: string } {
+  const now = o.now ?? Date.now();
+  id = String(id ?? '').trim().toLowerCase();
+  if (!chain) return { ok: false, reason: `The packets contract has no packet with the id "${id}".` };
+  if (!norm(words)) return { ok: false, reason: 'Give the words of the packet.' };
+  // The same hash createPacket gives the contract: sha256 of the id, a colon and the normalised words, in hex.
+  if (createHash('sha256').update(`${id}:${norm(words)}`).digest('hex') !== String(chain.phrase_hash).toLowerCase()) return { ok: false, reason: 'Those words do not match the hash stored on chain for this packet.' };
+  const expiresAt = Number(BigInt(chain.expires_ns) / 1_000_000n);
+  if (chain.refunded) return { ok: false, reason: 'This packet was refunded or cancelled.' };
+  if (now >= expiresAt) return { ok: false, reason: `This packet expired at ${new Date(expiresAt).toISOString()}.` };
+  if (chain.claimed >= chain.count || BigInt(chain.remaining) === 0n) return { ok: false, reason: 'This packet is empty: every share has been opened.' };
+  if (findPacket(id)) return { ok: false, reason: 'The server already has a packet with this id.' };
+  // The chain keeps who opened a share but not each amount, so only one earlier share can be rebuilt exactly.
+  if (chain.claimed > 1) return { ok: false, reason: `${chain.claimed} shares were already opened and the chain does not keep each amount, so this packet cannot be imported.` };
+  const p: PacketRow = { id, createdAt: now, expiresAt, from: chain.creator, yocto: String(chain.total), left: String(chain.remaining), count: chain.count, lucky: chain.lucky, words: words.trim(), hint: o.hint,
+    claims: chain.claimers.map((to) => ({ to, yocto: (BigInt(chain.total) - BigInt(chain.remaining)).toString(), at: now, how: 'exact' as const })) };
+  if (o.dry) return { ok: true, packet: p };
+  db.packets.push(p);
+  save();
+  log({ kind: 'packet', detail: `money packet ${id} imported from chain: ${yoctoToNear(p.left)} NEAR left for ${p.count - p.claims.length} of ${p.count}, ${p.lucky ? 'lucky' : 'equal'} split, funded by ${p.from}` });
+  return { ok: true, packet: p };
 }
 
 export type Opened = { ok: true; near: number; dryRun?: boolean; url?: string; left: number; total: number } | { ok: false; need?: 'words' | 'account'; how?: PacketClaim['how']; reason: string };
@@ -124,25 +152,31 @@ export async function openPacket(id: string, to: string | null, heard: string[],
 
 /** After the expiry, what is left goes back to the sender (anyone may ask the contract; here the agent does). */
 export async function refundExpired(now = Date.now()) {
+  let changed = false;
   for (const p of db.packets) {
     if (p.refunded || now < p.expiresAt) continue;
+    changed = true;
     p.refunded = true; // once, whatever happens: the contract refuses a second refund anyway
     if (!p.dryRun && BigInt(p.left) > 0n) await callContract(env.packetsAccountId, 'refund', { id: p.id }).catch((e) => console.error('packet refund', p.id, (e as Error).message.slice(0, 120)));
     log({ kind: 'packet', detail: `money packet ${p.id} expired: ${yoctoToNear(p.left)} NEAR back to ${p.from}` });
     if (BigInt(p.left) > 0n) notify(p.fromPhone, `Your money packet expired with ${p.count - p.claims.length} of ${p.count} unopened: ${yoctoToNear(p.left)} NEAR ${p.dryRun ? 'would be' : 'is'} back in your wallet.`);
     p.left = '0';
   }
-  save();
+  if (changed) save();
 }
+/** Expired packets are sent back without waiting for someone to open a packet page (started with the server's other loop). */
+export const startRefundLoop = () => setInterval(() => refundExpired().catch((e) => console.error('packet refunds', e)), 60_000).unref();
 
 let making: Promise<PacketRow | null> | null = null;
 /** The website's demo packet: one is always open, funded by the demo wallet a little at a time, so the wallet's own
- *  daily limit caps the giveaway. Its words are public (the hint). Null when today's budget is used up. */
+ *  daily limit caps the giveaway, and at most DEMO_PACKETS_PER_DAY are made in 24 hours so a visitor who opens every
+ *  share over and over cannot empty the wallet. Its words are public (the hint). Null when today's budget is used up. */
 export function demoPacket(): Promise<PacketRow | null> {
   // An open demo packet made with other words (before DEMO_PACKET_WORDS changed) or as a dry run before the keys were set is left to expire.
   const real = packetsLive() && !!env.demoPhone && !!bindingOf(env.demoPhone) && !bindingOf(env.demoPhone)!.dryRun;
   const open = [...db.packets].reverse().find((p) => p.demo && !p.refunded && Date.now() < p.expiresAt && p.claims.length < p.count && env.demoPacketWords.includes(p.words) && !!p.dryRun === !real);
   if (open) return Promise.resolve(open);
+  if (db.packets.filter((p) => p.demo && !!p.dryRun === !real && p.createdAt > Date.now() - 86_400_000).length >= env.demoPacketsPerDay) return Promise.resolve(null);
   return (making ??= (async () => {
     try {
       const yocto = parseUnits(env.demoPacketNear, 24);

@@ -810,4 +810,143 @@ await t('security: hanging up drops the waiting transfer; nothing more is said a
     assert.equal(await reply(startCall('web').call.id, 'hmm'), '', 'filler: empty reply (WhatsApp skips sending it)');
   } finally { env.mockLlm = false; }
 });
+// ---- the live demo: over-limit refusal on the first turn, and the shared demo wallet's caps ----
+await t('wallet: a send over the per-transfer limit is refused on the first turn, whatever the model does', async () => {
+  const { startCall, reply, setChatForTest } = await import('../src/agent.ts');
+  const { walletDesk, limitCheck, namesLimit } = await import('../src/desks/wallet.ts');
+  const { env } = await import('../src/config.ts');
+  const { db } = await import('../src/store.ts');
+  const { hashPin } = await import('../src/wallet.ts');
+  const DEMO = `1999${String(Date.now()).slice(-7)}`, USER = `1556${String(Date.now()).slice(-7)}`;
+  db.wallets.push({ phone: DEMO, owner: 'c.testnet', contract: 'demo-a.testnet', ...hashPin('4821'), fails: 0, createdAt: Date.now() } as any);
+  db.wallets.push({ phone: USER, owner: 'u.testnet', contract: 'user-a.testnet', ...hashPin('1234'), fails: 0, createdAt: Date.now() } as any);
+  Object.assign(env, { demoPhone: DEMO, demoPin: '4821' });
+  const WORDING = /I can't send that: 5 NEAR is over the 1 NEAR per-transfer limit on this shared demo wallet\. Nothing was sent\./;
+  try {
+    // A model that does what the live one did: no tool call for the send, and "go ahead?" instead of the limit.
+    const seen: string[] = [];
+    setChatForTest((async (h: any[], _t: unknown, _x: unknown, o: any) => { seen.push(JSON.stringify(h.slice(-2))); const content = 'It exists, about five years old. Want me to go ahead with 5 NEAR?'; o?.onText?.(content); return { msg: { role: 'assistant', content }, proof: { chatId: 'x', model: 'm', requestHash: '', responseHash: '', status: 'pending' } }; }) as any);
+    const c = startCall('web').call;
+    const said = await reply(c.id, 'Send 5 NEAR to stranger.testnet.');
+    assert.match(said, /over the 1 NEAR per-transfer limit, so nothing was sent/, 'the caller hears the limit on that turn');
+    assert.match(seen[0], /prepare_transfer/, 'the model is handed the refusal as a prepare_transfer result');
+    assert.match(seen[0], WORDING);
+    const tool = c.turns.find((x) => x.who === 'tool')!.text;
+    assert.match(tool, /^prepare_transfer\(limit check\)/); assert.match(tool, WORDING);
+    assert.ok(!/WhatsApp|sign it in your own wallet/.test(tool), 'a browser caller on the demo wallet is not sent to WhatsApp or a signing link');
+    assert.equal(walletDesk.link!(c), null, 'no link');
+    // A model that does name the limit is not repeated.
+    setChatForTest((async (_h: any[], _t: unknown, _x: unknown, o: any) => { const content = 'Sorry, 5 NEAR is over the one NEAR limit, so nothing was sent.'; o?.onText?.(content); return { msg: { role: 'assistant', content }, proof: { chatId: 'x', model: 'm', requestHash: '', responseHash: '', status: 'pending' } }; }) as any);
+    assert.equal(await reply(startCall('web').call.id, 'send five NEAR to stranger dot testnet'), 'Sorry, 5 NEAR is over the one NEAR limit, so nothing was sent.');
+    setChatForTest(null);
+    // The scripted model says the tool's reason as it is.
+    env.mockLlm = true;
+    assert.match(await reply(startCall('web').call.id, 'Send 5 NEAR to stranger.testnet.'), WORDING);
+    env.mockLlm = false;
+    // The same wording when the model does call prepare_transfer itself.
+    const direct: any = await walletDesk.run(startCall('web').call, 'prepare_transfer', { to: 'stranger.testnet', amount: '5', asset: 'near' });
+    assert.equal(direct.ok, false); assert.match(direct.reason, WORDING);
+    // A real user's wallet on WhatsApp keeps the signing link, on WhatsApp.
+    const w = startCall('whatsapp', USER).call;
+    const mine = await limitCheck(w, 'please send 5 NEAR to bob.testnet');
+    assert.equal(mine!.out.reason, "I can't send that myself: 5 NEAR is over your 1 NEAR per-transfer limit. A link to sign it in your own wallet is on WhatsApp.");
+    assert.match(walletDesk.link!(w)!.url, /\/wallet\/send\?to=bob\.testnet&amount=5$/);
+    assert.match((await limitCheck(w, 'send 50 dollars to grocer.testnet'))!.out.reason, /50 USDC is over your 25 USDC per-transfer limit/);
+    assert.match((await limitCheck(w, '转 5 个 NEAR 给 bob.testnet'))!.out.reason, /1 NEAR per-transfer limit/);
+    // Only refusals come from the check: a send within the limit, a question and a packet call go on as before.
+    for (const line of ['send 0.5 NEAR to bob.testnet', 'send 1 NEAR to bob.testnet', 'what is the price of 5 NEAR', 'send it to alice.testnet', 'a money packet for 5 people', '[PIN]'])
+      assert.equal(await limitCheck(w, line), null, line);
+    assert.equal(namesLimit('5 NEAR is over the 1 NEAR limit', '1 NEAR'), true);
+    assert.equal(namesLimit('that is over the one NEAR limit', '1 NEAR'), true);
+    assert.equal(namesLimit('Want me to go ahead with 15 NEAR? No money was sent.', '1 NEAR'), false);
+  } finally {
+    setChatForTest(null); env.mockLlm = false; Object.assign(env, { demoPhone: '', demoPin: '' });
+    db.wallets = db.wallets.filter((x: any) => x.phone !== DEMO && x.phone !== USER);
+  }
+});
+await t('demo wallet: a visitor\'s money packet is capped (0.02 NEAR, one hour, 3 open, 10 a day); real wallets keep the normal rules', async () => {
+  const { startCall } = await import('../src/agent.ts');
+  const { walletDesk, takePin } = await import('../src/desks/wallet.ts');
+  const { findPacket, demoPacket } = await import('../src/packets.ts');
+  const { env } = await import('../src/config.ts');
+  const { db } = await import('../src/store.ts');
+  const { hashPin } = await import('../src/wallet.ts');
+  const run = String(Date.now()).slice(-7), DEMO = `1998${run}`, USER = `1557${run}`, CONTRACT = `demo-${run}.testnet`;
+  db.wallets.push({ phone: DEMO, owner: 'c.testnet', contract: CONTRACT, ...hashPin('4821'), fails: 0, createdAt: Date.now() } as any);
+  db.wallets.push({ phone: USER, owner: 'u.testnet', contract: `user-${run}.testnet`, ...hashPin('1234'), fails: 0, createdAt: Date.now() } as any);
+  Object.assign(env, { demoPhone: DEMO, demoPin: '4821' });
+  const perDay = env.demoVisitorPacketsPerDay, sitePerDay = env.demoPacketsPerDay, all = db.packets;
+  const make = async (phone: string | undefined, pin: string, amount: string) => {
+    const c = startCall(phone ? 'whatsapp' : 'web', phone).call;
+    c.turns.push({ at: Date.now(), who: 'caller', text: `send a money packet of ${amount} NEAR for 2 people, the words are trick or treat` });
+    const p: any = await walletDesk.run(c, 'prepare_packet', { amount, count: 2, words: 'trick or treat' });
+    if (!p.ok) return p;
+    takePin(c.id, pin);
+    return { ...(await walletDesk.run(c, 'confirm_transfer', { pin: '[PIN]' }) as any), read_back: p.read_back };
+  };
+  try {
+    assert.equal((await make(undefined, '4821', '0.5')).reason, 'On this shared demo wallet a money packet can hold at most 0.02 NEAR, and it expires after 60 minutes, then what is left goes back. Try 0.02 NEAR for 3 people.');
+    const first = await make(undefined, '4821', '0.02');
+    assert.equal(first.ok, true, first.reason);
+    assert.match(first.read_back, /On this shared demo wallet it expires after 60 minutes, then what is left goes back/);
+    const p1 = findPacket(String(first.link).split('/').pop()!)!;
+    assert.equal(p1.expiresAt - p1.createdAt, 3_600_000, 'one hour, not the usual day');
+    assert.equal(p1.from, CONTRACT);
+    assert.equal((await make(undefined, '4821', '0.02')).ok, true);
+    assert.equal((await make(undefined, '4821', '0.01')).ok, true);
+    assert.equal((await make(undefined, '4821', '0.02')).reason, 'This shared demo wallet already has 3 visitor money packets open, and 3 is the most at once. Each one expires after 60 minutes. Try again later, or open the demo packet on the page.');
+    p1.expiresAt = Date.now() - 1; // an hour on: it is sent back and no longer counts as open
+    assert.equal((await make(undefined, '4821', '0.02')).ok, true);
+    assert.equal(p1.refunded, true, 'the expired one was refunded on the way');
+    for (const p of db.packets.filter((x) => x.from === CONTRACT)) p.expiresAt = Date.now() - 1;
+    env.demoVisitorPacketsPerDay = 4; // four were made in this test
+    assert.equal((await make(undefined, '4821', '0.02')).reason, 'Visitors have made 4 money packets from this shared demo wallet in the last 24 hours, and that is the most allowed. Try again later, or open the demo packet on the page.');
+    // A real user's own wallet: the normal rules (the 1 NEAR limit, a one day expiry, no cap on how many).
+    const own = await make(USER, '1234', '0.5');
+    assert.equal(own.approvalSent, true, 'above the small limit it goes to the Approve step as before, not the demo cap');
+    const small = await make(USER, '1234', '0.1');
+    assert.equal(small.ok, true, small.reason);
+    assert.ok(!/demo wallet/.test(small.read_back));
+    const p2 = findPacket(String(small.link).split('/').pop()!)!;
+    assert.equal(p2.expiresAt - p2.createdAt, env.packetExpirySec * 1000);
+    // The page's own demo packet is remade a limited number of times in 24 hours.
+    db.packets = [];
+    env.demoPacketsPerDay = 1;
+    const site = await demoPacket();
+    assert.ok(site && site.demo, 'the first one is made');
+    for (let i = 0; i < site!.count; i++) site!.claims.push({ to: `v${i}.testnet`, yocto: '1', at: Date.now(), how: 'exact' });
+    assert.equal(await demoPacket(), null, 'every share opened and the day\'s count used: no new one');
+  } finally {
+    Object.assign(env, { demoPhone: '', demoPin: '', demoVisitorPacketsPerDay: perDay, demoPacketsPerDay: sitePerDay });
+    db.packets = all.filter((x) => x.from !== CONTRACT);
+    db.wallets = db.wallets.filter((x: any) => x.phone !== DEMO && x.phone !== USER);
+  }
+});
+await t('money packets: one funded on chain by someone else is imported only with the right words, while open', async () => {
+  const { importPacket, norm, findPacket, openPacket } = await import('../src/packets.ts');
+  const { createHash } = await import('node:crypto');
+  const phraseHash = (i: string, w: string) => createHash('sha256').update(`${i}:${norm(w)}`).digest('hex');
+  const { db, save } = await import('../src/store.ts');
+  const now = Date.now(), id = 'dao-test-1';
+  db.packets = db.packets.filter((x) => x.id !== id); // the test db file is kept between runs
+  const chain = { creator: 'family.sputnik-dao.near', total: '90000000000000000000000', remaining: '90000000000000000000000', count: 3, claimed: 0, lucky: false,
+    expires_ns: String(BigInt(now + 3_600_000) * 1_000_000n), claimers: [], phrase_hash: phraseHash(id, 'Good Morning, all!'), refunded: false };
+  try {
+    assert.match((importPacket(id, 'good morning all', null) as any).reason, /no packet with the id/);
+    assert.match((importPacket(id, 'good evening all', chain) as any).reason, /do not match the hash/);
+    assert.match((importPacket(id, 'good morning all', { ...chain, expires_ns: String(BigInt(now - 1) * 1_000_000n) }) as any).reason, /expired/);
+    assert.match((importPacket(id, 'good morning all', { ...chain, refunded: true }) as any).reason, /refunded/);
+    assert.match((importPacket(id, 'good morning all', { ...chain, claimed: 3, remaining: '0' }) as any).reason, /empty/);
+    assert.match((importPacket(id, 'good morning all', { ...chain, claimed: 2, claimers: ['a.near', 'b.near'] }) as any).reason, /cannot be imported/);
+    assert.equal(importPacket(id, 'good morning all', chain, { dry: true }).ok, true);
+    assert.equal(findPacket(id), undefined, 'a dry check saves nothing');
+    const r = importPacket(id, 'good morning all', chain);
+    assert.equal(r.ok, true, 'case, spacing and punctuation do not matter, as in the hash');
+    const p = findPacket(id)!;
+    assert.equal(p.from, 'family.sputnik-dao.near'); assert.equal(p.left, chain.remaining); assert.equal(p.expiresAt, now + 3_600_000);
+    assert.ok(!p.dryRun, 'a share of it is paid by the contract, not as a dry run');
+    assert.match((importPacket(id, 'good morning all', chain) as any).reason, /already has a packet/);
+    assert.equal(((await openPacket(id, 'kid.near', ['hello there'])) as any).need, 'words', 'the caller still has to say the words');
+  } finally { db.packets = db.packets.filter((x) => x.id !== id); save(); }
+});
 process.once("beforeExit", () => console.log(`${n} passed`));

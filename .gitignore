@@ -7,3 +7,4 @@ dist
 .taste-skill
 .tanstack
 contracts/*/target
+private/
