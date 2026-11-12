@@ -33,6 +33,9 @@ export function useNearWallet(description: string, network: 'mainnet' | 'testnet
 /** The wallet library encodes function-call args with Node's Buffer, which browsers don't have ("Buffer is not
  *  defined"). Hand it bytes instead: it passes a Uint8Array through untouched. */
 export async function browserActions() {
+  // The wallet modules (Meteor, HOT, ...) also call Buffer deeper while signing, so give the page one.
+  const g = globalThis as any;
+  if (!g.Buffer) g.Buffer = (await import('buffer')).Buffer;
   const { actionCreators } = await import('@near-wallet-selector/core');
   const bytes = (args: unknown) => (args instanceof Uint8Array ? args : new TextEncoder().encode(JSON.stringify(args ?? {})));
   return { ...actionCreators, functionCall: (method: string, args: unknown, gas?: bigint, deposit?: bigint) => actionCreators.functionCall(method, bytes(args), gas, deposit) };
