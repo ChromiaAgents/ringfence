@@ -1,12 +1,13 @@
 // The room's AI host: a VRM 3D character (three-vrm) that blinks, sways and lip-syncs to its own voice.
 // speak(url) plays a WAV and drives the mouth from its loudness. Free and open source; runs in the browser.
 // Model: VRM1_Constraint_Twist_Sample, (c) 2022 pixiv Inc., VRM Public License 1.0 (vrm.dev/licenses/1.0).
-import { useEffect, useImperativeHandle, useRef, forwardRef } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
 
 export type HostHandle = { speak: (url: string) => Promise<void> };
 
 export const Host = forwardRef<HostHandle, { className?: string }>(function Host({ className }, ref) {
   const box = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
   const level = useRef(0); // 0..1 mouth opening, set by the audio analyser
   const audio = useRef<{ ctx?: AudioContext; busy: boolean }>({ busy: false });
 
@@ -38,8 +39,8 @@ export const Host = forwardRef<HostHandle, { className?: string }>(function Host
       const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
       const { VRMLoaderPlugin, VRMUtils } = await import('@pixiv/three-vrm');
       const el = box.current; if (!el || stop) return;
-      const renderer = new THREE.WebGLRenderer({ antialias: devicePixelRatio < 2, alpha: true, powerPreference: 'low-power' });
-      renderer.setPixelRatio(Math.min(1.5, devicePixelRatio)); // ponytail: sharp enough on phones, half the pixels of 2x
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
+      renderer.setPixelRatio(Math.min(2, devicePixelRatio)); // sharp edges on phones; 30 fps keeps it light
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       el.appendChild(renderer.domElement);
       const scene = new THREE.Scene();
@@ -57,6 +58,7 @@ export const Host = forwardRef<HostHandle, { className?: string }>(function Host
       vrm.scene.rotation.y = Math.PI; // VRM 0 faces -Z; VRM 1 the sample faces the camera after this
       if (vrm.meta?.metaVersion === '1') vrm.scene.rotation.y = 0;
       scene.add(vrm.scene);
+      setReady(true);
       const h = vrm.humanoid;
       // Arms down from the T-pose.
       const set = (bone: string, z: number) => { const b = h?.getNormalizedBoneNode(bone); if (b) b.rotation.z = z; };
@@ -94,5 +96,6 @@ export const Host = forwardRef<HostHandle, { className?: string }>(function Host
     return () => { stop = true; cancelAnimationFrame(raf); cleanup(); };
   }, []);
 
-  return <div ref={box} className={className} aria-label="Ringfence host, an animated character" role="img" />;
+  // A still of the host shows at once; the 3D character replaces it when loaded (about 4 MB, cached after).
+  return <div ref={box} className={className} aria-label="Ringfence host, an animated character" role="img" style={{ backgroundImage: ready ? undefined : 'url(/brand/host.jpg)', backgroundSize: 'cover', backgroundPosition: 'center top' }} />;
 });

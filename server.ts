@@ -9,7 +9,8 @@ import { handleTopup } from './src/topupPage.ts';
 import { startHeldLoop } from './src/held.ts';
 import { bindingOf, createCustodial, custodyLive, saveRecipient, walletState } from './src/wallet.ts';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, statSync, readFileSync, writeFileSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import { extname, join, normalize } from 'node:path';
 import { env } from './src/config.ts';
 import { attachVoice, handleWebhook } from './src/voice.ts';
@@ -45,6 +46,14 @@ if (dev) {
         if (start > end || start >= size) return res.writeHead(416, { 'content-range': `bytes */${size}` }).end();
         res.writeHead(206, { 'content-type': type, 'content-range': `bytes ${start}-${end}/${size}`, 'content-length': end - start + 1, 'accept-ranges': 'bytes', 'cache-control': cache });
         return createReadStream(file, { start, end }).pipe(res);
+      }
+      // The room host's 3D model: gzipped once (10 MB -> about 4 MB) and cached by the browser for a day.
+      if (extname(file) === '.vrm') {
+        const gz = file + '.gz';
+        if (!existsSync(gz) || statSync(gz).mtimeMs < statSync(file).mtimeMs) writeFileSync(gz, gzipSync(readFileSync(file), { level: 9 }));
+        const zip = /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));
+        res.writeHead(200, { 'content-type': 'model/gltf-binary', 'content-length': zip ? statSync(gz).size : size, 'cache-control': 'public, max-age=86400', ...(zip ? { 'content-encoding': 'gzip', vary: 'accept-encoding' } : {}) });
+        return createReadStream(zip ? gz : file).pipe(res);
       }
       res.writeHead(200, { 'content-type': type, 'content-length': size, 'accept-ranges': 'bytes', 'cache-control': cache });
       return createReadStream(file).pipe(res);
