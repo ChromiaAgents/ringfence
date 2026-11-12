@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /dashboard
 
+Sitemap: https://ringfence.evalengine.ai/sitemap.xml
 # Facts and commands for machine readers: https://ringfence.evalengine.ai/llms.txt

@@ -26,7 +26,7 @@ if (dev) {
   const entry = new URL('./dist/server/server.js', import.meta.url);
   if (!existsSync(entry)) throw new Error('No build found: run `npm run build` first.');
   const { default: start } = await import(entry.href);
-  const types: Record<string, string> = { '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.html': 'text/html; charset=utf-8', '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.txt': 'text/plain; charset=utf-8' };
+  const types: Record<string, string> = { '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.html': 'text/html; charset=utf-8', '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml' };
   const client = new URL('./dist/client/', import.meta.url).pathname;
   app = async (req, res) => {
     const path = normalize(decodeURIComponent((req.url ?? '/').split('?')[0]));
@@ -68,6 +68,7 @@ server.on('request', async (req, res) => {
   if ((req.url ?? '').startsWith('/api/whatsapp-access') && await handleAccess(req, res).catch(() => { if (!res.headersSent) res.writeHead(500).end(); return true; })) return;
   // The live panel for WhatsApp calls; a tap there runs the same handler as a WhatsApp button tap.
   if (/^\/(llm|llms-full)\.txt$/.test(req.url ?? '')) { res.writeHead(301, { location: '/llms.txt' }).end(); return; }
+  if (req.url === "/robot.txt") { res.writeHead(301, { location: "/robots.txt" }).end(); return; }
   if ((req.url ?? '').startsWith('/api/live/') && await handleLive(req, res, onButton).catch((e) => { console.error('live', e.message); if (!res.headersSent) res.writeHead(500).end(); return true; })) return;
   const p = (req.url ?? '/').split('?')[0];
   if ((p === '/dashboard' || p === '/api/state') && !ownerOnly(req)) return res.writeHead(401, { 'www-authenticate': 'Basic realm="owner"' }).end();
