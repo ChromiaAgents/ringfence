@@ -1242,4 +1242,16 @@ await t('trend searches use the caller country from the phone code', async () =>
   assert.match(localContext('60123456789'), /Malaysia.*MYR.*English.*USDC/s);
   assert.equal(localContext(undefined), '');
 });
+await t('goodbye: if the model says bye but forgets end_call, the call still hangs up; "bye, wait" does not', async () => {
+  const { startCall, reply, setChatForTest } = await import('../src/agent.ts');
+  setChatForTest((async () => ({ msg: { role: 'assistant', content: 'Bye, take care!' }, proof: { chatId: 'x', model: 'x', requestHash: '', responseHash: '', status: 'unverified' } })) as any);
+  try {
+    const a = startCall('web'); let ended = false;
+    await reply(a.call.id, 'Okay thanks, bye!', { onEndCall: () => (ended = true) });
+    assert.equal(ended, true);
+    const b = startCall('web'); let ended2 = false;
+    await reply(b.call.id, 'what is my balance', { onEndCall: () => (ended2 = true) });
+    assert.equal(ended2, false);
+  } finally { setChatForTest(null); }
+});
 process.once("beforeExit", () => console.log(`${n} passed`));

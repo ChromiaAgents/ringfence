@@ -142,6 +142,9 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   h.push({ role: 'user', content: text });
   // The model decides when to hang up; a plain goodbye only reminds it, because it sometimes forgot end_call.
   if (isGoodbye(text)) h.push({ role: 'system', content: 'The caller just said goodbye. Unless they also asked for something, say a short warm goodbye and call end_call.' });
+  // The model decides first; if the whole line was a goodbye and it still did not hang up, hang up after its goodbye.
+  const bye = isGoodbye(text);
+  const done = (say: string) => { if (bye && !call.endedAt) { console.log(`[call ${call.id}] goodbye: hanging up (model did not call end_call)`); o.onEndCall?.(); clearPending(call.id); call.endedAt = Date.now(); } return say; };
   // A call about one money packet: the words are checked in code on every line, whatever the model makes of it.
   const auto = await autoOpen(call).catch(() => null);
   if (auto) {
@@ -179,7 +182,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
         if (TOOL_SAY[tc.function.name]) o.onToolStart?.(TOOL_SAY[tc.function.name]);
         const name = tc.function.name, desk = deskOfTool(call, name);
         let out: unknown;
-        if (name === 'end_call') { o.onEndCall?.(); clearPending(call.id); call.endedAt = Date.now(); out = { ok: true, note: 'The line hangs up after you finish speaking.' }; }
+        if (name === 'end_call') { console.log(`[call ${call.id}] end_call by the model`); o.onEndCall?.(); clearPending(call.id); call.endedAt = Date.now(); out = { ok: true, note: 'The line hangs up after you finish speaking.' }; }
         else if (!desk) out = { error: 'unknown tool' };
         else if (name === 'web_search') {
           // The search model already writes a phone-ready answer: speak it as it arrives instead of paying for a second model pass.
@@ -209,7 +212,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
         if (timing) timing.llmMs = Date.now() - t0;
         call.turns.push({ at: Date.now(), who: 'agent', text: say, timing });
         save();
-        return say;
+        return done(say);
       }
       continue;
     }
@@ -220,7 +223,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
     call.turns.push({ at: Date.now(), who: 'agent', text: say, proof, timing });
     save();
     for (const link of linksOf(call)) if (!before.has(link.url)) onLink?.(call, link);
-    return say;
+    return done(say);
   }
   // Six tool steps without an answer: say what was said, or ask once to repeat (kept in the transcript and history).
   const sorry = said.length ? said.join(' ') : filterAll('Sorry, could you say that again?').text;

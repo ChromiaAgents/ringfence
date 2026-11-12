@@ -203,7 +203,8 @@ async function onCallEvent(c: any) {
       if (hangUp) { // the AI called end_call: let the goodbye finish playing, then hang up
         while (audio.busy()) await new Promise((r) => setTimeout(r, 100));
         await new Promise((r) => setTimeout(r, 400));
-        await graph(`${env.waPhoneId}/calls`, { messaging_product: 'whatsapp', call_id: c.id, action: 'terminate' }).catch(console.error);
+        console.log('wa hang-up: terminating');
+        await graph(`${env.waPhoneId}/calls`, { messaging_product: 'whatsapp', call_id: c.id, action: 'terminate' }).catch((e) => console.error('wa terminate failed', e?.message ?? e));
         stop();
       }
     } catch (e: any) { if (!/abort/i.test(e?.message ?? '')) throw e; }
