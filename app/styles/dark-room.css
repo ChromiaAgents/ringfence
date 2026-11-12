@@ -620,7 +620,7 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .wa-icon { display: inline-block !important; vertical-align: -0.18em; } /* the reset makes svg block-level; this one sits in a line of text */
 
 /* One top bar on every page (home included): same row, same links, same gaps. */
-.topbar { display: flex; align-items: center; gap: 28px; font-size: 16px; }
+.topbar { display: flex; align-items: center; gap: 28px; font-size: 16px; min-height: 48px; }
 .topbar .wordmark { font-size: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem); text-decoration: none; }
 .topbar .sp { flex: 1; }
 .topbar a.code { color: var(--fg); text-underline-offset: 3px; }
