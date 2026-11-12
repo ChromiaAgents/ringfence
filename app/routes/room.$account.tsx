@@ -126,10 +126,17 @@ function Room() {
   const left = packet ? packet.count - packet.claims.length : 0;
   // One chat column: gifts, viewers' messages and the agent, in time order.
   const stream = [
-    ...feed.map((g) => ({ kind: 'gift' as const, at: g.at, from: g.from, near: g.near, landing: !!g.landsAt, text: '' })),
-    ...chats.map((c) => ({ kind: 'chat' as const, at: c.at, from: c.name, near: 0, landing: false, text: c.text })),
-    ...call.lines.map((l, i) => ({ l, i })).filter(({ l }) => l.who === 'agent').map(({ l, i }) => ({ kind: 'agent' as const, at: seenAt(i), from: 'Ringfence', near: 0, landing: false, text: l.text })),
-  ].sort((a, b) => a.at - b.at).slice(-60);
+    // Gifts from the last hour only; older ones stay in the total and top gifters.
+    ...feed.filter((g) => Date.now() - g.at < 3_600_000).map((g) => ({ kind: 'gift' as const, at: g.at, from: g.from, near: g.near, landing: !!g.landsAt, text: '', n: 1 })),
+    ...chats.map((c) => ({ kind: 'chat' as const, at: c.at, from: c.name, near: 0, landing: false, text: c.text, n: 1 })),
+    ...call.lines.map((l, i) => ({ l, i })).filter(({ l }) => l.who === 'agent').map(({ l, i }) => ({ kind: 'agent' as const, at: seenAt(i), from: 'Ringfence', near: 0, landing: false, text: l.text, n: 1 })),
+  ].sort((a, b) => a.at - b.at)
+    // The same gift from the same sender, back to back: one line with ×N, like a live-stream combo.
+    .reduce<{ kind: 'gift' | 'chat' | 'agent'; at: number; from: string; near: number; landing: boolean; text: string; n: number }[]>((out, m) => {
+      const last = out[out.length - 1];
+      if (m.kind === 'gift' && last?.kind === 'gift' && last.from === m.from && last.near === m.near && !m.landing && !last.landing) { last.n += 1; last.at = m.at; } else out.push({ ...m });
+      return out;
+    }, []).slice(-60);
   // Follow new messages only when the reader is already at the bottom; scrolling up to read history is left alone.
   useEffect(() => { const b = chatBox.current; if (b && b.scrollHeight - b.scrollTop - b.clientHeight < 80) b.scrollTo({ top: b.scrollHeight, behavior: 'smooth' }); }, [stream.length, call.link, call.approval, call.choices.length]);
   const lastAgent = [...call.lines].reverse().find((l) => l.who === 'agent')?.text;
@@ -180,7 +187,7 @@ function Room() {
             <p className="lr-sys">Welcome! Ringfence never asks for your seed phrase or for money outside a call with your PIN. Beware of scams.</p>
             {idleNote && <p className="lr-sys">{idleNote}</p>}
             {stream.map((m, i) => m.kind === 'gift'
-              ? <p key={i} className="lr-msg"><span className="lv">{Math.min(99, Math.ceil(m.near * 100))}</span><b>{m.from}:</b> sent {iconOf(m.near)} {m.near} NEAR{m.landing ? ' (landing)' : ''}</p>
+              ? <p key={i} className="lr-msg"><span className="lv">{Math.min(99, Math.ceil(m.near * 100))}</span><b>{m.from}:</b> sent {iconOf(m.near)} {m.near} NEAR{m.n > 1 ? <em className="lr-combo"> ×{m.n}</em> : null}{m.landing ? ' (landing)' : ''}</p>
               : <p key={i} className={`lr-msg ${m.kind}`}><span className="lv">{m.kind === 'agent' ? 'AI' : '1'}</span><b>{m.from}:</b> {m.text}</p>)}
           {(call.link || call.approval || call.choices.length > 0) && (
               <div className="lr-cards">

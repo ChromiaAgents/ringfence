@@ -987,3 +987,5 @@ html:has(.ov) { color-scheme: normal !important; }
   .topbar .tlinks::-webkit-scrollbar { display: none; }
   .topbar .tlinks .code { display: inline; font-size: 15px; }
 }
+
+.lr-msg .lr-combo { font-style: normal; font-weight: 800; color: #ffd166; margin-left: 4px; }
