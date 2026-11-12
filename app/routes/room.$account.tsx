@@ -37,7 +37,7 @@ function Room() {
   const call = useCall('auto');
   const queued = useRef<string | null>(null);
   const host = useRef<HostHandle>(null);
-  const [sheet, setSheet] = useState(true);
+  const [sheet, setSheet] = useState(false);
   const [tab, setTab] = useState('Popular');
   const [pick, setPick] = useState('Heart');
   const [follow, setFollow] = useState(false);
@@ -127,8 +127,9 @@ function Room() {
           </div>
           {!sheet && <button type="button" className="lr-giftbtn" onClick={() => setSheet(true)} aria-label="Send a gift">🎁</button>}
         </div>
+        {sheet && <button type="button" className="lr-backdrop" aria-label="Close gifts" onClick={() => setSheet(false)} />}
         {sheet && (
-          <div className="lr-sheet">
+          <div className="lr-sheet" role="dialog" aria-label="Gifts">
             <div className="lr-tabs">
               {TABS.map((t) => <button key={t} type="button" className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>)}
               <span className="lr-bal" title="Your gifts are real NEAR">Ⓝ NEAR</span>

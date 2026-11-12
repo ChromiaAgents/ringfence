@@ -859,3 +859,7 @@ html:has(.ov) { color-scheme: normal !important; }
 .lr-gift.on span { transform: scale(1.12); } .lr-gift.on small { color: #fff; }
 .lr-send { display: block; width: calc(100% + 8px); margin-top: 6px; padding: 8px 0; background: #fe2c55; font-size: 15px !important; text-align: center; }
 .lr-credit { margin: 12px 4px 0; font-size: 11px; color: #6c6c77; }
+.lr-sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; animation: lr-up 240ms cubic-bezier(.2,.9,.2,1) both; }
+.lr-backdrop { position: absolute; inset: 0; z-index: 4; border: 0; background: rgba(0,0,0,.25); cursor: default; }
+@keyframes lr-up { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) { .lr-sheet { animation: none; } }
