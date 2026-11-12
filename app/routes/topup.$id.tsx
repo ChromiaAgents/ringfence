@@ -20,7 +20,7 @@ function Topup() {
   const [busy, setBusy] = useState(false);
   const [q, setQ] = useState<(Quote & { status?: string | null }) | null>(null);
   const [copied, setCopied] = useState(false);
-  const [st, setSt] = useState<{ status?: string; out?: string; tx?: string } | null>(null);
+  const [st, setSt] = useState<{ status?: string; out?: string; tx?: string; inTx?: string; chain?: string; deposit?: string } | null>(null);
   const [now, setNow] = useState(Date.now());
   // Live: the swap's status every 5 s (the server follows 1Click), and a countdown to the quote's deadline.
   useEffect(() => {
@@ -72,12 +72,13 @@ function Topup() {
                     {q.depositMemo && <p>Memo: <code>{q.depositMemo}</code></p>}
                     <p className="tp-acts">
                       <button className="btn" onClick={() => { navigator.clipboard?.writeText(q.depositAddress!); setCopied(true); }}>{copied ? 'Copied' : 'Copy address'}</button>
-                      {q.status && <a href={q.status} target="_blank" rel="noreferrer">Check the swap</a>}
+                      <a href={`https://explorer.near-intents.org/transactions/${q.depositAddress}`} target="_blank" rel="noreferrer">NEAR Intents explorer</a>
                     </p>
                     <p className={`tp-status ${st?.status === 'SUCCESS' ? 'ok' : ['REFUNDED', 'FAILED', 'INCOMPLETE_DEPOSIT'].includes(st?.status ?? '') ? 'bad' : ''}`} role="status">
                       {STEP[st?.status ?? 'PENDING_DEPOSIT'] ?? st?.status}
-                      {st?.status === 'SUCCESS' && <> {st.out} USDC is in your wallet.{st.tx && <> <a href={`https://nearblocks.io/txns/${st.tx}`} target="_blank" rel="noreferrer">See it on NEAR</a></>}</>}
+                      {st?.status === 'SUCCESS' && <> {st.out} USDC is in your wallet.{st.tx && <> <a href={`https://nearblocks.io/txns/${st.tx}`} target="_blank" rel="noreferrer">On NEAR</a></>}</>}
                     </p>
+                    {st?.inTx && <p className="muted small">Your deposit: {({ sol: 'https://solscan.io/tx/', eth: 'https://etherscan.io/tx/', base: 'https://basescan.org/tx/', arb: 'https://arbiscan.io/tx/', bsc: 'https://bscscan.com/tx/', pol: 'https://polygonscan.com/tx/', tron: 'https://tronscan.org/#/transaction/' } as Record<string, string>)[st.chain ?? ''] ? <a href={`${({ sol: 'https://solscan.io/tx/', eth: 'https://etherscan.io/tx/', base: 'https://basescan.org/tx/', arb: 'https://arbiscan.io/tx/', bsc: 'https://bscscan.com/tx/', pol: 'https://polygonscan.com/tx/', tron: 'https://tronscan.org/#/transaction/' } as Record<string, string>)[st.chain!]}${st.inTx}`} target="_blank" rel="noreferrer">{st.inTx.slice(0, 10)}…</a> : <code>{st.inTx.slice(0, 10)}…</code>}</p>}
                     {st?.status !== 'SUCCESS' && <p>About <b>{q.receive} USDC</b> arrives. {left > 0 ? <>Send within <b>{mmss(left)}</b> (until {new Date(q.deadline).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}).</> : <b>This quote has expired. Ask the agent for a new one.</b>}</p>}
                   </>) : <p className="muted">Dry run: live top ups are off on this server, nothing to send.</p>}
                   <p className="muted" style={{ fontSize: 13 }}>Send only from your own wallet. This site never holds your funds.</p>

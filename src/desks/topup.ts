@@ -69,7 +69,7 @@ export async function runTopup(call: Call, args: any) {
   const whose = t.demo ? 'the shared demo wallet (not yours: anything sent is a gift to the demo)' : 'your wallet';
   if (q.depositAddress) {
     // A 64-character address is useless spoken: it goes on the caller's screen (or WhatsApp), with the 1Click status link.
-    setWalletLink(call.id, { url: `https://1click.chaindefuser.com/v0/status?depositAddress=${encodeURIComponent(q.depositAddress)}`, label: `Send exactly ${q.send} ${q.symbol} on ${q.chain} to ${q.depositAddress}${q.depositMemo ? ` memo ${q.depositMemo}` : ''} (tap to check the swap)` });
+    setWalletLink(call.id, { url: `https://explorer.near-intents.org/transactions/${encodeURIComponent(q.depositAddress)}`, label: `Send exactly ${q.send} ${q.symbol} on ${q.chain} to ${q.depositAddress}${q.depositMemo ? ` memo ${q.depositMemo}` : ''} (tap to check the swap)` });
     return { ...q, linkSent: true, say: `Live quote: send exactly ${q.send} ${q.symbol} on ${q.chain} to the address on your screen, and about ${q.receive} USDC lands in ${whose}. Refunds go to ${q.refund}. It holds for ${mins} minutes. Only send from your own wallet.` };
   }
   if (topupLive()) {

@@ -7,7 +7,7 @@ import { env } from './config.ts';
 import { quoteTopup, topupLive } from './fund.ts';
 import { ipOf } from './live.ts';
 
-type Pending = { usd: number; token: string; recipient: string; demo: boolean; at: number; tries: number; phone?: string; deposit?: string; status?: string; out?: string; tx?: string };
+type Pending = { usd: number; token: string; recipient: string; demo: boolean; at: number; tries: number; phone?: string; deposit?: string; status?: string; out?: string; tx?: string; inTx?: string; chain?: string };
 const pending: Map<string, Pending> = ((globalThis as any).__rfTopups ??= new Map()); // shared across bundles
 const LIFE_MS = 2 * 60 * 60_000; // ponytail: in memory; a restart drops open top-up links, the caller asks again
 
@@ -24,7 +24,7 @@ export async function handleTopup(req: IncomingMessage, res: ServerResponse): Pr
   if (st) {
     const p = pending.get(st[1]);
     res.writeHead(p ? 200 : 404, { 'content-type': 'application/json', 'cache-control': 'no-store' });
-    res.end(JSON.stringify(p ? { status: p.status ?? (p.deposit ? 'PENDING_DEPOSIT' : null), out: p.out, tx: p.tx } : { error: 'expired' }));
+    res.end(JSON.stringify(p ? { status: p.status ?? (p.deposit ? 'PENDING_DEPOSIT' : null), out: p.out, tx: p.tx, inTx: p.inTx, chain: p.chain, deposit: p.deposit } : { error: 'expired' }));
     return true;
   }
   const m = (req.url ?? '').split('?')[0].match(/^\/api\/topup\/([0-9a-f]{12})$/);
@@ -58,6 +58,8 @@ function watch(id: string, p: Pending, deadline: number) {
     const j: any = await fetch(`https://1click.chaindefuser.com/v0/status?depositAddress=${encodeURIComponent(p.deposit!)}`, { signal: AbortSignal.timeout(10_000) }).then((r) => r.json()).catch(() => null);
     const was = p.status;
     if (j?.status) p.status = j.status;
+    p.inTx ??= j?.swapDetails?.originChainTxHashes?.[0]?.hash;
+    p.chain ??= String(p.token).split(' on ')[1];
     if (j?.status === 'SUCCESS') {
       p.out = j.swapDetails?.amountOutFormatted; p.tx = j.swapDetails?.destinationChainTxHashes?.[0]?.hash ?? j.swapDetails?.nearTxHashes?.at(-1);
       if (was !== 'SUCCESS') {
