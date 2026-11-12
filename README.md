@@ -1,6 +1,6 @@
 # Ringfence
 
-Ringfence is a phone line for NEAR. You call it in a browser or on WhatsApp, say what you want, and one AI agent acts from a NEAR wallet contract tied to your phone number. The agent can send NEAR, and it can make a money packet: NEAR locked in a contract and split between people who each say the agreed words on a call. The agent never holds the money. Each phone number has its own wallet contract, and that contract caps what the agent may spend: a limit per transfer, a limit per day, and a list of saved recipients.
+Ringfence is a phone line for NEAR. You call it in a browser or on WhatsApp (public number pending Meta's verification, see below), say what you want, and one AI agent acts from a NEAR wallet contract tied to your phone number. The agent can send NEAR, quote a top up from another chain, and make a money packet: NEAR locked in a contract and split between people who each say the agreed words on a call. The agent never holds the money. Each phone number has its own wallet contract, and that contract caps what the agent may spend: a limit per transfer, a limit per day, and a list of saved recipients.
 
 [Live demo](https://ringfence.evalengine.ai) | [Demo packet](https://ringfence.evalengine.ai/packet/demo) | [Film, 85 s](https://ringfence.evalengine.ai/ringfence-film.mp4) | [Deck](https://ringfence.evalengine.ai/deck.html) | [Commands for an AI reader: AGENTS.md](AGENTS.md)
 
@@ -16,6 +16,8 @@ Status: live on NEAR mainnet since 10 November 2026, with small amounts. The con
 Ringfence puts the decision in a NEAR contract. The AI only asks. The contract refuses anything over its limits, whatever the AI or the server says.
 
 ## Try it
+
+> **WhatsApp:** built and supported (wallet by text, calls, the Approve card, money packets). The public number **+60 11-7512 3486** is waiting on Meta's business verification; once Meta approves it, anyone can message or call it, and we will update this page. Until then it runs on Meta's test number **+1 555-144-4220**, which only answers numbers Meta approved. The browser call does the same things on the shared demo wallet.
 
 Each step says what to do and what you should see.
 
@@ -74,9 +76,13 @@ Steps 2 and 4 move real NEAR on mainnet from the shared demo wallet. The amounts
    See: the agent refuses and says it sounds like a scam.
 6. Say: "Send 5 NEAR to stranger.near."
    See: refused on that turn. The agent says 5 NEAR is over the 1 NEAR per-transfer limit and that nothing was sent. The exact sentence varies, because a real model words it.
-7. Say: "How much is 1 NEAR in dollars?" or "Is mum-safe-vault.near a real account?"
+7. Say: "Top up my wallet with 2 dollars of SOL."
+   See: a live NEAR Intents 1Click quote. Give a refund address and a real deposit address appears on screen; the agent does not read it aloud. On this demo it warns first that the USDC goes to the shared demo wallet, not to you. Nothing moves unless you send SOL.
+8. Say: "How much is 1 NEAR in dollars?" or "Is mum-safe-vault.near a real account?"
    See: an answer from live data (CoinGecko, NEAR RPC). The account check says the account does not exist.
-8. Open https://ringfence.evalengine.ai/proof.
+9. Open https://ringfence.evalengine.ai/packet/family-1.
+   See: a money packet funded on mainnet by the Sputnik DAO ringfence-family.sputnik-dao.near. Its words are private to the family.
+10. Open https://ringfence.evalengine.ai/proof.
    See: the attestation result for each AI model, as checked by our server.
 
 If the packet page shows no packet, or the agent says the shared demo wallet is too low, the demo budget is used up for now. Path A shows the same flows without it.

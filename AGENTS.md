@@ -7,6 +7,8 @@ Facts and commands for an agent that reads or checks this repository. README.md 
 Ringfence is a phone line for NEAR: a caller in a browser or on WhatsApp talks to one AI agent, and the agent acts from a NEAR wallet contract tied to the caller's phone number.
 The wallet contract holds the spending rules (a limit per transfer, a limit per day, saved recipients, a wait for new recipients, freeze), so the agent can only ask it.
 A money packet is NEAR locked in a second contract and split between people; each person opens one share by saying the packet's words on a call.
+A Sputnik DAO (ringfence-family.sputnik-dao.near) funded packet family-1 on mainnet: https://ringfence.evalengine.ai/packet/family-1.
+Top up from any chain through NEAR Intents 1Click: on a call, "top up my wallet with 2 dollars of SOL" gives a live quote; with a refund address the live site gives a real deposit address on screen. On the shared demo wallet the USDC goes to the demo wallet, not the caller. No swap on mainnet yet.
 
 ## Commands, in order
 
@@ -25,7 +27,7 @@ Node 22 or newer. Nothing below needs a key, a `.env` file or a wallet. Nothing 
 | 9 | `cd contracts/phone-wallet && cargo test` | first run | 4 min first run | `test result: ok.` (38 unit tests, then 4 sandbox tests) |
 | 10 | `cd contracts/factory && cargo test` | first run | 90 s first run | `test result: ok.` (10 unit tests, 1 sandbox test) |
 | 11 | `cd contracts/packets && cargo test` | first run | 100 s first run | `test result: ok.` (16 unit tests, 1 sandbox test, 1 upgrade test) |
-| 12 | `npm run topup:quote -- 10 SOL` | yes | 5 s | `}` closing a JSON quote with `"dry": true` (first line: the demo wallet is NOT registered with USDC) |
+| 12 | `npm run topup:quote -- 10 SOL` | yes | 5 s | `}` closing a JSON quote with `"dry": true` (first line: whether the recipient is registered with USDC; the demo wallet is, since 12 Nov 2026) |
 | 13 | `npm run dao:wallet -- family.sputnik-dao.near 15550104477` | no | 2 s | `REFUSED: WALLET_SECRET is not set. ...` and exit 1 without the secret; with it, `Nothing was signed or sent. ...` |
 
 Notes on single commands:
@@ -123,3 +125,7 @@ Other views: `get_config` on `ringfence-wallet.near` (custody account, agent acc
 - `server.ts`: one Node process for pages, the call socket and the WhatsApp webhook.
 - `src/agent.ts`: the agent loop. `src/desks/`: the tools and the rules they enforce. `src/packets.ts`: money packets. `src/wallet.ts`: PIN, binding, chain calls.
 - `app/`: pages. `contracts/`: Rust contracts and release files. `test/run.ts`: `npm test`. `scripts/`: the check commands above.
+
+## WhatsApp status
+
+WhatsApp is built and supported. The public number +60 11-7512 3486 is waiting on Meta's business verification; once approved, anyone can message or call it. Until then it runs on Meta's test number +1 555-144-4220, which only answers numbers Meta approved. Judge through the browser call, which does the same on the shared demo wallet.

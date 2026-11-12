@@ -105,7 +105,7 @@ img.wide { width: 100%; height: auto; display: block; }
     <div class="row"><b>The packets contract</b><span>Fund, split from the block’s random seed, one share per account, refund after expiry.</span></div>
     <div class="row"><b>Private AI with proof</b><span>Chat and speech-to-text run on NEAR AI Cloud inside TEEs. Our server verifies the Intel and NVIDIA attestation and shows it on /proof. The spoken voice is Cartesia and is not attested.</span></div>
     <div class="row"><b>Bring your own wallet</b><span>Already on NEAR? Bind your number to a wallet contract you own, on /wallet/bind: one <code>create_wallet</code> call from any NEAR wallet. You set the limits; nobody can change the wallet code after it is made.</span></div>
-    <div class="row"><b>A family DAO <span class="tag no">wallet not on mainnet yet</span></b><span>A Sputnik DAO funded a money packet on mainnet, and a share was opened on a call (evidence rows 12 to 15). A DAO can also own the phone wallet, so owner changes need a council vote; that is not on mainnet yet. Also built, not on mainnet yet: top up in USDC from other chains through NEAR Intents (dry quotes only).</span></div>
+    <div class="row"><b>A family DAO <span class="tag no">wallet not on mainnet yet</span></b><span>A Sputnik DAO funded a money packet on mainnet, and a share was opened on a call (evidence rows 12 to 15). A DAO can also own the phone wallet, so owner changes need a council vote; that is not on mainnet yet. <a href="/packet/family-1">See the packet</a>. Also built: top up in USDC from other chains through NEAR Intents 1Click. Live quotes and real deposit addresses; no swap on mainnet yet.</span></div>
     <div class="row"><b>Names you can say out loud</b><span>“liho dot near” is read back before anything moves.</span></div>
   </div>
 </section>
@@ -127,6 +127,7 @@ img.wide { width: 100%; height: auto; display: block; }
     <div><p class="big"><a href="https://nearblocks.io/txns/GmPzx6UgxX9jJsDpHEZRodEhSmABZ3uRqFr2WzANCUd8">Refused</a></p><p>The agent key asks for 5 NEAR. The contract: “over the per-transfer limit”. Nothing moved.</p></div>
     <div><p class="big"><a href="https://nearblocks.io/txns/8EyQjwqWo5vJYqaSKVuo3586zqQQrs86JMvRzGBvZxH">Opened</a></p><p>“Happy new year” said on a call opened a share of a real 0.02 NEAR lucky packet.</p></div>
   </div>
+  <p class="muted">WhatsApp is built. Public number +60 11-7512 3486 is waiting on Meta's verification; until then it runs on Meta's test number +1 555-144-4220 (approved numbers only). The browser call does the same.</p>
   <p class="muted">Three contracts live; <code>npm run verify:contracts</code> checks the code on chain is the repo's. 57 app checks, 64 contract unit tests, 7 sandbox tests. AI-reviewed, not audited: the critical and high findings in the packets contract were fixed and redeployed. WhatsApp runs on Meta’s test number until business verification clears; the browser call shows sends and money packets on the shared demo wallet.</p>
 </section>
 

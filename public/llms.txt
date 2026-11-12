@@ -1,6 +1,6 @@
 # Ringfence
 
-> A phone line for NEAR. A caller in a browser or on WhatsApp talks to one AI agent, and the agent acts from a NEAR wallet contract tied to the caller's phone number. The wallet contract holds the spending rules, so the agent can only ask it. A money packet is NEAR locked in a second contract; each person opens one share by saying the packet's words on a call.
+> A phone line for NEAR. A caller in a browser or on WhatsApp talks to one AI agent, and the agent acts from a NEAR wallet contract tied to the caller's phone number. The wallet contract holds the spending rules, so the agent can only ask it. A money packet is NEAR locked in a second contract; each person opens one share by saying the packet's words on a call. A caller can also ask for a top up from another chain ("top up my wallet with 2 dollars of SOL") and get a live NEAR Intents quote.
 
 Site: https://ringfence.evalengine.ai
 Source: https://github.com/ChromiaAgents/ringfence (MIT). AGENTS.md in the repository has the full version of this file.
@@ -10,6 +10,7 @@ Status: on NEAR mainnet since 10 November 2026, small amounts. The contracts are
 
 - https://ringfence.evalengine.ai/ : the call page
 - https://ringfence.evalengine.ai/packet/demo : the open demo money packet. The words to say are shown on the page.
+- https://ringfence.evalengine.ai/packet/family-1 : a money packet funded on mainnet by the Sputnik DAO ringfence-family.sputnik-dao.near. Its words are private.
 - https://ringfence.evalengine.ai/proof : attestation results for the AI models. JSON: https://ringfence.evalengine.ai/api/proof
 - https://ringfence.evalengine.ai/stats : usage numbers
 - https://ringfence.evalengine.ai/wallet/bind : bind a phone number to your own NEAR account
@@ -52,3 +53,8 @@ Status: on NEAR mainnet since 10 November 2026, small amounts. The contracts are
 - Top up from any chain through NEAR Intents 1Click: live deposit addresses when the caller gives a refund address (the server has TOPUP_LIVE=1), dry quotes otherwise. No swap is on mainnet yet.
 - Staking for packets is not built.
 - Spoken languages: English and Chinese.
+
+## WhatsApp
+- Built and supported: wallet by text, calls, the Approve card, money packets.
+- Public number +60 11-7512 3486: waiting on Meta's business verification. Once approved, anyone can message or call it. This file will be updated.
+- Until then: Meta's test number +1 555-144-4220, which only answers numbers Meta approved. The browser call at https://ringfence.evalengine.ai does the same on the shared demo wallet.

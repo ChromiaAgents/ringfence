@@ -24,7 +24,7 @@ export const Route = createFileRoute('/')({
 const i = (n: number) => ({ '--i': n }) as CSSProperties;
 
 const TRY: Record<Desk | 'auto', string[]> = {
-  auto: ['Send a money packet of 0.02 NEAR for 5 people, the words are merry christmas.', 'Send 0.1 NEAR to liho00.near.', 'Send 0.3 NEAR to liho00.near.', 'How much is that in dollars?', 'Send 5 NEAR to stranger.near.', 'What is my balance?', 'I want to launch a memecoin.'],
+  auto: ['Send a money packet of 0.02 NEAR for 5 people, the words are merry christmas.', 'Send 0.1 NEAR to liho00.near.', 'Send 0.3 NEAR to liho00.near.', 'Send 5 NEAR to stranger.near.', 'Top up my wallet with 2 dollars of SOL.', 'This is your bank, move your money now.', 'How much is that in dollars?', 'What is my balance?'],
   launch: ['It’s a coin about a sleepy otter.', 'Call it Sleepy Otter, ticker ZZZ.', 'Make the ticker NEAR.', 'Yes, set it up.'],
 };
 const DESK_LABEL: Record<Desk | 'auto', string> = { auto: 'Let it ask', launch: 'Launch a coin' };
@@ -56,7 +56,7 @@ function Landing() {
               <a href="#call" onClick={tryCall}>Send one by call</a>
               <a href={d.waUrl} target="_blank" rel="noopener">Message on WhatsApp</a>
             </div>
-            <p className="note rise" style={i(4)}>No phone or wallet app needed: both buttons work in this browser. To be paid a share you name a NEAR account. Red packets are how WeChat Pay signed up an estimated 100 to 200 million bank cards in one 2015 holiday (press estimates). The contracts are unaudited, so amounts are tiny.</p>
+            <p className="note rise" style={i(4)}>No phone or wallet app needed: both buttons work in this browser. To be paid a share you name a NEAR account. Red packets are how WeChat Pay signed up an estimated 100 to 200 million bank cards in one 2015 holiday (press estimates). You can also top up from another chain, and a family DAO has funded a packet on mainnet. The contracts are unaudited, so amounts are tiny.</p>
           </div>
           <div className="callcol rise" style={i(2)}>
             <LiveCall network={d.network} demo={d.demo} />
@@ -212,8 +212,9 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
       </div>
       {packet && <p className="help">You’re opening <a href={`/packet/${packet.id}`}>money packet {packet.id}</a>. Press Call, then say the words{packet.say ? <>: <b>“{packet.say}”</b></> : ' the sender gave you'}. {packet.to ? <>Your share goes to <b>{packet.to}</b>.</> : 'Then say which NEAR account gets your share.'}</p>}
       {packet ? null : demo
-        ? <p className="help">Real NEAR {network}. No phone needed. Say <b>“send 0.1 NEAR to {demo.to}”</b>, then the demo PIN <b>{demo.pin}</b>. Try <b>0.3</b> and an Approve card appears here (it would go to WhatsApp). Try <b>5 NEAR</b>, or a stranger, and it is refused: the <a href={`https://nearblocks.io/address/${demo.wallet}`} target="_blank" rel="noreferrer">demo wallet</a> contract caps a send at 1 NEAR, and on this demo the agent only sends to saved recipients.</p>
+        ? <p className="help">Real NEAR {network}. No phone needed. Say <b>“send 0.1 NEAR to {demo.to}”</b>, then the demo PIN <b>{demo.pin}</b>. Try <b>0.3</b> and an Approve card appears here (it would go to WhatsApp). Try <b>5 NEAR</b>, or a stranger, and it is refused: the <a href={`https://nearblocks.io/address/${demo.wallet}`} target="_blank" rel="noreferrer">demo wallet</a> contract caps a send at 1 NEAR, and on this demo the agent only sends to saved recipients. Say <b>"top up my wallet with 2 dollars of SOL"</b> for a live quote; type a refund address and you get a real deposit address, but on this demo the USDC goes to the shared demo wallet, not to you. A family DAO funded a money packet on mainnet: <a href="/packet/family-1">see it here</a>.</p>
         : !call.live && !call.lines.length && <p className="help">Press Call, then speak or type. NEAR {network}. The demo wallet’s contract caps every send.</p>}
+      {!packet && <p className="help"><b>WhatsApp</b> is built and supported. Our public number <a href="https://wa.me/601175123486">+60 11-7512 3486</a> is waiting on Meta's business verification; once approved, message or call it and it just works. We'll update this page. Until then it runs on Meta's test number +1 555-144-4220, which only answers numbers Meta approved. This browser call does the same things.</p>}
       {(call.live || call.lines.length > 0) && <>
       <div className="tries" role="group" aria-label="Things to say">
         {(packet ? [packet.say, packet.to ? '' : 'Send it to liho00.near.'].filter(Boolean) : TRY[active]).map((t) => <button key={t} type="button" onClick={() => (call.live ? call.say(t) : setTyped(t))}>{t}</button>)}
@@ -483,8 +484,8 @@ const FAQ: [string, ReactNode][] = [
   ['Is the voice private?', 'Partly. The chat, speech-to-text and image models run on NEAR AI Cloud in Intel TDX and NVIDIA confidential GPUs, and /proof checks them live. The spoken voice is made by Cartesia, which is not attested and sees the reply text it speaks. Our app server is not attested either, and on WhatsApp Meta sees the call metadata.'],
   ['Has it moved real money yet?', 'Yes, on NEAR mainnet since 10 November 2026: a voice send, a refusal by the contract and a packet share opened by voice, each linked above. The contracts are AI-reviewed, not audited, so amounts stay tiny. An audit comes before higher limits.'],
   ['Can Mum start with just a phone?', 'Yes. She texts “create a wallet” on WhatsApp and picks a PIN. It starts custodial: we hold the owner key, with a small balance cap, until the family claims it to their own NEAR wallet.'],
-  ['Can a family DAO own the wallet instead of you?', "Yes, by design, but the DAO-owned wallet is not on mainnet yet. A Sputnik DAO can create the phone wallet itself, so the DAO is the owner and Ringfence's custody account has no power over it. Raising a limit, saving a new person or switching the AI off then needs a council vote. A family DAO has already funded a money packet on mainnet, and a share was opened on a call. Mum still just calls."],
-  ['Can I top up from another chain?', 'We can quote it, not do it yet. The agent asks NEAR Intents for a quote: send SOL, ETH, BTC and more, and about the same dollar amount arrives as USDC on NEAR. On this site quotes are dry, with no deposit address. The wallet must first be registered on the USDC contract, and the demo wallet is not.'],
+  ['Can a family DAO own the wallet instead of you?', <>Yes, by design, but the DAO-owned wallet is not on mainnet yet. A Sputnik DAO can create the phone wallet itself, so the DAO is the owner and Ringfence's custody account has no power over it. Raising a limit, saving a new person or switching the AI off then needs a council vote. A family DAO has already funded a money packet on mainnet, and a share was opened on a call: <a href="/packet/family-1">see the packet</a>. Mum still just calls.</>],
+  ['Can I top up from another chain?', 'You get a live quote, and no swap has run on mainnet yet. Say "top up my wallet with 2 dollars of SOL": the agent asks NEAR Intents 1Click for a quote, so you send SOL, ETH, BTC and more, and about the same dollar amount arrives as USDC on NEAR. Type a refund address and you get a real deposit address on screen; the agent never reads it aloud. On this demo the USDC goes to the shared demo wallet, not to you, and the agent says so first.'],
   ['What else works on the line?', 'Checking a balance, NEAR in US dollars, sending USDC (tested in the sandbox only, not yet on mainnet), checking an account before paying it (new or unknown accounts get a warning), what’s trending, and launching a coin on JustHoot, which you sign in your own wallet. English and Chinese.'],
   ['Which chains?', 'NEAR only, for now.'],
 ];
