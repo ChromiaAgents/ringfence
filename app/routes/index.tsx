@@ -70,6 +70,20 @@ function Landing() {
           </div>
         </div>
       </header>
+      {/* The live room, teased with a still: the 3D host only loads once someone goes in (it is heavy on phones). */}
+      <section className="room-tease" aria-labelledby="rt-h">
+        <a className="rt-shot" href="/room/liho00.near"><img src="/brand/host.jpg" alt="The live room's AI host" width={560} height={820} loading="lazy" /><span className="rt-live">LIVE</span></a>
+        <div>
+          <p className="rt-k">New · Live room</p>
+          <h2 id="rt-h">Gift real NEAR on a live stream, by phone call.</h2>
+          <ul>
+            <li>Tap a gift: a call sends it with your PIN, on mainnet.</li>
+            <li>An AI host thanks every gift out loud. Gifts from any NEAR wallet show up too.</li>
+            <li>Grab a money packet live, or put the overlay on your own Twitch or YouTube stream.</li>
+          </ul>
+          <a className="btn" href="/room/liho00.near">Enter the live room</a>
+        </div>
+      </section>
 
       <main>
         <section className="film rise" aria-label="The film">
