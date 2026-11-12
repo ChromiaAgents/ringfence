@@ -1084,4 +1084,79 @@ await t('speech glossary: misheard crypto names from the ASR eval come out right
   assert.equal(pickToken(list as any, 'pizza'), null);
   assert.equal(suggestToken(list as any, 'SHUB'), 'SHIB');
 });
+await t('speech glossary, held-out round: spoken numbers, spelled accounts, coin names and particles, behind the cue gate', async () => {
+  const { spokenNumber } = await import('../src/terms.ts');
+  const { fixTerms } = await import('../src/ai.ts');
+  const { pickToken } = await import('../src/fund.ts');
+  const { system } = await import('../src/agent.ts');
+  assert.equal(spokenNumber('point one'), '0.1');
+  assert.equal(spokenNumber('one point five'), '1.5');
+  assert.equal(spokenNumber('twenty five'), '25');
+  assert.equal(spokenNumber('a hundred'), '100');
+  assert.equal(spokenNumber('three hundred and twenty'), '320');
+  assert.equal(spokenNumber('two fifty', true), '2.50');
+  assert.equal(spokenNumber('two fifty'), null, 'two fifty of NEAR is ambiguous: left as said');
+  assert.equal(spokenNumber('seats'), null);
+  const fixed: [string, string][] = [
+    // numbers
+    ['send mum.near point two near lah', 'send mum.near 0.2 NEAR lah'],
+    ['Red packet, Point 1 NEAR, five people.', 'Red packet, 0.1 NEAR, 5 people.'],
+    ['send one point five near to mum.near', 'send 1.5 NEAR to mum.near'],
+    ['send a tenth of a near to mum.near', 'send 0.1 NEAR to mum.near'],
+    ['Send a tenth of an ear to liho00.near.', 'Send 0.1 NEAR to liho00.near.'],
+    ['top up two fifty of USDC', 'top up 2.50 of USDC'],
+    ['top up twenty five dollars of sol', 'top up 25 dollars of SOL'],
+    ['top up a hundred dollars of ETH', 'top up 100 dollars of ETH'],
+    ['top up 3 point 5 dollars of eth', 'top up 3.5 dollars of ETH'],
+    ['send 2.5 near to mum.near', 'send 2.5 NEAR to mum.near'],
+    // accounts
+    ['send l i h o double zero dot near one near', 'send liho00.near 1 NEAR'],
+    ['send to liho zero zero dot near', 'send to liho00.near'],
+    ['send to mum oh seven dot near', 'send to mum07.near'],
+    ['帮我发0.1个NEAR给Leho00NIR', '帮我发0.1个NEAR给liho00.near'],
+    ['pay liho00 near now', 'pay liho00.near now'],
+    // coin names to tickers after a money cue
+    ['can I pay with bitcoin', 'can I pay with BTC'],
+    ['top up with optimism', 'top up with OP'],
+    ['top up with dogecoin can', 'top up with DOGE can'],
+    ['top up with doge coin', 'top up with DOGE'],
+    ['I have shiba inu, take it', 'I have SHIB, take it'],
+    ['top up with polygon ah', 'top up with POL ah'],
+    ['pay with matic', 'pay with POL'],
+    ['pay with tether', 'pay with USDT'],
+    ['top up with toncoin', 'top up with TON'],
+    ['top up with ton coin', 'top up with TON'],
+    ['pay with binance coin', 'pay with BNB'],
+    ['top up with litecoin', 'top up with LTC'],
+    ['top up with lite coin', 'top up with LTC'],
+    ['top up with chainlink', 'top up with LINK'],
+    ['top up with avalanche', 'top up with AVAX'],
+    ['top up with aptos', 'top up with APT'],
+    ['eth on arbitrum', 'ETH on arbitrum'],
+    ['stake it in metapool', 'stake it in Meta Pool'],
+    // particles do not block a cue
+    ['top up with Seoul lah', 'top up with SOL lah'],
+    ['send one near to mum.near ah', 'send 1 NEAR to mum.near ah'],
+  ];
+  for (const [heard, want] of fixed) assert.equal(fixTerms(heard), want, heard);
+  for (const x of fixed.map(([, w]) => w)) assert.equal(fixTerms(x), x, `idempotent: ${x}`);
+  const same = [
+    'Swap seats with Zach please', 'He got the point 1 time', 'send one of them', 'I paid a hundred dollars for dinner',
+    'I look ahead with optimism', 'Lend me a tenth of an ear', 'We drew a polygon in class', 'The ripple in the pond', 'Two fifty near the station',
+    'Ok lah, see you later', 'Can ah, no problem', 'Five people came to dinner', 'The avalanche closed the road', 'Use my Chainlink link tokens to top up.',
+  ];
+  for (const x of same) assert.equal(fixTerms(x), x === 'Use my Chainlink link tokens to top up.' ? 'Use my Chainlink LINK tokens to top up.' : x, x);
+  const list = ['BTC', 'POL', 'OP', 'DOGE', 'SHIB', 'XRP', 'LINK', 'LTC', 'BNB'].map((symbol) => ({ assetId: `nep141:${symbol}`, blockchain: 'near', symbol, decimals: 18, price: 1 }));
+  assert.equal(pickToken(list as any, 'bitcoin')?.symbol, 'BTC');
+  assert.equal(pickToken(list as any, 'polygon')?.symbol, 'POL');
+  assert.equal(pickToken(list as any, 'matic')?.symbol, 'POL');
+  assert.equal(pickToken(list as any, 'optimism')?.symbol, 'OP');
+  assert.equal(pickToken(list as any, 'ripple')?.symbol, 'XRP');
+  assert.equal(pickToken(list as any, 'binance')?.symbol, 'BNB');
+  assert.equal(pickToken(list as any, 'litecoin')?.symbol, 'LTC');
+  assert.equal(pickToken(list as any, 'toncoin'), null, 'TON is not listed on 1Click');
+  // The prompt carries the slang, particle, amount and coin-name rules for the chat model.
+  const sp = system({ id: 'x', channel: 'web', startedAt: 0, turns: [] } as any);
+  for (const w of ['lah', 'Point 1', 'dogecoin DOGE', 'polygon or matic POL', 'never say you can\'t take a coin', 'Send all my money', 'double', 'web_search for any other coin']) assert.ok(sp.includes(w), w);
+});
 process.once("beforeExit", () => console.log(`${n} passed`));

@@ -349,7 +349,7 @@ async function stt(audio: Uint8Array, mime: string, language?: string): Promise<
   fd.set('response_format', 'verbose_json'); // adds the detected language
   // Vocabulary hint, both languages: Whisper spells crypto names right when it has seen them in the prompt.
   // Whisper reads only the last ~224 tokens of the prompt; this one is about 150. Spellings here are how we want them back.
-  fd.set('prompt', 'Ringfence call on NEAR. Send 0.1 NEAR, 1 NEAR, half a NEAR to liho00.near, mum.near, stranger.near or ringfence-family.sputnik-dao.near. Top up 2 dollars of SOL, ETH, BTC, USDC, USDT, wNEAR, stNEAR, DOGE, ADA, AVAX, LINK, UNI, SUI, PEPE, SHIB, TRUMP, ZEC, DAI, XRP, ARB, AURORA, SWEAT. NEAR Intents, NEAR AI, Sputnik DAO, JustHoot, MyNearWallet, HOT wallet, rhea finance. Money packet, lucky split, PIN. 发送NEAR，USDC充值，红包，余额，退款地址。');
+  fd.set('prompt', 'Ringfence call on NEAR. Send 0.1 NEAR, 1 NEAR, half a NEAR to liho00.near, mum.near, stranger.near or ringfence-family.sputnik-dao.near. Top up 2 dollars of SOL, ETH, BTC, USDC, USDT, wNEAR, stNEAR, DOGE, ADA, AVAX, LINK, UNI, SUI, PEPE, SHIB, TRUMP, ZEC, DAI, XRP, ARB, POL, LTC, TON, AURORA, SWEAT, HOT, RHEA, LiNEAR, Meta Pool. TEE, Trezu. NEAR Intents, NEAR AI, Sputnik DAO, JustHoot, MyNearWallet, HOT wallet, rhea finance. Money packet, lucky split, PIN. 发送NEAR，USDC充值，红包，余额，退款地址。');
   fd.set('file', new Blob([audio as BlobPart], { type: mime }), mime.includes('webm') ? 'a.webm' : mime.includes('ogg') ? 'a.ogg' : 'a.wav');
   const r = await again(undefined, () => fetch(`${BASE}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${env.nearAiKey}` }, body: fd }));
   if (!r.ok) throw new Error(`stt ${r.status}: ${(await r.text()).slice(0, 200)}`);
