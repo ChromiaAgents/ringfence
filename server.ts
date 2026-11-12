@@ -1,4 +1,5 @@
-import { giftsTo, topGifters, totalTo, watch, hostLine } from './src/stream.ts';
+import { giftsTo, topGifters, totalTo, watch, hostLine, postChat, chatsOf } from './src/stream.ts';
+import { ipOf } from './src/live.ts';
 import { findPacket, publicPacket } from './src/packets.ts';
 import { db, save } from './src/store.ts';
 // One process, one port: TanStack Start (pages + /api routes) and the voice/WhatsApp handlers.
@@ -90,6 +91,16 @@ server.on('request', async (req, res) => {
       res.writeHead(200, { 'content-type': 'audio/wav', 'cache-control': 'public, max-age=3600' }).end(Buffer.from(audio));
       return;
     } }
+  // Room chat: POST /api/stream/<account>/chat {name, text}. Same origin, rate-limited per IP.
+  { const cm = (req.url ?? '').match(/^\/api\/stream\/([a-z0-9._-]{2,64})\/chat$/);
+    if (cm && req.method === 'POST') {
+      if (req.headers.origin !== new URL(env.publicUrl).origin) { res.writeHead(403).end(); return; }
+      let b = ''; for await (const c of req) { b += c; if (b.length > 1000) break; }
+      let o: any = {}; try { o = JSON.parse(b || '{}'); } catch {}
+      const err = postChat(cm[1], ipOf(req), o.name, o.text);
+      res.writeHead(err ? 429 : 200, { 'content-type': 'application/json' }).end(JSON.stringify(err ? { error: err } : { ok: true }));
+      return;
+    } }
   // Stream overlay feed: /api/stream/<account>?since=<ms>&packet=<id>. Public: gifts are on chain anyway; senders masked.
   { const sm = (req.url ?? '').match(/^\/api\/stream\/([a-z0-9._-]{2,64})(?:\?(.*))?$/);
     if (sm) {
@@ -97,7 +108,7 @@ server.on('request', async (req, res) => {
       watch(sm[1]);
       const p = pid ? findPacket(pid) : undefined;
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store', 'access-control-allow-origin': '*' })
-        .end(JSON.stringify({ gifts: giftsTo(sm[1], Number(q.get('since')) || 0), top: topGifters(sm[1]), total: totalTo(sm[1]), packet: p ? { ...publicPacket(p), hint: p.hint ?? null, claims: p.claims.slice(-8).map((c: any) => ({ to: String(c.to).replace(/^(.{6}).*(\..*)$/, '$1…$2'), near: Number(BigInt(c.yocto)) / 1e24, at: c.at })) } : null }));
+        .end(JSON.stringify({ gifts: giftsTo(sm[1], Number(q.get('since')) || 0), top: topGifters(sm[1]), total: totalTo(sm[1]), chat: chatsOf(sm[1]), packet: p ? { ...publicPacket(p), hint: p.hint ?? null, claims: p.claims.slice(-8).map((c: any) => ({ to: String(c.to).replace(/^(.{6}).*(\..*)$/, '$1…$2'), near: Number(BigInt(c.yocto)) / 1e24, at: c.at })) } : null }));
       return;
     } }
   if ((req.url ?? '').startsWith('/api/topup/') && await handleTopup(req, res).catch((e) => { console.error('topup page', e.message); if (!res.headersSent) res.writeHead(500).end(); return true; })) return;

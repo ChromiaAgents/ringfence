@@ -17,7 +17,7 @@ type Gift = { to: string; near: number; from: string; at: number; via: 'call' | 
 type Packet = { id: string; near: number; count: number; hint: string | null; expired: boolean; claims: { to: string; near: number; at: number }[] };
 const GIFTS = [
   { name: 'Heart', icon: '💖', near: 0.01, tab: 'Popular' }, { name: 'Duck', icon: '🐥', near: 0.02, tab: 'Popular' }, { name: 'Kiss', icon: '😘', near: 0.03, tab: 'Popular', tag: 'Hot' }, { name: 'Star', icon: '🌟', near: 0.05, tab: 'Popular', tag: 'Combo' },
-  { name: 'Rose', icon: '🌹', near: 0.01, tab: 'Popular' }, { name: 'Red packet', icon: '🧧', near: 0.05, tab: 'Lucky', tag: 'Lucky' }, { name: 'Gold ingot', icon: '🪙', near: 0.08, tab: 'Lucky' }, { name: 'Lotus', icon: '🪷', near: 0.1, tab: 'Lucky', tag: 'New' },
+  { name: 'Rose', icon: '🌹', near: 0.01, tab: 'Popular' }, { name: 'Coffee', icon: '☕', near: 0.01, tab: 'Popular' }, { name: 'Ice cream', icon: '🍦', near: 0.02, tab: 'Popular' }, { name: 'Cake', icon: '🎂', near: 0.05, tab: 'Popular', tag: 'Party' }, { name: 'Red packet', icon: '🧧', near: 0.05, tab: 'Lucky', tag: 'Lucky' }, { name: 'Gold ingot', icon: '🪙', near: 0.08, tab: 'Lucky' }, { name: 'Lotus', icon: '🪷', near: 0.1, tab: 'Lucky', tag: 'New' },
   { name: 'Sports car', icon: '🏎️', near: 0.5, tab: 'Luxury' }, { name: 'Rocket', icon: '🚀', near: 0.2, tab: 'Luxury' }, { name: 'Crown', icon: '👑', near: 0.3, tab: 'Luxury', tag: 'Top' }, { name: 'Castle', icon: '🏰', near: 1, tab: 'Luxury' },
 ];
 const TABS = ['Popular', 'Lucky', 'Luxury'];
@@ -44,6 +44,10 @@ function Room() {
   const [pick, setPick] = useState('Heart');
   const [follow, setFollow] = useState(false);
   const [confirm, setConfirm] = useState<(typeof GIFTS)[number] | null>(null);
+  const [chatText, setChatText] = useState('');
+  const [chats, setChats] = useState<{ name: string; text: string; at: number }[]>([]);
+  const [burst, setBurst] = useState<(Gift & { key: string }) | null>(null);
+  const chatBox = useRef<HTMLDivElement>(null);
   const [sound, setSound] = useState(false);
   const soundRef = useRef(false);
   const idleN = useRef(0), lastTalk = useRef(Date.now());
@@ -61,7 +65,7 @@ function Room() {
     const tick = async () => {
       const r = await fetch(`/api/stream/${encodeURIComponent(account)}?since=0${pid ? `&packet=${encodeURIComponent(pid)}` : ''}`, { cache: 'no-store' }).then((x) => x.json()).catch(() => null);
       if (!r) return;
-      setTop(r.top ?? []); setTotal(r.total ?? 0); setPacket(r.packet); setFeed(r.gifts);
+      setTop(r.top ?? []); setTotal(r.total ?? 0); setPacket(r.packet); setFeed(r.gifts); setChats(r.chat ?? []);
       for (const g of r.gifts as Gift[]) {
         const key = `${g.at}-${g.from}-${g.near}-${g.landsAt ? 'l' : 'c'}`;
         if (seen.current.has(key)) continue;
@@ -69,6 +73,7 @@ function Room() {
         seen.current.add(key);
         if (first || Date.now() - g.at > 60_000) continue; // history: in the feed, not popped
         setPop((p) => [...p, { ...g, key }].slice(-3));
+        if (!g.landsAt) { setBurst({ ...g, key }); setTimeout(() => setBurst((b) => (b?.key === key ? null : b)), 2600); }
         if (soundRef.current && !liveRef.current) { lastTalk.current = Date.now(); host.current?.speak(`/api/stream/${encodeURIComponent(account)}/voice?gift=${encodeURIComponent(`${g.at}-${g.from}`)}`); }
         setTimeout(() => setPop((p) => p.filter((x) => x.key !== key)), 6000);
       }
@@ -84,6 +89,13 @@ function Room() {
     if (call.live) call.say(line); else { queued.current = line; call.start(); }
   }
   const left = packet ? packet.count - packet.claims.length : 0;
+  // One chat column: gifts, viewers' messages and the agent, in time order.
+  const stream = [
+    ...feed.map((g) => ({ kind: 'gift' as const, at: g.at, from: g.from, near: g.near, landing: !!g.landsAt, text: '' })),
+    ...chats.map((c) => ({ kind: 'chat' as const, at: c.at, from: c.name, near: 0, landing: false, text: c.text })),
+    ...(call.live ? call.lines.slice(-2).filter((l) => l.who === 'agent').map((l, i) => ({ kind: 'agent' as const, at: Date.now() + i, from: 'Ringfence', near: 0, landing: false, text: l.text })) : []),
+  ].sort((a, b) => a.at - b.at).slice(-8);
+  useEffect(() => { chatBox.current?.scrollTo({ top: 1e6, behavior: 'smooth' }); }, [stream.length]);
   const lastAgent = [...call.lines].reverse().find((l) => l.who === 'agent')?.text;
 
   return (
@@ -93,7 +105,7 @@ function Room() {
           {yt ? <iframe title="Live stream" src={`https://www.youtube.com/embed/${encodeURIComponent(yt)}?autoplay=1&mute=1`} allow="autoplay; encrypted-media" allowFullScreen />
             : twitch ? <iframe title="Live stream" src={`https://player.twitch.tv/?channel=${encodeURIComponent(twitch)}&parent=${typeof location !== 'undefined' ? location.hostname : 'ringfence.evalengine.ai'}&muted=true`} allowFullScreen />
             : null}
-          <Host ref={host} className={yt || twitch ? 'lr-host small' : 'lr-host'} />
+          <Host ref={host} className={yt || twitch ? 'lr-host small' : 'lr-host'} onTap={() => { host.current?.unlock(); if (!soundRef.current) { setSound(true); soundRef.current = true; } if (!liveRef.current) { lastTalk.current = Date.now(); host.current?.speak(`/api/stream/${encodeURIComponent(account)}/voice?idle=${idleN.current++}`); } }} />
           <div className="lr-top">
             <div className="lr-anchor">
               <span className="lr-ava">{account[0]?.toUpperCase()}</span>
@@ -116,8 +128,8 @@ function Room() {
               <p>Say “{words || packet.hint || 'the words'}” · tap to grab</p>
             </a>
           )}
-          {!sound && <button type="button" className="lr-sound" onClick={() => { setSound(true); soundRef.current = true; lastTalk.current = 0; }}>🔊 Tap to hear the host</button>}
-          <div className="lr-feed" aria-live="polite">
+          {!sound && <button type="button" className="lr-sound" onClick={() => { host.current?.unlock(); setSound(true); soundRef.current = true; lastTalk.current = 0; }}>🔊 Tap to hear the host</button>}
+          <div className="lr-pops" aria-live="polite">
             {pop.map((g) => (
               <div className={`lr-pop ${g.landsAt ? 'landing' : ''}`} key={g.key}>
                 <span className="lr-pop-ico">{iconOf(g.near)}</span>
@@ -125,10 +137,36 @@ function Room() {
                 <em>x{g.near}</em>
               </div>
             ))}
-            {feed.slice(-4).map((g, i) => <p key={i} className="lr-msg"><span>{iconOf(g.near)}</span> <b>{g.from}</b> {g.landsAt ? 'is sending' : 'sent'} {g.near} NEAR</p>)}
-            {call.live && lastAgent && <p className="lr-msg agent"><b>Ringfence</b> {lastAgent}</p>}
           </div>
-          {!sheet && <button type="button" className="lr-giftbtn" onClick={() => setSheet(true)} aria-label="Send a gift">🎁</button>}
+          {burst && <div className="lr-burst" key={burst.key} aria-hidden="true"><span>{iconOf(burst.near)}</span><b>{burst.from}</b><em>{burst.near} NEAR</em></div>}
+          {(call.link || call.approval || call.choices.length > 0) && (
+            <div className="lr-cards">
+              {call.approval && (
+                <div className="lr-card approve"><p>{call.approval.body}</p>
+                  <div><button type="button" className="go" onClick={() => call.tap('approve')}>Approve</button><button type="button" onClick={() => call.tap('cancel')}>Cancel</button><button type="button" onClick={() => call.tap('reject')}>Not me</button></div></div>
+              )}
+              {call.link && <a className="lr-card link" href={call.link.url} target="_blank" rel="noreferrer"><span>{call.link.label}</span><b>Open</b></a>}
+              {call.choices.length > 0 && <div className="lr-choices">{call.choices.map((c) => <button key={c} type="button" onClick={() => call.say(c)}>{c}</button>)}</div>}
+            </div>
+          )}
+          <div className="lr-chat" ref={chatBox}>
+            <p className="lr-sys">Welcome! Ringfence never asks for your seed phrase or for money outside a call with your PIN. Beware of scams.</p>
+            {stream.map((m, i) => m.kind === 'gift'
+              ? <p key={i} className="lr-msg"><span className="lv">{Math.min(99, Math.ceil(m.near * 100))}</span><b>{m.from}:</b> sent {iconOf(m.near)} {m.near} NEAR{m.landing ? ' (landing)' : ''}</p>
+              : <p key={i} className={`lr-msg ${m.kind}`}><span className="lv">{m.kind === 'agent' ? 'AI' : '1'}</span><b>{m.from}:</b> {m.text}</p>)}
+          </div>
+          <form className="lr-bar" onSubmit={async (e) => {
+            e.preventDefault(); const t = chatText.trim(); if (!t) return;
+            if (call.live) call.say(t); // on a call, typing talks to the agent
+            else await fetch(`/api/stream/${encodeURIComponent(account)}/chat`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'viewer', text: t }) }).catch(() => {});
+            setChatText('');
+          }}>
+            <input value={chatText} onChange={(e) => setChatText(e.target.value)} placeholder={call.live ? 'Type to the agent…' : 'Say something…'} maxLength={120} aria-label="Chat" />
+            <button type="button" className="ico" onClick={() => setChatText((t) => `${t}😊`)} aria-label="Emoji">😊</button>
+            <button type="button" className="ico" onClick={() => { const g = GIFTS[0]; setPick(g.name); setConfirm(g); setSheet(true); }} aria-label="Send a heart">💖</button>
+            <button type="button" className="ico" onClick={() => setSheet(true)} aria-label="Gifts">🎁</button>
+            <button type="button" className="ico share" onClick={() => { const u = location.href; (navigator as any).share ? (navigator as any).share({ title: `${account} is live`, url: u }).catch(() => {}) : navigator.clipboard?.writeText(u); }} aria-label="Share">↗</button>
+          </form>
         </div>
         {sheet && <button type="button" className="lr-backdrop" aria-label="Close gifts" onClick={() => setSheet(false)} />}
         {sheet && (

@@ -82,3 +82,18 @@ export async function hostLine(account: string, q: { gift?: string; idle?: numbe
   if (voiceCache.size > 300) voiceCache.delete(voiceCache.keys().next().value!);
   return out;
 }
+
+// ---- room chat: short public messages, rate-limited, kept in memory (last 60 per room) ----
+export type Chat = { name: string; text: string; at: number };
+const chats: Map<string, Chat[]> = ((globalThis as any).__rfChats ??= new Map());
+const chatHits: Map<string, number[]> = ((globalThis as any).__rfChatHits ??= new Map());
+export function postChat(account: string, ip: string, name: string, text: string): string | null {
+  const now = Date.now(), h = (chatHits.get(ip) ?? []).filter((t) => now - t < 60_000);
+  if (h.length >= 8) return 'Slow down a little.';
+  h.push(now); chatHits.set(ip, h);
+  const t = String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, 120), n = String(name ?? '').replace(/[^\p{L}\p{N} ._-]/gu, '').trim().slice(0, 20) || 'viewer';
+  if (!t) return 'Say something.';
+  const list = chats.get(account) ?? []; list.push({ name: n, text: t, at: now }); chats.set(account, list.slice(-60));
+  return null;
+}
+export const chatsOf = (account: string) => (chats.get(account) ?? []).slice(-20);

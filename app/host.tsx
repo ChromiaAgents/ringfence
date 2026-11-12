@@ -3,15 +3,24 @@
 // Model: VRM1_Constraint_Twist_Sample, (c) 2022 pixiv Inc., VRM Public License 1.0 (vrm.dev/licenses/1.0).
 import { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
 
-export type HostHandle = { speak: (url: string) => Promise<void> };
+export type HostHandle = { speak: (url: string) => Promise<void>; unlock: () => void };
 
-export const Host = forwardRef<HostHandle, { className?: string }>(function Host({ className }, ref) {
+export const Host = forwardRef<HostHandle, { className?: string; onTap?: () => void }>(function Host({ className, onTap }, ref) {
   const box = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
-  const level = useRef(0); // 0..1 mouth opening, set by the audio analyser
+  const level = useRef(0);
+  const look = useRef({ x: 0, y: 0 }); // where a finger or the mouse is, -1..1: she turns toward it // 0..1 mouth opening, set by the audio analyser
   const audio = useRef<{ ctx?: AudioContext; busy: boolean }>({ busy: false });
 
+  const poke = useRef(0); // when the character was last tapped: a happy reaction for a moment
   useImperativeHandle(ref, () => ({
+    // Safari plays sound only from an AudioContext made and resumed inside a tap: call this from the tap.
+    unlock() {
+      const a = audio.current;
+      a.ctx ??= new AudioContext();
+      a.ctx.resume().catch(() => {});
+      const b = a.ctx.createBuffer(1, 1, 22050), src = a.ctx.createBufferSource(); src.buffer = b; src.connect(a.ctx.destination); src.start();
+    },
     async speak(url: string) {
       const a = audio.current;
       if (a.busy) return;
@@ -63,7 +72,9 @@ export const Host = forwardRef<HostHandle, { className?: string }>(function Host
       // Arms down from the T-pose.
       const set = (bone: string, z: number) => { const b = h?.getNormalizedBoneNode(bone); if (b) b.rotation.z = z; };
       set('leftUpperArm', -1.2); set('rightUpperArm', 1.2); set('leftLowerArm', -0.15); set('rightLowerArm', 0.15);
-      const size = () => { const w = el.clientWidth, hh = el.clientHeight; renderer.setSize(w, hh); camera.aspect = w / hh; camera.updateProjectionMatrix(); };
+      const size = () => { const w = el.clientWidth, hh = el.clientHeight; renderer.setSize(w, hh); camera.aspect = w / hh;
+        // Narrow phone screens: step back so the head and shoulders fit the width.
+        camera.position.z = camera.aspect < 0.75 ? 1.55 + (0.75 - camera.aspect) * 2.4 : 1.55; camera.position.y = camera.aspect < 0.75 ? 1.32 : 1.38; camera.updateProjectionMatrix(); };
       size(); const ro = new ResizeObserver(size); ro.observe(el);
       const clock = new THREE.Clock();
       let nextBlink = 2, mouth = 0, acc = 0;
@@ -82,10 +93,11 @@ export const Host = forwardRef<HostHandle, { className?: string }>(function Host
         const em = vrm.expressionManager;
         em?.setValue('aa', mouth);
         em?.setValue('ih', mouth * 0.3);
-        em?.setValue('happy', 0.25 + mouth * 0.2);
+        const tapped = Math.max(0, 1 - (performance.now() - poke.current) / 1500);
+        em?.setValue('happy', Math.min(1, 0.25 + mouth * 0.2 + tapped));
         if (t > nextBlink) { em?.setValue('blink', 1); if (t > nextBlink + 0.12) { em?.setValue('blink', 0); nextBlink = t + 2 + Math.random() * 3; } }
         const head = h?.getNormalizedBoneNode('head'), spine = h?.getNormalizedBoneNode('spine');
-        if (head) { head.rotation.y = Math.sin(t * 0.6) * 0.12; head.rotation.x = Math.sin(t * 0.9) * 0.04 + mouth * 0.06; }
+        if (head) { head.rotation.y = Math.sin(t * 0.6) * 0.12 + look.current.x * 0.35; head.rotation.x = Math.sin(t * 0.9) * 0.04 + mouth * 0.06 - look.current.y * 0.2 + tapped * 0.12; }
         if (spine) spine.rotation.z = Math.sin(t * 0.7) * 0.03;
         vrm.update(dt);
         renderer.render(scene, camera);
@@ -97,5 +109,9 @@ export const Host = forwardRef<HostHandle, { className?: string }>(function Host
   }, []);
 
   // A still of the host shows at once; the 3D character replaces it when loaded (about 4 MB, cached after).
-  return <div ref={box} className={className} aria-label="Ringfence host, an animated character" role="img" style={{ backgroundImage: ready ? undefined : 'url(/brand/host.jpg)', backgroundSize: 'cover', backgroundPosition: 'center top' }} />;
+  return <div ref={box} className={className} aria-label="Ringfence host, an animated character" role="img"
+    onPointerMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); look.current = { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: ((e.clientY - r.top) / r.height) * 2 - 1 }; }}
+    onPointerLeave={() => (look.current = { x: 0, y: 0 })}
+    onPointerDown={() => { poke.current = performance.now(); onTap?.(); }}
+    style={{ touchAction: 'manipulation', cursor: 'pointer',  backgroundImage: ready ? undefined : 'url(/brand/host.jpg)', backgroundSize: 'cover', backgroundPosition: 'center top' }} />;
 });
