@@ -790,3 +790,8 @@ html:has(.ov) { color-scheme: normal !important; }
   .room-gifts { grid-template-columns: repeat(4, 1fr); }
   .room-packet { width: 120px; }
 }
+.room-host3d { position: absolute; inset: 0; }
+.room-host3d.small { inset: auto 14px 120px auto; width: 260px; height: 340px; }
+.room-host3d canvas { display: block; width: 100% !important; height: 100% !important; }
+.room-sound { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); padding: 8px 16px; border: 0; border-radius: 99px; background: rgba(0,0,0,.55); color: #fff; font: inherit; cursor: pointer; backdrop-filter: blur(6px); }
+.room-top3 li.muted { display: block; color: #b8b2a8; }

@@ -1,4 +1,4 @@
-import { giftsTo, topGifters, totalTo, watch } from './src/stream.ts';
+import { giftsTo, topGifters, totalTo, watch, hostLine } from './src/stream.ts';
 import { findPacket, publicPacket } from './src/packets.ts';
 import { db, save } from './src/store.ts';
 // One process, one port: TanStack Start (pages + /api routes) and the voice/WhatsApp handlers.
@@ -71,6 +71,16 @@ server.on('request', async (req, res) => {
   if (await handleWebhook(req, res)) return;
   // For the deploy script: how many calls are on right now (a count only), so it restarts only when the line is idle.
   if (req.url === '/api/live-calls') { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ calls: db.calls.filter((c) => !c.endedAt && Date.now() - c.startedAt < 30 * 60_000).length })); return; }
+  // The room host's voice: /api/stream/<account>/voice?gift=<at-from> or ?idle=<n>. Only server-made lines.
+  { const vm = (req.url ?? '').match(/^\/api\/stream\/([a-z0-9._-]{2,64})\/voice\?(.*)$/);
+    if (vm) {
+      const q = new URLSearchParams(vm[2]);
+      const { speak, wav } = await import('./src/tts.ts');
+      const audio = await hostLine(vm[1], { gift: q.get('gift') ?? undefined, idle: q.has('idle') ? Number(q.get('idle')) : undefined }, speak, wav).catch(() => null);
+      if (!audio) { res.writeHead(404).end(); return; }
+      res.writeHead(200, { 'content-type': 'audio/wav', 'cache-control': 'public, max-age=3600' }).end(Buffer.from(audio));
+      return;
+    } }
   // Stream overlay feed: /api/stream/<account>?since=<ms>&packet=<id>. Public: gifts are on chain anyway; senders masked.
   { const sm = (req.url ?? '').match(/^\/api\/stream\/([a-z0-9._-]{2,64})(?:\?(.*))?$/);
     if (sm) {

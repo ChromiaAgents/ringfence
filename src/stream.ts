@@ -56,3 +56,29 @@ async function poll() {
   }
 }
 if (!(globalThis as any).__rfGiftPoll) (globalThis as any).__rfGiftPoll = setInterval(() => { poll().catch(() => {}); }, 8000).unref?.();
+
+// ---- the room host's voice: only lines made here (a thank-you for a real gift, or a fixed idle line), never free text ----
+const IDLE = [
+  'Welcome to the live room! Tap a gift and a phone call sends it, in real NEAR.',
+  'There is a money packet up. Call Ringfence, say the words, and grab your share.',
+  'Every gift here is a real transfer on NEAR mainnet. No app, just a call.',
+  'Want to try for free? Call and ask: is there a free money packet?',
+  'Top gifter gets the crown. Who is next?',
+];
+const voiceCache: Map<string, Uint8Array> = ((globalThis as any).__rfHostVoice ??= new Map());
+/** The host's line for a gift (by its at+from) or idle line n, as WAV. Null when there is no such gift. */
+export async function hostLine(account: string, q: { gift?: string; idle?: number }, speak: (t: string) => Promise<{ pcm: Float32Array; rate: number }>, wav: (p: Float32Array, r: number) => Uint8Array): Promise<Uint8Array | null> {
+  let text = '';
+  if (q.gift) {
+    const g = all().find((x) => x.to === account && `${x.at}-${x.from}` === q.gift);
+    if (!g) return null;
+    text = g.landsAt ? `Ooh, ${g.from} is sending ${g.near} NEAR, landing in a minute!` : `Thank you ${g.from} for the ${g.near} NEAR! You're amazing!`;
+  } else text = IDLE[Math.abs(Math.floor(q.idle ?? 0)) % IDLE.length];
+  const key = `${account}|${text}`;
+  if (voiceCache.has(key)) return voiceCache.get(key)!;
+  const { pcm, rate } = await speak(text.replace(/\+(\d{2})•••(\d{3})/g, 'a caller ending $2'));
+  const out = wav(pcm, rate);
+  voiceCache.set(key, out);
+  if (voiceCache.size > 300) voiceCache.delete(voiceCache.keys().next().value!);
+  return out;
+}

@@ -6,6 +6,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { useCall } from '../call';
 import { Wordmark, WaIcon } from '../ui';
+import { Host, type HostHandle } from '../host';
 
 export const Route = createFileRoute('/room/$account')({
   head: () => ({ meta: [{ title: 'Live room · Ringfence' }] }),
@@ -30,6 +31,19 @@ function Room() {
   const seen = useRef(new Set<string>());
   const call = useCall('auto');
   const queued = useRef<string | null>(null);
+  const host = useRef<HostHandle>(null);
+  const [sound, setSound] = useState(false);
+  const soundRef = useRef(false);
+  const idleN = useRef(0), lastTalk = useRef(Date.now());
+  // The host keeps talking: thanks every gift as it pops, and says an idle line after 25 s of quiet.
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (!soundRef.current || Date.now() - lastTalk.current < 25_000) return;
+      lastTalk.current = Date.now();
+      host.current?.speak(`/api/stream/${encodeURIComponent(account)}/voice?idle=${idleN.current++}`);
+    }, 3000);
+    return () => clearInterval(t);
+  }, [account]);
 
   useEffect(() => {
     const tick = async () => {
@@ -43,6 +57,7 @@ function Room() {
         seen.current.add(key);
         if (first || Date.now() - g.at > 60_000) continue; // history: in the feed, not popped
         setPop((p) => [...p, { ...g, key }].slice(-3));
+        if (soundRef.current) { lastTalk.current = Date.now(); host.current?.speak(`/api/stream/${encodeURIComponent(account)}/voice?gift=${encodeURIComponent(`${g.at}-${g.from}`)}`); }
         setTimeout(() => setPop((p) => p.filter((x) => x.key !== key)), 6000);
       }
     };
@@ -64,7 +79,9 @@ function Room() {
       <div className="room-stage">
         {yt ? <iframe title="Live stream" src={`https://www.youtube.com/embed/${encodeURIComponent(yt)}?autoplay=1&mute=1`} allow="autoplay; encrypted-media" allowFullScreen />
           : twitch ? <iframe title="Live stream" src={`https://player.twitch.tv/?channel=${encodeURIComponent(twitch)}&parent=${typeof location !== 'undefined' ? location.hostname : 'ringfence.evalengine.ai'}&muted=true`} allowFullScreen />
-          : <div className="room-poster"><p>{account}</p><span>Go live on YouTube or Twitch, add ?yt= or ?twitch= to this link</span></div>}
+          : null}
+        <Host ref={host} className={yt || twitch ? 'room-host3d small' : 'room-host3d'} />
+        {!sound && <button type="button" className="room-sound" onClick={() => { setSound(true); soundRef.current = true; lastTalk.current = 0; }}>🔊 Tap to hear the host</button>}
         <div className="room-top">
           <div className="room-host"><span className="room-ava">{account[0]?.toUpperCase()}</span><div><b>{account}</b><small>{total} NEAR in gifts</small></div></div>
           <span className="room-live">LIVE</span>
@@ -99,7 +116,7 @@ function Room() {
         <a className="room-wa" href="/whatsapp"><WaIcon size={18} /> Or gift by WhatsApp call</a>
         <h2>Top gifters</h2>
         <ol className="room-top3">{top.length ? top.map((t, i) => <li key={t.from}><span>{['🥇', '🥈', '🥉'][i] ?? i + 1}</span><b>{t.from}</b><em>{t.near} NEAR</em></li>) : <li className="muted">Be the first.</li>}</ol>
-        <p className="muted small">Every gift is a real NEAR transfer to {account}. Gifts from any wallet show here too. Phone numbers are never shown in full.</p>
+        <p className="muted small">Every gift is a real NEAR transfer to {account}. Gifts from any wallet show here too. Phone numbers are never shown in full. Host: open-source VRM sample (© pixiv Inc., VRM Public License 1.0), voiced by our agent.</p>
       </aside>
     </div>
   );
