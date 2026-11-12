@@ -9,7 +9,8 @@ import { isFiller, startCall, reply, endCall, setOnLink, photo, noteToModel } fr
 import { transcribe } from './ai.ts';
 import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
-import { onboard, bindingOf, NO_WALLET, devServer } from './wallet.ts';
+import { onboard, bindingOf, NO_WALLET, devServer, ftBalance } from './wallet.ts';
+import { rpc } from './near.ts';
 import { onButton, setApprovalSender, onCallNews } from './desks/wallet.ts';
 import { setNotifier } from './notify.ts';
 import { db, type Call } from './store.ts';
@@ -319,3 +320,39 @@ function callAudio(out: MediaStreamTrack, pt: number) {
 const concat = (a: Float32Array[]) => { const o = new Float32Array(a.reduce((n, x) => n + x.length, 0)); let i = 0; for (const x of a) { o.set(x, i); i += x.length; } return o; };
 const down3 = (x: Float32Array) => { const o = new Float32Array(Math.floor(x.length / 3)); for (let i = 0; i < o.length; i++) o[i] = (x[3 * i] + x[3 * i + 1] + x[3 * i + 2]) / 3; return o; };
 const up2 = (x: Float32Array) => { const o = new Float32Array(x.length * 2); for (let i = 0; i < x.length; i++) { const n = x[i + 1] ?? x[i]; o[2 * i] = x[i]; o[2 * i + 1] = (x[i] + n) / 2; } return o; };
+
+// On-chain events during a call: every 10 s, the caller's own phone wallet is read (NEAR and USDC). Money arriving or
+// leaving is said on the call and told to the model, so nothing that happens on chain goes unnoticed.
+const seen = new Map<string, { near: bigint; usdc: bigint }>();
+const fmtNear = (y: bigint) => (Number(y) / 1e24).toFixed(3).replace(/\.?0+$/, '');
+const fmtUsdc = (u: bigint) => (Number(u) / 1e6).toFixed(2);
+// Once per process: this module is also loaded by the page-API bundle.
+if (!(globalThis as any).__rfChainWatch) (globalThis as any).__rfChainWatch = setInterval(async () => {
+  for (const l of live.values()) {
+    const call = db.calls.find((c) => c.id === l.callId);
+    const b = call?.from ? bindingOf(call.from) : undefined;
+    if (!call || call.endedAt || !b || b.dryRun || (env.demoPhone && b.phone === env.demoPhone)) continue;
+    const acct = await rpcView(b.contract).catch(() => null);
+    const usdc = await ftBalance(env.usdcToken, b.contract).then(BigInt).catch(() => null);
+    if (acct == null || usdc == null) continue;
+    const now = { near: acct, usdc }, was = seen.get(call.id);
+    seen.set(call.id, now);
+    if (!was) continue;
+    const parts: string[] = [];
+    const dn = now.near - was.near, du = now.usdc - was.usdc;
+    if (dn >= 10n ** 21n) parts.push(`${fmtNear(dn)} NEAR came in`);
+    else if (dn <= -(10n ** 22n)) parts.push(`${fmtNear(-dn)} NEAR went out`);
+    if (du > 0n) parts.push(`${fmtUsdc(du)} USDC came in`);
+    else if (du < 0n) parts.push(`${fmtUsdc(-du)} USDC went out`);
+    if (!parts.length) continue;
+    const text = `Heads up: ${parts.join(' and ')}. Your wallet now has ${fmtNear(now.near)} NEAR and ${fmtUsdc(now.usdc)} USDC.`;
+    l.say?.(text);
+    noteToModel(call.id, `On chain just now: ${parts.join(', ')} on the caller's wallet ${b.contract}. Balance now ${fmtNear(now.near)} NEAR, ${fmtUsdc(now.usdc)} USDC. You already told them.`);
+  }
+  for (const id of seen.keys()) if (![...live.values()].some((l) => l.callId === id)) seen.delete(id);
+}, 10_000).unref?.();
+
+async function rpcView(account: string): Promise<bigint> {
+  const r: any = await rpc('query', { request_type: 'view_account', finality: 'optimistic', account_id: account });
+  return BigInt(r.amount);
+}

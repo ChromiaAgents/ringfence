@@ -174,6 +174,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   const split = sentenceSplitter(filterAll, (hit, s) =>
     log({ kind: 'filtered', desk: call.desk, callId: call.id, detail: `reply said "${hit}" in "${s}"; replaced before it was spoken` }));
   const emit = (xs: string[]) => { for (const x of xs) { said.push(x); if (!o.signal?.aborted) o.onSentence?.(x); } };
+  let endedOnce = false;
   for (let step = 0; step < 6; step++) {
     const { msg, proof } = await chatFn(h, tools, undefined, {
       signal: o.signal,
@@ -214,6 +215,10 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
         call.turns.push({ at: Date.now(), who: 'tool', text: `${tc.function.name}(${tc.function.name === 'confirm_transfer' ? '{"pin":"****"}' : JSON.stringify(args)}) → ${JSON.stringify(out)}`, proof });
         h.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(out) });
       }
+      // Hung up: finish with what was already said (one more step only if nothing was), never loop on end_call.
+      const hungUp = msg.tool_calls.some((tc: any) => tc.function.name === 'end_call');
+      if (hungUp && (said.join(' ').trim() || endedOnce)) { if (!said.join(' ').trim()) emit(['Bye!']); direct = 'end'; }
+      if (hungUp) endedOnce = true;
       if (direct) {
         const say = said.join(' ');
         h.push({ role: 'assistant', content: say });

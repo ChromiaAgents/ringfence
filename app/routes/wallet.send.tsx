@@ -25,7 +25,7 @@ function Send() {
     try {
       const { parseNearAmount } = await import('near-api-js');
       const h = await w.send(to, (ac) => [ac.transfer(BigInt(parseNearAmount(amount as `${number}`)!))]);
-      if (h) setHash(h);
+      if (h) { setHash(h); w.setErr(''); fetch('/api/wallet/sent', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ hash: h, signer: w.account }) }).catch(() => {}); }
     } catch (e: any) { w.setErr(e?.message ?? String(e)); }
   }
   return (
@@ -44,8 +44,7 @@ function Send() {
         <div className="row"><span>Who signs</span><b>you, not the agent</b></div>
       </div>}
       {ok && (hash ? <p>Sent. <a href={`${cfg.network === 'mainnet' ? 'https://nearblocks.io' : 'https://testnet.nearblocks.io'}/txns/${hash}`} target="_blank" rel="noreferrer">See the transaction</a></p>
-        : !w.account ? <button className="btn ink" onClick={w.connect}>Connect a wallet</button>
-        : <button className="btn green" onClick={sign}>Sign as {w.account}</button>)}
+        : <p>{!w.account ? <button className="btn ink" onClick={w.connect}>Connect a wallet</button> : <button className="btn green" onClick={sign}>Sign as {w.account}</button>}</p>)}
       {w.err && <p className="err" role="alert">{w.err}</p>}
     </main>
     <SiteFooter />

@@ -32,6 +32,8 @@ import { Route as ApiWalletBindRouteImport } from './routes/api/wallet/bind'
 import { Route as ApiWalletBoundRouteImport } from './routes/api/wallet/bound'
 import { Route as ApiWalletClaimRouteImport } from './routes/api/wallet/claim'
 import { Route as ApiWalletCodeRouteImport } from './routes/api/wallet/code'
+import { Route as ApiWalletInfoRouteImport } from './routes/api/wallet/info'
+import { Route as ApiWalletSentRouteImport } from './routes/api/wallet/sent'
 import { Route as ApiWalletUnbindRouteImport } from './routes/api/wallet/unbind'
 import { Route as ApiLaunchIdSignedRouteImport } from './routes/api/launch/$id.signed'
 import { Route as ApiLaunchIdTxRouteImport } from './routes/api/launch/$id.tx'
@@ -151,6 +153,16 @@ const ApiWalletCodeRoute = ApiWalletCodeRouteImport.update({
   path: '/api/wallet/code',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWalletInfoRoute = ApiWalletInfoRouteImport.update({
+  id: '/api/wallet/info',
+  path: '/api/wallet/info',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWalletSentRoute = ApiWalletSentRouteImport.update({
+  id: '/api/wallet/sent',
+  path: '/api/wallet/sent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWalletUnbindRoute = ApiWalletUnbindRouteImport.update({
   id: '/api/wallet/unbind',
   path: '/api/wallet/unbind',
@@ -191,6 +203,8 @@ export interface FileRoutesByFullPath {
   '/api/wallet/bound': typeof ApiWalletBoundRoute
   '/api/wallet/claim': typeof ApiWalletClaimRoute
   '/api/wallet/code': typeof ApiWalletCodeRoute
+  '/api/wallet/info': typeof ApiWalletInfoRoute
+  '/api/wallet/sent': typeof ApiWalletSentRoute
   '/api/wallet/unbind': typeof ApiWalletUnbindRoute
   '/api/launch/$id/signed': typeof ApiLaunchIdSignedRoute
   '/api/launch/$id/tx': typeof ApiLaunchIdTxRoute
@@ -219,6 +233,8 @@ export interface FileRoutesByTo {
   '/api/wallet/bound': typeof ApiWalletBoundRoute
   '/api/wallet/claim': typeof ApiWalletClaimRoute
   '/api/wallet/code': typeof ApiWalletCodeRoute
+  '/api/wallet/info': typeof ApiWalletInfoRoute
+  '/api/wallet/sent': typeof ApiWalletSentRoute
   '/api/wallet/unbind': typeof ApiWalletUnbindRoute
   '/api/launch/$id/signed': typeof ApiLaunchIdSignedRoute
   '/api/launch/$id/tx': typeof ApiLaunchIdTxRoute
@@ -248,6 +264,8 @@ export interface FileRoutesById {
   '/api/wallet/bound': typeof ApiWalletBoundRoute
   '/api/wallet/claim': typeof ApiWalletClaimRoute
   '/api/wallet/code': typeof ApiWalletCodeRoute
+  '/api/wallet/info': typeof ApiWalletInfoRoute
+  '/api/wallet/sent': typeof ApiWalletSentRoute
   '/api/wallet/unbind': typeof ApiWalletUnbindRoute
   '/api/launch/$id/signed': typeof ApiLaunchIdSignedRoute
   '/api/launch/$id/tx': typeof ApiLaunchIdTxRoute
@@ -278,6 +296,8 @@ export interface FileRouteTypes {
     | '/api/wallet/bound'
     | '/api/wallet/claim'
     | '/api/wallet/code'
+    | '/api/wallet/info'
+    | '/api/wallet/sent'
     | '/api/wallet/unbind'
     | '/api/launch/$id/signed'
     | '/api/launch/$id/tx'
@@ -306,6 +326,8 @@ export interface FileRouteTypes {
     | '/api/wallet/bound'
     | '/api/wallet/claim'
     | '/api/wallet/code'
+    | '/api/wallet/info'
+    | '/api/wallet/sent'
     | '/api/wallet/unbind'
     | '/api/launch/$id/signed'
     | '/api/launch/$id/tx'
@@ -334,6 +356,8 @@ export interface FileRouteTypes {
     | '/api/wallet/bound'
     | '/api/wallet/claim'
     | '/api/wallet/code'
+    | '/api/wallet/info'
+    | '/api/wallet/sent'
     | '/api/wallet/unbind'
     | '/api/launch/$id/signed'
     | '/api/launch/$id/tx'
@@ -363,6 +387,8 @@ export interface RootRouteChildren {
   ApiWalletBoundRoute: typeof ApiWalletBoundRoute
   ApiWalletClaimRoute: typeof ApiWalletClaimRoute
   ApiWalletCodeRoute: typeof ApiWalletCodeRoute
+  ApiWalletInfoRoute: typeof ApiWalletInfoRoute
+  ApiWalletSentRoute: typeof ApiWalletSentRoute
   ApiWalletUnbindRoute: typeof ApiWalletUnbindRoute
 }
 
@@ -529,6 +555,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWalletCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/wallet/info': {
+      id: '/api/wallet/info'
+      path: '/api/wallet/info'
+      fullPath: '/api/wallet/info'
+      preLoaderRoute: typeof ApiWalletInfoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/wallet/sent': {
+      id: '/api/wallet/sent'
+      path: '/api/wallet/sent'
+      fullPath: '/api/wallet/sent'
+      preLoaderRoute: typeof ApiWalletSentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/wallet/unbind': {
       id: '/api/wallet/unbind'
       path: '/api/wallet/unbind'
@@ -591,6 +631,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiWalletBoundRoute: ApiWalletBoundRoute,
   ApiWalletClaimRoute: ApiWalletClaimRoute,
   ApiWalletCodeRoute: ApiWalletCodeRoute,
+  ApiWalletInfoRoute: ApiWalletInfoRoute,
+  ApiWalletSentRoute: ApiWalletSentRoute,
   ApiWalletUnbindRoute: ApiWalletUnbindRoute,
 }
 export const routeTree = rootRouteImport

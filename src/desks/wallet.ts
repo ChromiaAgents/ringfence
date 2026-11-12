@@ -285,7 +285,9 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
       }
       // A phone-only wallet has no owner who could sign a first payment themselves: the contract holds it instead.
       // Not on the shared website demo wallet (it only ever pays its saved recipient).
-      if (isNew && !demo && !packet && !chain && b.custodial && custodyLive()) t.wait = state.new_recipient_delay_sec;
+      // A first payment to someone new is held by the contract for the wallet's delay (the owner can cancel it), for
+      // every phone wallet: the money leaves the phone wallet, not the owner's own account.
+      if (isNew && !demo && !packet && !chain && !isFt(asset) && (!b.custodial || custodyLive())) t.wait = state.new_recipient_delay_sec;
       if (packet && isNew) return refuse(`This wallet was set up before money packets. Its owner saves ${to} as a recipient once, then you can send packets by voice.`);
       if (isNew && t.wait == null) {
         if (shared) return refuse(`I can't send that: this shared demo wallet only pays accounts its owner saved (${env.demoRecipient}) and money packets, and ${to} is not one of them. Nothing was sent.`);

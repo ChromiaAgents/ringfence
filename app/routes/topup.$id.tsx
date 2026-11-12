@@ -9,7 +9,7 @@ export const Route = createFileRoute('/topup/$id')({
   component: Topup,
 });
 
-type Info = { usd: number; token: string; recipient: string; demo: boolean; live: boolean };
+type Info = { usd: number; token: string; recipient: string; demo: boolean; live: boolean; quote?: any };
 type Quote = { send: string; symbol: string; chain: string; receive: string; depositAddress?: string; depositMemo?: string; deadline: string; refund?: string };
 
 function Topup() {
@@ -34,7 +34,7 @@ function Topup() {
   const STEP: Record<string, string> = { PENDING_DEPOSIT: 'Waiting for your deposit…', KNOWN_DEPOSIT_TX: 'Deposit seen, confirming…', PROCESSING: 'Swapping on NEAR Intents…', SUCCESS: 'Landed ✓', INCOMPLETE_DEPOSIT: 'Deposit was short: send the rest or wait for a refund', REFUNDED: 'Refunded to your address', FAILED: 'Failed' };
 
   useEffect(() => {
-    fetch(`/api/topup/${id}`).then(async (r) => (r.ok ? setInfo(await r.json()) : setErr(((await r.json().catch(() => ({}))) as any).error ?? `The server answered ${r.status}.`))).catch(() => setErr('Can’t reach the server.'));
+    fetch(`/api/topup/${id}`).then(async (r) => (r.ok ? (async () => { const j = await r.json(); setInfo(j); if (j.quote) setQ(j.quote); })() : setErr(((await r.json().catch(() => ({}))) as any).error ?? `The server answered ${r.status}.`))).catch(() => setErr('Can’t reach the server.'));
   }, [id]);
 
   async function submit(e: React.FormEvent) {

@@ -7,7 +7,7 @@ import { env } from './config.ts';
 import { quoteTopup, topupLive } from './fund.ts';
 import { ipOf } from './live.ts';
 
-type Pending = { usd: number; token: string; recipient: string; demo: boolean; at: number; tries: number; phone?: string; deposit?: string; status?: string; out?: string; tx?: string; inTx?: string; chain?: string };
+type Pending = { usd: number; token: string; recipient: string; demo: boolean; at: number; tries: number; phone?: string; deposit?: string; status?: string; out?: string; tx?: string; inTx?: string; chain?: string; quote?: any };
 const pending: Map<string, Pending> = ((globalThis as any).__rfTopups ??= new Map()); // shared across bundles
 const LIFE_MS = 2 * 60 * 60_000; // ponytail: in memory; a restart drops open top-up links, the caller asks again
 
@@ -32,9 +32,11 @@ export async function handleTopup(req: IncomingMessage, res: ServerResponse): Pr
   const send = (code: number, o: object) => { res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(o)); };
   const p = pending.get(m[1]);
   if (!p || Date.now() - p.at > LIFE_MS) { send(404, { error: 'This top-up link has expired. Ask the agent again.' }); return true; }
-  const info = { usd: p.usd, token: p.token, recipient: p.recipient, demo: p.demo, live: topupLive() };
+  // A refreshed page gets the quote it already made back: the deposit address must not change under the caller.
+  const info = { usd: p.usd, token: p.token, recipient: p.recipient, demo: p.demo, live: topupLive(), quote: p.quote ?? null };
   if (req.method === 'GET') { send(200, info); return true; }
   if (req.method !== 'POST') { send(405, { error: 'GET or POST' }); return true; }
+  if (p.quote) { send(200, { ...info, quote: p.quote }); return true; } // one deposit address per link
   if (req.headers.origin !== new URL(env.publicUrl).origin) { send(403, { error: 'Forbidden' }); return true; }
   if (++p.tries > 8) { send(429, { error: 'Too many tries on this link. Ask the agent again.' }); return true; }
   let body = '';
@@ -45,7 +47,7 @@ export async function handleTopup(req: IncomingMessage, res: ServerResponse): Pr
   const q = await quoteTopup({ usd: p.usd, origin: p.token, recipient: p.recipient, refundTo: refund, live: topupLive() });
   if (!q.ok) { send(400, { error: (q as any).reason ?? 'No quote right now.' }); return true; }
   console.log(`[topup] page quote from ${ipOf(req) ? 'a visitor' : 'unknown'}: ${p.usd} USD of ${p.token}`); // no addresses in logs
-  if ((q as any).depositAddress) { p.deposit = (q as any).depositAddress; p.status = 'PENDING_DEPOSIT'; watch(m[1], p, Date.parse((q as any).deadline)); }
+  if ((q as any).depositAddress) { p.quote = q; p.deposit = (q as any).depositAddress; p.status = 'PENDING_DEPOSIT'; watch(m[1], p, Date.parse((q as any).deadline)); }
   send(200, { ...info, quote: q, status: (q as any).depositAddress ? `https://1click.chaindefuser.com/v0/status?depositAddress=${encodeURIComponent((q as any).depositAddress)}` : null });
   return true;
 }

@@ -36,6 +36,15 @@ function Bind() {
   const [tx, setTx] = useState<Tx | null>(null);
   const [hash, setHash] = useState('');
   const [funded, setFunded] = useState('');
+  // Already bound? The wallet, its owner, limits and live balances (refreshed every 10 s). Only with a call's proof.
+  const [info, setInfo] = useState<any>(null);
+  useEffect(() => {
+    if (!proof || !phone) return;
+    const load = () => fetch(`/api/wallet/info?phone=${encodeURIComponent(phone)}&proof=${proof}`).then((r) => r.json()).then(setInfo).catch(() => {});
+    load(); const t = setInterval(load, 10_000); return () => clearInterval(t);
+  }, [proof, phone, hash]);
+  const yN = (v?: string | null) => (v == null ? '…' : (Number(BigInt(v)) / 1e24).toFixed(4).replace(/\.?0+$/, ''));
+  const uS = (v?: string | null) => (v == null ? '…' : (Number(BigInt(v)) / 1e6).toFixed(2));
   // A wallet name: mum.ringfence-wallet.near instead of a hash. Checked live against the factory; the field only
   // shows once the factory has name support (name_free answers).
   const [name, setName] = useState('');
@@ -99,6 +108,20 @@ function Bind() {
 
       <p className="muted">Mum can make a phone call; she doesn't need to know Meteor Wallet. Bind a NEAR wallet to a WhatsApp number, then on a call say “send 0.1 NEAR to liho.{sfx}”. Up to {cfg.small} NEAR is confirmed with a spoken PIN; more needs an Approve tap on WhatsApp. The contract checks the limits before anything moves, and the owner can withdraw or revoke at any time.</p>
 
+      {info?.bound && (
+        <section className="card bind-ok">
+          <h2>Your phone wallet</h2>
+          <div className="rows">
+            <div className="row"><span>Wallet</span><b className="mono">{info.wallet}</b></div>
+            <div className="row"><span>NEAR</span><b>{yN(info.near)} NEAR</b></div>
+            <div className="row"><span>USDC</span><b>{uS(info.usdc)} USDC</b></div>
+            <div className="row"><span>Owner</span><b className="mono">{info.owner}</b></div>
+            {info.limits && <div className="row"><span>Agent limits</span><b>{yN(info.limits.perTx)} NEAR a send, {yN(info.limits.perDay)} a day; new recipients wait {info.limits.delay} s</b></div>}
+            {info.saved?.length > 0 && <div className="row"><span>Saved recipients</span><b className="mono">{info.saved.join(', ')}</b></div>}
+          </div>
+          <p className="muted small">Live, updates every 10 seconds. <a href={`https://nearblocks.io/address/${info.wallet}`} target="_blank" rel="noreferrer">See it on NEAR</a></p>
+        </section>
+      )}
       <section className="card">
         <h2>Who is it for?</h2>
         <label><input type="radio" checked={!guardian} onChange={() => setGuardian(false)} /> Me: my wallet, my WhatsApp</label><br />
