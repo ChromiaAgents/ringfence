@@ -38,8 +38,8 @@ export const Host = forwardRef<HostHandle, { className?: string }>(function Host
       const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
       const { VRMLoaderPlugin, VRMUtils } = await import('@pixiv/three-vrm');
       const el = box.current; if (!el || stop) return;
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+      const renderer = new THREE.WebGLRenderer({ antialias: devicePixelRatio < 2, alpha: true, powerPreference: 'low-power' });
+      renderer.setPixelRatio(Math.min(1.5, devicePixelRatio)); // ponytail: sharp enough on phones, half the pixels of 2x
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       el.appendChild(renderer.domElement);
       const scene = new THREE.Scene();
@@ -64,10 +64,16 @@ export const Host = forwardRef<HostHandle, { className?: string }>(function Host
       const size = () => { const w = el.clientWidth, hh = el.clientHeight; renderer.setSize(w, hh); camera.aspect = w / hh; camera.updateProjectionMatrix(); };
       size(); const ro = new ResizeObserver(size); ro.observe(el);
       const clock = new THREE.Clock();
-      let nextBlink = 2, mouth = 0;
+      let nextBlink = 2, mouth = 0, acc = 0;
+      // 30 fps, and nothing at all while the tab is hidden: smooth on weak phones, cool laptops.
       const loop = () => {
         if (stop) return;
-        const dt = clock.getDelta(), t = clock.elapsedTime;
+        raf = requestAnimationFrame(loop);
+        if (document.hidden) { clock.getDelta(); return; }
+        acc += clock.getDelta();
+        if (acc < 1 / 30) return;
+        const dt = Math.min(acc, 0.1); acc = 0;
+        const t = clock.elapsedTime;
         mouth += (level.current - mouth) * Math.min(1, dt * 18);
         const em = vrm.expressionManager;
         em?.setValue('aa', mouth);
@@ -79,7 +85,6 @@ export const Host = forwardRef<HostHandle, { className?: string }>(function Host
         if (spine) spine.rotation.z = Math.sin(t * 0.7) * 0.03;
         vrm.update(dt);
         renderer.render(scene, camera);
-        raf = requestAnimationFrame(loop);
       };
       loop();
       cleanup = () => { ro.disconnect(); renderer.dispose(); renderer.domElement.remove(); };
