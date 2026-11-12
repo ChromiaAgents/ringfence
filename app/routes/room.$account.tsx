@@ -97,7 +97,8 @@ function Room() {
     if (env === 'opening' && pcall.live && !saidWords.current) { saidWords.current = true; setTimeout(() => pcall.say(words || packet?.hint || ''), 900); }
   }, [env, pcall.live]);
   useEffect(() => { if (env === 'opening' && gotNear) { setEnv('result'); setTimeout(() => pcall.stop(), 4000); } }, [gotNear, env]);
-  useEffect(() => { if (call.live && queued.current) { call.say(queued.current); queued.current = null; } }, [call.live]);
+  // The socket opens a moment after the call goes live: keep the request until it is really sent.
+  useEffect(() => { if (call.live && queued.current && call.say(queued.current)) queued.current = null; }, [call.live, call.state]);
   useEffect(() => {
     const last = [...call.lines].reverse().find((l) => l.who === 'agent')?.text ?? '';
     if (pendingPin.current && /\bPIN\b/i.test(last)) { const p = pendingPin.current; pendingPin.current = null; setTimeout(() => call.say(p), 400); }
