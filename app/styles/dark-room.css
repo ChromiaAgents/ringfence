@@ -804,3 +804,4 @@ html:has(.ov) { color-scheme: normal !important; }
   .room-sound { top: 70px; font-size: 14px; }
   .room-chat { width: 62%; }
 }
+@media (max-width: 860px) { .room { grid-template-columns: 100%; } .room-stage, .room-side { width: 100%; } .room-gifts button, .room-gifts b, .room-gifts small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .room-side { padding: 14px; } }
