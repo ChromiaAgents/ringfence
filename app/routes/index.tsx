@@ -23,6 +23,18 @@ export const Route = createFileRoute('/')({
 
 const i = (n: number) => ({ '--i': n }) as CSSProperties;
 
+// The first-sight feature strip: a short name, what it is, and its real status. Only things that are built.
+const FEATS: { name: string; what: string; tag: string; href: string }[] = [
+  { name: 'Money packets', what: 'Split a gift, opened by saying the words', tag: 'Mainnet', href: '/packet/demo' },
+  { name: 'Limits in a contract', what: 'The AI asks, the NEAR contract refuses', tag: 'Mainnet', href: 'https://nearblocks.io/txns/GmPzx6UgxX9jJsDpHEZRodEhSmABZ3uRqFr2WzANCUd8' },
+  { name: 'Family DAO', what: 'A Sputnik DAO funded a packet by vote', tag: 'Mainnet', href: '/packet/family-1' },
+  { name: 'Top up from any chain', what: 'SOL, ETH, BTC in, USDC out, via NEAR Intents', tag: 'Live quotes', href: '#call' },
+  { name: 'Private AI', what: 'NEAR AI Cloud in a TEE, attested live', tag: '3/3 verified', href: '/proof' },
+  { name: 'Scam calls refused', what: 'Bank and police scams get a no', tag: 'Live', href: '#call' },
+  { name: 'WhatsApp', what: 'Wallet by text, calls, Approve card', tag: 'Pending Meta', href: 'https://wa.me/601175123486' },
+  { name: 'Stake while it waits', what: 'Packets that earn staking yield', tag: 'Next', href: CODE_URL + '#next-not-built' },
+];
+
 const TRY: Record<Desk | 'auto', string[]> = {
   auto: ['Send a money packet of 0.02 NEAR for 5 people, the words are merry christmas.', 'Send 0.1 NEAR to liho00.near.', 'Send 0.3 NEAR to liho00.near.', 'Send 5 NEAR to stranger.near.', 'Top up my wallet with 2 dollars of SOL.', 'This is your bank, move your money now.', 'How much is that in dollars?', 'What is my balance?'],
   launch: ['It’s a coin about a sleepy otter.', 'Call it Sleepy Otter, ticker ZZZ.', 'Make the ticker NEAR.', 'Yes, set it up.'],
@@ -57,6 +69,11 @@ function Landing() {
               <a href={d.waUrl} target="_blank" rel="noopener">Message on WhatsApp</a>
             </div>
             <p className="note rise" style={i(4)}>No app needed: both buttons work in this browser. The contracts are unaudited, so amounts are tiny.</p>
+            <ul className="feats rise" style={i(5)} aria-label="What it does">
+              {FEATS.map((f) => (
+                <li key={f.name}><a href={f.href} {...(f.href.startsWith('http') ? { target: '_blank', rel: 'noreferrer' } : {})}><b>{f.name}</b><span>{f.what}</span><em className={f.tag === 'Next' ? 'next' : f.tag === 'Pending Meta' ? 'soon' : ''}>{f.tag}</em></a></li>
+              ))}
+            </ul>
           </div>
           <div className="callcol rise" style={i(2)}>
             <LiveCall network={d.network} demo={d.demo} />

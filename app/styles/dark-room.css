@@ -101,6 +101,15 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .dr .intro p:not(.lead) { color: var(--muted); max-width: 52ch; }
 .dr .intro .acts { margin-top: 8px; }
 .dr .note { font-size: var(--step-small); color: var(--muted); max-width: 52ch; }
+.dr .feats { list-style: none; margin: 22px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; max-width: 760px; }
+.dr .feats a { display: flex; flex-direction: column; gap: 3px; height: 100%; padding: 10px 11px; border: 1px solid var(--ui-line, #2a2520); border-radius: 2px; color: inherit; text-decoration: none; transition: border-color 160ms ease; }
+.dr .feats a:hover { border-color: #5a524a; }
+.dr .feats b { font-size: 14px; font-weight: 600; }
+.dr .feats span { font-size: 12.5px; line-height: 1.35; color: var(--muted); }
+.dr .feats em { margin-top: auto; padding-top: 4px; font-style: normal; font-size: 11.5px; color: var(--accent, #00ec97); }
+.dr .feats em.soon { color: #e8c27a; }
+.dr .feats em.next { color: var(--muted); }
+@media (max-width: 900px) { .dr .feats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .dr .callcol { grid-column: 8 / span 5; min-width: 0; }
 .dr .acts { display: flex; align-items: center; gap: 12px 24px; flex-wrap: wrap; }
 
