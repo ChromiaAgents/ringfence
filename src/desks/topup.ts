@@ -74,7 +74,7 @@ export async function runTopup(call: Call, args: any) {
   }
   if (topupLive()) {
     // A refund address can't be said on a call: the caller pastes it on the top-up page, which shows the deposit address.
-    const id = newTopup({ usd: Number(args?.usd), token: `${q.symbol} on ${q.chain}`, recipient: t.account, demo: t.demo });
+    const id = newTopup({ usd: Number(args?.usd), token: `${q.symbol} on ${q.chain}`, recipient: t.account, demo: t.demo, phone: call.from || undefined });
     setWalletLink(call.id, { url: `${env.publicUrl}/topup/${id}`, label: `Top up ${Number(args?.usd)} dollars of ${q.symbol}: paste your refund address, get the deposit address` });
     return { ...q, dry: undefined, linkSent: true, say: `About ${q.send} ${q.symbol} on ${q.chain} gets you about ${q.receive} USDC in ${whose}. The top-up page is on its way: paste a refund address of yours there and it shows where to send.` };
   }

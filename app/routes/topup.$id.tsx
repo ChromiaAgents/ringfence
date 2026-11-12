@@ -20,6 +20,18 @@ function Topup() {
   const [busy, setBusy] = useState(false);
   const [q, setQ] = useState<(Quote & { status?: string | null }) | null>(null);
   const [copied, setCopied] = useState(false);
+  const [st, setSt] = useState<{ status?: string; out?: string; tx?: string } | null>(null);
+  const [now, setNow] = useState(Date.now());
+  // Live: the swap's status every 5 s (the server follows 1Click), and a countdown to the quote's deadline.
+  useEffect(() => {
+    if (!q?.depositAddress) return;
+    const tick = () => fetch(`/api/topup/${id}/status`).then((r) => r.json()).then(setSt).catch(() => {});
+    tick(); const a = setInterval(tick, 5000), b = setInterval(() => setNow(Date.now()), 1000);
+    return () => { clearInterval(a); clearInterval(b); };
+  }, [q?.depositAddress, id]);
+  const left = q ? Date.parse(q.deadline) - now : 0;
+  const mmss = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
+  const STEP: Record<string, string> = { PENDING_DEPOSIT: 'Waiting for your deposit…', KNOWN_DEPOSIT_TX: 'Deposit seen, confirming…', PROCESSING: 'Swapping on NEAR Intents…', SUCCESS: 'Landed ✓', INCOMPLETE_DEPOSIT: 'Deposit was short: send the rest or wait for a refund', REFUNDED: 'Refunded to your address', FAILED: 'Failed' };
 
   useEffect(() => {
     fetch(`/api/topup/${id}`).then(async (r) => (r.ok ? setInfo(await r.json()) : setErr(((await r.json().catch(() => ({}))) as any).error ?? `The server answered ${r.status}.`))).catch(() => setErr('Can’t reach the server.'));
@@ -41,7 +53,7 @@ function Topup() {
           <div>
             <h1>Top up</h1>
             {!info ? <p className="muted">{err || 'Loading…'}</p> : (<>
-              <p>{info.usd} dollars of <b>{info.token}</b> in, USDC out on NEAR, through NEAR Intents.</p>
+              <p>{info.usd} {info.usd === 1 ? 'dollar' : 'dollars'} of <b>{info.token}</b> in, USDC out on NEAR, through NEAR Intents.</p>
               <p className="muted">Lands in <code>{info.recipient}</code>{info.demo ? ': the shared demo wallet, not yours. Anything sent is a gift to the demo.' : '.'}</p>
               {!q ? (
                 <form onSubmit={submit}>
@@ -62,7 +74,11 @@ function Topup() {
                       <button className="btn" onClick={() => { navigator.clipboard?.writeText(q.depositAddress!); setCopied(true); }}>{copied ? 'Copied' : 'Copy address'}</button>
                       {q.status && <a href={q.status} target="_blank" rel="noreferrer">Check the swap</a>}
                     </p>
-                    <p>About <b>{q.receive} USDC</b> arrives. Quote holds until {new Date(q.deadline).toLocaleTimeString()}.</p>
+                    <p className={`tp-status ${st?.status === 'SUCCESS' ? 'ok' : ['REFUNDED', 'FAILED', 'INCOMPLETE_DEPOSIT'].includes(st?.status ?? '') ? 'bad' : ''}`} role="status">
+                      {STEP[st?.status ?? 'PENDING_DEPOSIT'] ?? st?.status}
+                      {st?.status === 'SUCCESS' && <> {st.out} USDC is in your wallet.{st.tx && <> <a href={`https://nearblocks.io/txns/${st.tx}`} target="_blank" rel="noreferrer">See it on NEAR</a></>}</>}
+                    </p>
+                    {st?.status !== 'SUCCESS' && <p>About <b>{q.receive} USDC</b> arrives. {left > 0 ? <>Send within <b>{mmss(left)}</b> (until {new Date(q.deadline).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}).</> : <b>This quote has expired. Ask the agent for a new one.</b>}</p>}
                   </>) : <p className="muted">Dry run: live top ups are off on this server, nothing to send.</p>}
                   <p className="muted" style={{ fontSize: 13 }}>Send only from your own wallet. This site never holds your funds.</p>
                 </div>
