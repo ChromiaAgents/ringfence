@@ -11,7 +11,7 @@ Made by Chromia and evalengine. Built on NEAR, at NEAR HACKATHON.
 | **Money packets**: split a gift, each share opened by saying the words | Mainnet | [demo packet](https://ringfence.evalengine.ai/packet/demo), evidence rows 9 to 11 |
 | **Limits in a contract**: the AI only asks, the NEAR contract refuses | Mainnet | [refusal tx](https://nearblocks.io/txns/GmPzx6UgxX9jJsDpHEZRodEhSmABZ3uRqFr2WzANCUd8), row 8 |
 | **Family DAO**: a Sputnik DAO funded a packet by vote, a share opened by voice | Mainnet | [family packet](https://ringfence.evalengine.ai/packet/family-1), rows 12 to 15 |
-| **Top up from any chain**: SOL, ETH, BTC in, USDC out, through NEAR Intents 1Click | Live quotes | say "top up my wallet with 2 dollars of SOL" |
+| **Top up from any chain**: SOL, ETH, BTC in, USDC out, through NEAR Intents 1Click | Mainnet, row 16 | say "top up my wallet with 2 dollars of SOL" |
 | **Private AI**: chat, speech-to-text and images on NEAR AI Cloud in a TEE | 3/3 attested | [/proof](https://ringfence.evalengine.ai/proof), `npm run attest` |
 | **Scam calls refused**: bank and police scams get a plain no | Live | `npm run live:check` |
 | **Tap to answer**: when unsure, the agent shows buttons instead of guessing | Live | say "can I use eth?" |
@@ -46,7 +46,7 @@ Node 22 or newer. A fresh clone has no `.env`, so every send is a labelled dry r
 | 3 | `npm run demo:check` | 19 lines that start with `PASS`, then `all steps passed` | no | 15 s |
 | 4 | `npm run attack` | `5 of 5 attacks blocked` | no | 2 s |
 | 5 | `npm run verify:contracts` | 3 blocks that start with `ok` | yes | 10 s |
-| 6 | `npm run verify:evidence` | `15 of 15 transactions match` | yes | 5 s |
+| 6 | `npm run verify:evidence` | `16 of 16 transactions match` | yes | 5 s |
 | 7 | `npm run attest` | `3/3 models fully verified`, then one line of links | yes | 10 s |
 | 8 | `npm run live:check` | `5 of 5 checks passed` | yes | 30 to 90 s |
 | 9 | `npm run topup:quote -- 10 SOL` | `}` closing a JSON quote with `"dry": true`, `send`, `receive` (USDC) and `minutes` | yes | 5 s |
@@ -58,7 +58,7 @@ What each one does:
 - `npm run demo:check`: builds the site, starts a local server with a scripted model, and walks 19 steps over the call socket. They include a send with a PIN (dry run), the Approve tier, a money packet funded by voice, two callers opening shares, and a third caller finding it empty.
 - `npm run attack`: replays 5 attack lines in process. The model is replaced by a script that obeys the attacker. The tools, the PIN check and the limits are the real code. It ends with a control send that goes through, to show the check can see a send. It does not reach the wait for a new recipient, because without keys the server cannot read a wallet's saved recipients. That rule is tested in the contract.
 - `npm run verify:contracts`: hashes the three files in `contracts/release/` and compares them with the code hashes on mainnet.
-- `npm run verify:evidence`: reads the 15 transactions in [Mainnet evidence](#mainnet-evidence) from a public archival RPC and prints signer, receiver, method and result for each. One of them is expected to fail on chain: `GmPzx6Ug...`, with `over the per-transfer limit`.
+- `npm run verify:evidence`: reads the 16 transactions in [Mainnet evidence](#mainnet-evidence) from a public archival RPC and prints signer, receiver, method and result for each. One of them is expected to fail on chain: `GmPzx6Ug...`, with `over the per-transfer limit`.
 - `npm run attest`: fetches the attestation of the three NEAR AI Cloud models and checks it. See [TEE attestation](#tee-attestation).
 - `npm run topup:quote -- <usd> <token>`: asks NEAR Intents 1Click for a dry quote (no deposit address) to top up the demo wallet in USDC from SOL, ETH, BTC or another listed token. It first prints whether the recipient is registered on the USDC contract (the demo wallet is, since 12 Nov 2026). Add `--live <refund address>` for a real deposit address; `--status <deposit address>` checks a swap.
 - `npm run dao:wallet -- <dao> <phone>`: prints the Sputnik DAO proposals that make a phone wallet owned by that DAO, and the later owner proposals. It needs the server's `WALLET_SECRET` to compute the phone hash, never prints it, and sends nothing. See [docs/dao-wallet.md](docs/dao-wallet.md).
@@ -249,13 +249,13 @@ Every row is a transaction on NEAR mainnet. Machine check, no key, about 5 secon
 | 13 | DAO proposal 0: call `create` on the packets contract with 0.05 NEAR for packet `family-1`, 5 lucky shares | [`4ufAXe2X...`](https://nearblocks.io/txns/4ufAXe2XFRaWQcYCYZNRHExmUTLpLL8RQ6vHTRVbhxv3) |
 | 14 | The council approves proposal 0 and the DAO funds the packet. `get_packet("family-1")` shows the DAO as creator and a `total` of 0.04427 NEAR after storage | [`EAL2uMt6...`](https://nearblocks.io/txns/EAL2uMt6dheQ6upUqstRu3UgoMbRixbbE4Nj1ntytgCW) |
 | 15 | A share of the DAO packet opened on a live browser call by saying the words: `claim` pays `liho00.near` 0.01662 NEAR | [`71C9Ve2z...`](https://nearblocks.io/txns/71C9Ve2z7arjaJxAeZMHH6dDxpUE5cpMxafP2yUAYPw3) |
+| 16 | A top up asked for on a WhatsApp call: 1.000945 USDT sent on Solana, swapped by NEAR Intents 1Click, 0.999618 USDC lands in the caller's phone wallet `0ffc41d0982d.ringfence-wallet.near`. [Every step on the NEAR Intents explorer](https://explorer.near-intents.org/transactions/6sea7mLtDou7VopLaqdXbSuhGRKntp6GrEK64doCwcai) | [`8kCunWQQ...`](https://nearblocks.io/txns/8kCunWQQuvp1EpKUgDrcTgqp3AVS5vtN323v7jV316AF) |
 
 Not in this table, so not shown on mainnet:
 
 - **USDC sends are tested in the sandbox only.** The wallet contract has USDC limits and `transfer_ft`, covered by contract tests with a mock token. No USDC has been sent on mainnet yet. The demo wallet is registered on the USDC contract since 12 Nov 2026.
-- A wallet bound to a user's own NEAR account. The path is live at `/wallet/bind`, but the only wallet on chain is the custodial demo wallet.
+- A transfer from a wallet bound to a user's own NEAR account. Binding is live at `/wallet/bind` and one such wallet exists (`0ffc41d0982d.ringfence-wallet.near`, row 16), but no send from it is in this table yet.
 - A wallet owned by a DAO, and a campaign packet with the brand fee.
-- A top up through NEAR Intents. Only dry quotes have run.
 
 The [film](https://ringfence.evalengine.ai/ringfence-film.mp4) (85 s) shows transactions 7, 8 and 11 on screen. Its call scenes are acted. The scam call in it is a re-enactment: transaction 8 was our own 5 NEAR test to `liho00.near`.
 
@@ -341,8 +341,8 @@ The entry lists five tracks. They are not ranked. Each row gives one piece of ev
 | AI Security and Defense | The spending limit is in a per-phone contract, not in the AI. An over-limit send is refused by code on the first turn and by the contract on chain. | Evidence row 8 (`GmPzx6Ug...`); `npm run attack`; `npm run live:check` |
 | Privacy and Private AI | Chat, speech-to-text and image models run in NEAR AI Cloud TEEs, and the server verifies the attestation. The spoken voice (Cartesia), WhatsApp (Meta) and our own server are outside the TEE, and the server keeps transcripts: see [What leaves the TEE](#what-leaves-the-tee) | `npm run attest`; [/proof](https://ringfence.evalengine.ai/proof) |
 | Social Money | Money packets: one pot split between a group, each share opened by saying the agreed words. A Sputnik DAO funded a packet on mainnet; a DAO-owned phone wallet is not on mainnet yet | Evidence rows 9 to 15; `cargo test` in `contracts/packets`; `npm test` ("dao wallet:", "money packets: one funded on chain by someone else") |
-| Real-World Money | Paying by phone call, for people who will not install a wallet. NEAR on mainnet; USDC in the sandbox only. Top up in USDC from another chain through NEAR Intents 1Click (dry quotes only) | Evidence row 7; hosted steps 2 and 4; `npm run topup:quote -- 10 SOL` |
-| Open Innovation | A phone call as the wallet interface, with named accounts read aloud. Top up from any chain by asking on the call (NEAR Intents, dry quotes only) | `npm run demo:check`; the hosted steps; `npm run topup:quote -- 10 ETH` |
+| Real-World Money | Paying by phone call, for people who will not install a wallet. NEAR on mainnet; USDC in the sandbox only. Top up in USDC from another chain through NEAR Intents 1Click (a real swap landed, row 16) | Evidence rows 7 and 16; hosted steps 2 and 4; `npm run topup:quote -- 10 SOL` |
+| Open Innovation | A phone call as the wallet interface, with named accounts read aloud. Top up from any chain by asking on the call (NEAR Intents, real swap in row 16) | `npm run demo:check`; the hosted steps; `npm run topup:quote -- 10 ETH` |
 
 **Sputnik DAO and Trezu:** Trezu is not used. Sputnik DAO fits in two ways. The DAO-funded packet is on mainnet (rows 12 to 15). The DAO-owned wallet is not on mainnet yet:
 
@@ -389,7 +389,7 @@ What the tests do not show:
 - Packets are NEAR only. Sends are NEAR on mainnet; USDC sends are tested in the sandbox only.
 - Speech is English only for now: speech-to-text is set to English (`STT_LANGUAGE=en`), because language guessing turned accented English into Malay or Chinese. `STT_LANGUAGE=auto` turns English and Chinese detection back on.
 - Storage is one JSON file.
-- NEAR Intents top up: no swap is on mainnet yet. The live server gives a real deposit address when the caller gives a refund address.
+- NEAR Intents top up: one real swap so far (row 16). The caller pastes a refund address on the top-up page and sends from their own wallet; the server never holds funds.
 - A DAO-owned wallet must be set up through the API or `npm run dao:wallet`; the bind page only takes a connected wallet as owner. Whether 200 Tgas is enough for `create_wallet` through a proposal is untested on chain.
 - Also in the code, not part of the main demo: coin launches on JustHoot. "Launch a coin about a sleepy otter, ticker ZZOTR" prepares a `launch_meme` call that you sign in your own wallet. Tickers and names that impersonate an asset, a brand or a trending coin are refused in code. No launch has been signed on mainnet. Code: `src/desks/launch.ts`, `src/justhoot.ts`.
 
@@ -400,7 +400,6 @@ What the tests do not show:
 - **A page for brand packets.** The fee method exists in the contract; no page and no customer.
 - **A TEE-held agent key,** so the operator cannot spend inside the limits.
 - **A DAO-owned wallet on mainnet,** using the steps above.
-- **A live NEAR Intents top up,** once a wallet is registered on the USDC contract.
 - **An ordinary phone number,** so anyone can dial in without WhatsApp. It needs speech-to-text that stays inside NEAR AI Cloud, not a telephony provider's.
 
 The business model and the staking design are in [docs/BUSINESS.md](docs/BUSINESS.md). They are plans, not part of what can be checked here.

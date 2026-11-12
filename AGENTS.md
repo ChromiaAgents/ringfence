@@ -21,7 +21,7 @@ Node 22 or newer. Nothing below needs a key, a `.env` file or a wallet. Nothing 
 | 3 | `npm run demo:check` | no | 15 s | `all steps passed` (after 19 lines that start with `PASS`) |
 | 4 | `npm run verify:contracts` | yes | 10 s | 3 blocks, each starting with `ok`; exit code 0 |
 | 5 | `npm run attest` | yes | 10 s | `3/3 models fully verified`, then one line of links |
-| 6 | `npm run verify:evidence` | yes | 5 s | `15 of 15 transactions match` |
+| 6 | `npm run verify:evidence` | yes | 5 s | `16 of 16 transactions match` |
 | 7 | `npm run attack` | no | 2 s | `5 of 5 attacks blocked` |
 | 8 | `npm run live:check` | yes | 30 to 90 s | `5 of 5 checks passed` |
 | 9 | `cd contracts/phone-wallet && cargo test` | first run | 4 min first run | `test result: ok.` (38 unit tests, then 4 sandbox tests) |
@@ -36,7 +36,7 @@ Notes on single commands:
 - 3: builds the site first, then starts a local server with a scripted model on a free port and stops it.
 - 4: hashes the three files in `contracts/release/` and compares them with the code hashes on mainnet.
 - 5: fetches the attestation of the three NEAR AI Cloud models (chat, speech-to-text, image) and checks the Intel TDX quote, the nonce and the NVIDIA GPU report.
-- 6: reads the 15 transactions of the README "Mainnet evidence" table from a public archival RPC and prints signer, receiver, method and result for each, with `ok` or `DIFF`. The explorer links in the README (nearblocks.io) answer 403 to a plain HTTP client; this command reads the same data. One of the 15 is expected to be a failure: `GmPzx6Ug...`, `over the per-transfer limit`.
+- 6: reads the 16 transactions of the README "Mainnet evidence" table from a public archival RPC and prints signer, receiver, method and result for each, with `ok` or `DIFF`. The explorer links in the README (nearblocks.io) answer 403 to a plain HTTP client; this command reads the same data. One of the 15 is expected to be a failure: `GmPzx6Ug...`, `over the per-transfer limit`.
 - 7: replays 5 fixed attack lines in process. The model is replaced by a script that obeys the attacker; the tools, PIN check and limits are the real code in `src/`. It tests the code around the model, not the model. It ends with a control (a send with the right PIN, as a dry run) to show the check can see a send.
 - 8: opens the call socket of the live site and types 5 lines. It never types a PIN, never confirms a transfer and gives no account to pay. Checks: the greeting arrives; a scam line is refused; "Send 5 NEAR to stranger.near" is refused with the limit named; wrong packet words are rejected; asking for the packet words is refused. The replies come from a real model, so wording varies and a check can fail on one run and pass on the next. The script prints each reply.
 - 8, against a local server: `RINGFENCE_URL=http://localhost:8787 npm run live:check`. With the scripted model (`MOCK_LLM=1`) the scam check fails, because the scripted model has no scam rule; the other 4 pass.
