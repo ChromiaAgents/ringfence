@@ -92,11 +92,11 @@ function Bind() {
       {proof && !guardian ? (
       <section className="card">
         <h2>2. PIN for your calls</h2>
-        <p className="muted small">Number <b>{phone}</b>, confirmed by your call. No code needed.</p>
+        <p className="muted small">Number <b>{phone}</b>, confirmed by your call. No code needed. <button className="linkish" onClick={async () => { if (!confirm('Unbind this number? Your wallet and its funds stay yours; calls go back to the demo wallet until you bind again.')) return; const d = await post('/api/wallet/unbind', { phone, proof }); if (d) alert(d.contract ? `Unbound. ${d.contract} is still yours.` : 'Unbound.'); }}>Unbind this number</button></p>
         <label className="field-label" htmlFor="pn">4-digit PIN you will say on calls</label>
         <input id="pn" className="control" type="password" value={pin} onChange={(e) => setPin(e.target.value)} inputMode="numeric" maxLength={4} />
         <p className="muted small">We keep only a salted hash of the PIN. Three wrong tries lock the wallet for 15 minutes.</p>
-        <button className="btn ink small" disabled={!!tx || !w.account || pin.length !== 4} onClick={async () => { const d = await post('/api/wallet/bind', { phone, proof, pin, owner: w.account }); if (d) { setTx(d); setTimeout(() => document.getElementById('step-sign')?.scrollIntoView({ behavior: 'smooth' }), 50); } }}>{tx ? 'PIN saved ✓' : 'Save PIN'}</button>
+        <button className="btn ink small" disabled={!!tx || !w.account || pin.length !== 4} onClick={async () => { const d = await post('/api/wallet/bind', { phone, proof, pin, owner: w.account }); if (d) { setTx(d); if (d.existing) { setWallet(d.existing); setHash('existing'); setTimeout(() => document.getElementById('step-done')?.scrollIntoView({ behavior: 'smooth' }), 50); } else setTimeout(() => document.getElementById('step-sign')?.scrollIntoView({ behavior: 'smooth' }), 50); } }}>{tx ? 'PIN saved ✓' : 'Save PIN'}</button>
       </section>
       ) : (<>
       <section className="card">
@@ -114,14 +114,14 @@ function Bind() {
         <label className="field-label" htmlFor="pn">PIN {who} will say on calls</label>
         <input id="pn" className="control" type="password" value={pin} onChange={(e) => setPin(e.target.value)} inputMode="numeric" maxLength={4} />
         <p className="muted small">We keep only a salted hash of the PIN. Three wrong tries lock the wallet for 15 minutes.</p>
-        <button className="btn ink small" disabled={!!tx || !w.account || code.length !== 6 || pin.length !== 4} onClick={async () => { const d = await post('/api/wallet/bind', { phone, code, pin, owner: w.account }); if (d) { setTx(d); setTimeout(() => document.getElementById('step-sign')?.scrollIntoView({ behavior: 'smooth' }), 50); } }}>{tx ? 'PIN saved ✓' : 'Save PIN'}</button>
+        <button className="btn ink small" disabled={!!tx || !w.account || code.length !== 6 || pin.length !== 4} onClick={async () => { const d = await post('/api/wallet/bind', { phone, code, pin, owner: w.account }); if (d) { setTx(d); if (d.existing) { setWallet(d.existing); setHash('existing'); setTimeout(() => document.getElementById('step-done')?.scrollIntoView({ behavior: 'smooth' }), 50); } else setTimeout(() => document.getElementById('step-sign')?.scrollIntoView({ behavior: 'smooth' }), 50); } }}>{tx ? 'PIN saved ✓' : 'Save PIN'}</button>
       </section>
 
       </>)}
       {hash && (
         <section className="card bind-ok" id="step-done">
-          <h2>Your phone wallet is ready ✓</h2>
-          {wallet ? <p>Wallet <b className="mono">{wallet}</b> <button className="linkish" onClick={() => navigator.clipboard?.writeText(wallet)}>copy</button> · <a href={`${explorer}/txns/${hash}`} target="_blank" rel="noreferrer">transaction</a></p>
+          <h2>{hash === 'existing' ? 'Linked to your wallet again ✓' : 'Your phone wallet is ready ✓'}</h2>
+          {wallet ? <p>Wallet <b className="mono">{wallet}</b> <button className="linkish" onClick={() => navigator.clipboard?.writeText(wallet)}>copy</button> {hash !== 'existing' && <> · <a href={`${explorer}/txns/${hash}`} target="_blank" rel="noreferrer">transaction</a></>}</p>
             : <p>Created. <a href={`${explorer}/txns/${hash}`} target="_blank" rel="noreferrer">See the transaction</a> for the address before you fund it.</p>}
           <h3>What's next</h3>
           <ol className="bind-next">

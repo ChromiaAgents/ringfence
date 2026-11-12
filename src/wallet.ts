@@ -106,7 +106,23 @@ export function callProof(phone: string): string {
   proofs.set(t, { phone: digits(phone), until: Date.now() + 30 * 60_000 });
   return t;
 }
-const proofOk = (t: unknown, phone: string) => { const x = proofs.get(String(t ?? '')); return !!x && x.phone === phone && x.until > Date.now(); };
+export const proofOk = (t: unknown, phone: string) => { const x = proofs.get(String(t ?? '')); return !!x && x.phone === phone && x.until > Date.now(); };
+
+/** Forget this number's binding (the caller proved the number on a call). The on-chain wallet stays, owned by its
+ *  owner with its funds; binding the number again re-uses it. */
+/** The number's wallet account on chain (the factory's record), or null. */
+export async function walletOnChain(phone: string): Promise<string | null> {
+  return view<string | null>('get_wallet', { phone_hash: phoneHash(digits(phone)) }, env.network, env.factoryAccountId).catch(() => null);
+}
+
+export function unbind(phone: string, proof: string): { ok: true; contract?: string } | { ok: false; reason: string } {
+  const ph = digits(phone);
+  if (!proofOk(proof, ph)) return { ok: false, reason: 'Open a fresh link from your call to unbind.' };
+  const old = bindingOf(ph);
+  db.wallets = db.wallets.filter((b) => b.phone !== ph);
+  save();
+  return { ok: true, contract: old?.contract };
+}
 
 export function bind(p: { phone: string; code: string; pin: string; owner: string; proof?: string }): { ok: true; binding: Binding } | { ok: false; reason: string } {
   const phone = digits(p.phone);
