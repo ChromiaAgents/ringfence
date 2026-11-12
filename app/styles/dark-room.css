@@ -595,10 +595,10 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .dr .film p { margin-top: 12px; color: var(--muted); font-size: 16px; }
 
 /* /live: the WhatsApp-call fallback panel (code box, links, the same Approve card as the browser call). Mobile first. */
-.live label { display: block; margin: 20px 0 8px; color: var(--muted); font-size: 14px; }
+.live label { display: block; margin: 28px 0 14px; color: var(--muted); font-size: 14px; }
 .live .live-code { display: block; width: 100%; max-width: 280px; height: 64px; padding: 0 20px; font: 600 28px/1 "Geist Mono", monospace; letter-spacing: .32em; background: var(--field); color: var(--fg); border: 1px solid var(--ui-line); border-radius: 2px; box-sizing: border-box; }
 .live .live-code::placeholder { color: var(--muted); opacity: .45; }
-.live form .btn { margin-top: 16px; height: 52px; padding: 0 28px; }
+.live form .btn { margin-top: 24px; height: 52px; padding: 0 28px; }
 .live .live-code:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 .live input:not(.live-code) { width: 100%; height: 52px; padding: 0 16px; background: var(--field); color: var(--fg); border: 1px solid var(--ui-line); border-radius: 2px; font: inherit; font-size: 17px; appearance: none; -webkit-appearance: none; transition: border-color 160ms ease; }
 .live input:not(.live-code)::placeholder { color: var(--muted); opacity: .6; }
