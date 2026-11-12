@@ -979,3 +979,11 @@ html:has(.ov) { color-scheme: normal !important; }
 .dr .partners a { display: inline-flex; align-items: center; gap: 7px; color: var(--fg); text-decoration: none; }
 .dr .partners a:hover { text-decoration: underline; }
 .dr .partners img { border-radius: 5px; }
+
+/* Top bar links: one row on wide screens; on phones a swipeable row under the logo, never hidden. */
+.topbar .tlinks { display: contents; }
+@media (max-width: 700px) {
+  .topbar .tlinks { display: flex; order: 4; flex-basis: 100%; gap: 18px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; -webkit-overflow-scrolling: touch; mask-image: linear-gradient(to right, #000 85%, transparent); }
+  .topbar .tlinks::-webkit-scrollbar { display: none; }
+  .topbar .tlinks .code { display: inline; font-size: 15px; }
+}
