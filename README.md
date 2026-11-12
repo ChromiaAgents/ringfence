@@ -2,7 +2,7 @@
 
 Ringfence is a phone line for NEAR. You call it in a browser or on WhatsApp (public number pending Meta's verification, see below), say what you want, and one AI agent acts from a NEAR wallet contract tied to your phone number. The agent can send NEAR, quote a top up from another chain, and make a money packet: NEAR locked in a contract and split between people who each say the agreed words on a call. The agent never holds the money. Each phone number has its own wallet contract, and that contract caps what the agent may spend: a limit per transfer, a limit per day, and a list of saved recipients.
 
-[Live demo](https://ringfence.evalengine.ai) | [Demo packet](https://ringfence.evalengine.ai/packet/demo) | [Film, 85 s](https://ringfence.evalengine.ai/ringfence-film.mp4) | [Deck](https://ringfence.evalengine.ai/deck.html) | [Commands for an AI reader: AGENTS.md](AGENTS.md)
+[Live demo](https://ringfence.evalengine.ai) | [Demo packet](https://ringfence.evalengine.ai/packet/demo) | [Film, 64 s](https://ringfence.evalengine.ai/ringfence-film.mp4) | [Demos](https://ringfence.evalengine.ai/demo.html) | [Deck](https://ringfence.evalengine.ai/deck.html) | [Commands for an AI reader: AGENTS.md](AGENTS.md)
 
 Made by Chromia and evalengine. Built on NEAR, at NEAR HACKATHON.
 
@@ -271,7 +271,7 @@ Not in this table, so not shown on mainnet:
 - **USDC sends are tested in the sandbox only.** The wallet contract has USDC limits and `transfer_ft`, covered by contract tests with a mock token. No USDC has been sent on mainnet yet. The demo wallet is registered on the USDC contract since 12 Nov 2026.
 - A wallet owned by a DAO, and a campaign packet with the brand fee.
 
-The [film](https://ringfence.evalengine.ai/ringfence-film.mp4) (85 s) shows transactions 7, 8 and 11 on screen. Its call scenes are acted. The scam call in it is a re-enactment: transaction 8 was our own 5 NEAR test to `liho00.near`.
+The [film](https://ringfence.evalengine.ai/ringfence-film.mp4) (64 s) is built from screen recordings of the live site on 12 November 2026 (all on [/demo.html](https://ringfence.evalengine.ai/demo.html)): a real 0.01 NEAR gift with the spoken PIN, a real money packet share, a top up quote, a coin launch page. The agent's voice is the live agent; the caller's lines were typed or played from a recording. The refusal scene is an animation of transaction 8, our own 5 NEAR test.
 
 ## Verify
 
