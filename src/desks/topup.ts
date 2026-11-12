@@ -8,7 +8,8 @@ import type { DeskDef } from './types.ts';
 import type { Call } from '../store.ts';
 import { env } from '../config.ts';
 import { bindingOf } from '../wallet.ts';
-import { quoteTopup, topupLive } from '../fund.ts';
+import { quoteTopup, topupLive, usdcRegistered } from '../fund.ts';
+import { callContract } from '../wallet.ts';
 import { setWalletLink } from './wallet.ts';
 import { newTopup } from '../topupPage.ts';
 
@@ -53,6 +54,12 @@ export async function runTopup(call: Call, args: any) {
   }
   const t = target(call, args?.use_demo === true);
   if (!t) return { ok: false, reason: 'This call has no wallet to top up yet.' };
+  // USDC lands only in a wallet registered on the USDC contract. Anyone may pay that storage for another account, so
+  // the agent pays it once (0.00125 NEAR) instead of sending the caller off to do a contract call.
+  if (!(await usdcRegistered(t.account).catch(() => true))) {
+    try { await callContract(env.usdcToken, 'storage_deposit', { account_id: t.account, registration_only: true }, 1_250_000_000_000_000_000_000n); console.log('[topup] registered a wallet on USDC'); }
+    catch (e: any) { console.error('usdc register', String(e?.message ?? e).slice(0, 160)); return { ok: false, reason: 'Could not register the wallet for USDC just now. Try again in a minute.' }; }
+  }
   const refund = String(args?.refund_address ?? '').trim() || undefined;
   const live = topupLive() && !!refund;
   const q = await quoteTopup({ usd: Number(args?.usd), origin: origin(args), recipient: t.account, refundTo: refund, live });

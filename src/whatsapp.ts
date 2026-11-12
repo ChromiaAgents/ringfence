@@ -43,7 +43,10 @@ export function deliverLink(call: Call, link: { url: string; label: string }) {
     // live panel (/live) and the code is said once; with no panel, say where to go instead.
     const panel = liveLink(call.id, link);
     const say = panel ?? "I can't text you on this line, so open ringfence dot evalengine dot ai to finish.";
-    if (!say) return;
+    if (!say) { // the panel code was already given on this call: the new link is on the same panel
+      noteToModel(call.id, `WhatsApp refused this link text too. "${link.label}" is on the caller's live panel (/live, same code as before). Say that; never say it reached WhatsApp.`);
+      return;
+    }
     // Into the transcript too, so the model knows the text failed and what it told the caller (it denied it before).
     noteToModel(call.id, `The link text did NOT reach the caller: WhatsApp refused it. You already said to them: "${say}". If they ask for the code, the "quote" (speech-to-text often hears "code" as "quote") or the link, repeat exactly that (digits one by one, slowly). Never say the link is on their WhatsApp.`);
     for (const l of live.values()) if (l.callId === call.id) l.say?.(say);

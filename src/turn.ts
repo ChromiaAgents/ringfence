@@ -34,6 +34,8 @@ export function voiceLine(play: Play) {
     },
     /** Queue a sentence: TTS runs in order, each clip goes out as soon as it is rendered. */
     say(text: string) {
+      text = text.replace(/\s*\bcall ended\.?\s*$/i, '').trim(); // a stage direction, not speech
+      if (!text) return chain;
       const g = gen, t = timing;
       chain = chain.then(async () => {
         if (g !== gen) return;
