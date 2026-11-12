@@ -904,14 +904,18 @@ html:has(.ov) { color-scheme: normal !important; }
 @keyframes lr-zoom { 0% { transform: scale(.2) translateY(80px); } 25% { transform: scale(1.15); } 35% { transform: scale(1); } 80% { transform: scale(1) translateY(0); } 100% { transform: scale(.9) translateY(-60px); } }
 @keyframes lr-burst { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .lr-burst, .lr-burst span { animation-duration: 1ms; } }
-.lr-cards { position: absolute; left: 10px; right: 10px; bottom: 292px; display: grid; gap: 8px; z-index: 3; }
+.lr-cards { display: grid; gap: 6px; }
 .lr-card { padding: 10px 12px; border-radius: 14px; background: rgba(18,38,29,.92); border: 1px solid #1f4d38; color: #fff; font-size: 14px; }
 .lr-card p { margin: 0 0 8px; white-space: pre-line; }
 .lr-card div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .lr-card button { min-height: 40px; border: 1px solid #2c6b4f; border-radius: 8px; background: #183528; color: #e9fff5; font: inherit; cursor: pointer; }
 .lr-card button.go { background: #00ec97; color: #0c0a08; font-weight: 700; border-color: #00ec97; }
-.lr-card.link { display: flex; align-items: center; justify-content: space-between; gap: 10px; text-decoration: none; }
-.lr-card.link b { flex: none; padding: 7px 14px; border-radius: 99px; background: #00ec97; color: #0c0a08; }
+.lr-card.link { display: flex; align-items: center; gap: 10px; text-decoration: none; width: fit-content; max-width: 100%; padding: 8px 8px 8px 10px; border-radius: 18px; }
+.lr-card.link i { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: #00ec97; color: #0c0a08; font-style: normal; font-weight: 800; }
+.lr-card.link span { display: grid; min-width: 0; line-height: 1.25; }
+.lr-card.link span b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lr-card.link small { color: #9fd9bf; font-size: 12px; }
+.lr-card.link em { flex: none; font-style: normal; font-weight: 700; padding: 6px 14px; border-radius: 99px; background: #00ec97; color: #0c0a08; }
 .lr-choices { display: flex; flex-wrap: wrap; gap: 6px; }
 .lr-choices button { padding: 8px 12px; border: 0; border-radius: 99px; background: rgba(255,255,255,.9); color: #111; font: inherit; font-size: 13px; cursor: pointer; }
 .lr-msg, .lr-sys, .lr-bar input, .lr-anchor, .room-host { backdrop-filter: none !important; }

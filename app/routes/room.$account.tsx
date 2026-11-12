@@ -131,7 +131,7 @@ function Room() {
     ...call.lines.map((l, i) => ({ l, i })).filter(({ l }) => l.who === 'agent').map(({ l, i }) => ({ kind: 'agent' as const, at: seenAt(i), from: 'Ringfence', near: 0, landing: false, text: l.text })),
   ].sort((a, b) => a.at - b.at).slice(-60);
   // Follow new messages only when the reader is already at the bottom; scrolling up to read history is left alone.
-  useEffect(() => { const b = chatBox.current; if (b && b.scrollHeight - b.scrollTop - b.clientHeight < 80) b.scrollTo({ top: b.scrollHeight, behavior: 'smooth' }); }, [stream.length]);
+  useEffect(() => { const b = chatBox.current; if (b && b.scrollHeight - b.scrollTop - b.clientHeight < 80) b.scrollTo({ top: b.scrollHeight, behavior: 'smooth' }); }, [stream.length, call.link, call.approval, call.choices.length]);
   const lastAgent = [...call.lines].reverse().find((l) => l.who === 'agent')?.text;
 
   return (
@@ -176,22 +176,22 @@ function Room() {
             ))}
           </div>
           {burst && <div className="lr-burst" key={burst.key} aria-hidden="true"><span>{iconOf(burst.near)}</span><b>{burst.from}</b><em>{burst.near} NEAR</em></div>}
-          {(call.link || call.approval || call.choices.length > 0) && (
-            <div className="lr-cards">
-              {call.approval && (
-                <div className="lr-card approve"><p>{call.approval.body}</p>
-                  <div><button type="button" className="go" onClick={() => call.tap('approve')}>Approve</button><button type="button" onClick={() => call.tap('cancel')}>Cancel</button><button type="button" onClick={() => call.tap('reject')}>Not me</button></div></div>
-              )}
-              {call.link && <a className="lr-card link" href={call.link.url} target="_blank" rel="noreferrer"><span>{call.link.label}</span><b>Open</b></a>}
-              {call.choices.length > 0 && <div className="lr-choices">{call.choices.map((c) => <button key={c} type="button" onClick={() => call.say(c)}>{c}</button>)}</div>}
-            </div>
-          )}
           <div className="lr-chat" ref={chatBox}>
             <p className="lr-sys">Welcome! Ringfence never asks for your seed phrase or for money outside a call with your PIN. Beware of scams.</p>
             {idleNote && <p className="lr-sys">{idleNote}</p>}
             {stream.map((m, i) => m.kind === 'gift'
               ? <p key={i} className="lr-msg"><span className="lv">{Math.min(99, Math.ceil(m.near * 100))}</span><b>{m.from}:</b> sent {iconOf(m.near)} {m.near} NEAR{m.landing ? ' (landing)' : ''}</p>
               : <p key={i} className={`lr-msg ${m.kind}`}><span className="lv">{m.kind === 'agent' ? 'AI' : '1'}</span><b>{m.from}:</b> {m.text}</p>)}
+          {(call.link || call.approval || call.choices.length > 0) && (
+              <div className="lr-cards">
+                {call.approval && (
+                  <div className="lr-card approve"><p>{call.approval.body}</p>
+                    <div><button type="button" className="go" onClick={() => call.tap('approve')}>Approve</button><button type="button" onClick={() => call.tap('cancel')}>Cancel</button><button type="button" onClick={() => call.tap('reject')}>Not me</button></div></div>
+                )}
+                {call.link && <a className="lr-card link" href={call.link.url} target="_blank" rel="noreferrer"><i aria-hidden="true">{/nearblocks|explorer/.test(call.link.url) ? '✓' : '↗'}</i><span><b>{call.link.label}</b><small>{(() => { try { return new URL(call.link.url).host.replace(/^www\./, ''); } catch { return ''; } })()}</small></span><em>{/nearblocks|explorer/.test(call.link.url) ? 'View' : 'Open'}</em></a>}
+                {call.choices.length > 0 && <div className="lr-choices">{call.choices.map((c) => <button key={c} type="button" onClick={() => call.say(c)}>{c}</button>)}</div>}
+              </div>
+            )}
           </div>
           <form className="lr-bar" onSubmit={async (e) => {
             e.preventDefault(); const t = chatText.trim(); if (!t) return;
