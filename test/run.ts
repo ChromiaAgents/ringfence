@@ -949,4 +949,54 @@ await t('money packets: one funded on chain by someone else is imported only wit
     assert.equal(((await openPacket(id, 'kid.near', ['hello there'])) as any).need, 'words', 'the caller still has to say the words');
   } finally { db.packets = db.packets.filter((x) => x.id !== id); save(); }
 });
+await t('dao wallet: Sputnik proposals decode to the owner calls, and daoStep builds a proposal, not a signing link', async () => {
+  const { isDao, callProposal, ownerProposals, createWalletProposal, daoStep } = await import('../src/dao.ts');
+  const dec = (p: any) => { const a = p.proposal.kind.FunctionCall.actions[0]; return { ...a, args: JSON.parse(Buffer.from(a.args, 'base64').toString()) }; };
+  assert.ok(isDao('family.sputnik-dao.near') && isDao('fam.sputnikv2.testnet'));
+  assert.ok(!isDao('liho.near') && !isDao('x.sputnik-dao.near.evil.near') && !isDao(undefined));
+  const w = 'abc.ringfence-wallet.near', o = ownerProposals(w);
+  assert.deepEqual(dec(o.allow('kid.near')), { method_name: 'allow', args: { recipient: 'kid.near' }, deposit: '1', gas: '30000000000000' });
+  assert.equal(dec(o.revoke_agent()).method_name, 'revoke_agent');
+  assert.deepEqual(dec(o.set_limits('near', '5', '9')).args, { asset: 'near', per_tx: '5', per_day: '9' });
+  const c = createWalletProposal({ receiverId: 'ringfence-wallet.near', deposit: '13', args: { owner: 'family.sputnik-dao.near' } }, '4477');
+  assert.equal(c.proposal.kind.FunctionCall.receiver_id, 'ringfence-wallet.near');
+  assert.equal(dec(c).args.owner, 'family.sputnik-dao.near');
+  assert.equal(callProposal('d', 'r', 'm', {}).proposal.description, 'd');
+  const s = daoStep('family.sputnik-dao.near', w, { to: 'shop.near', amount: '5', yocto: '5000000000000000000000000' }, 'over');
+  assert.deepEqual((s.proposal as any).proposal.kind, { Transfer: { token_id: '', receiver_id: 'shop.near', amount: '5000000000000000000000000' } });
+  assert.match(s.reason, /DAO proposal is needed/); assert.doesNotMatch(s.reason + s.label, /sign/i);
+  assert.equal(dec(daoStep('family.sputnik-dao.near', w, { to: 'new.near', amount: '1', yocto: '1' }, 'new').proposal).method_name, 'allow');
+});
+await t('top up from any chain: picks the home-chain coin, refuses an unregistered wallet, dry by default', async () => {
+  const { pickToken, quoteTopup, USDC_ASSET } = await import('../src/fund.ts');
+  const { runTopup } = await import('../src/desks/topup.ts');
+  const list: any[] = [
+    { assetId: 'nep141:sol.omft.near', blockchain: 'sol', symbol: 'SOL', decimals: 9, price: 80 },
+    { assetId: 'nep141:eth.bridge.near', blockchain: 'near', symbol: 'ETH', decimals: 18, price: 2000, contractAddress: 'eth.bridge.near' },
+    { assetId: 'nep141:eth.omft.near', blockchain: 'eth', symbol: 'ETH', decimals: 18, price: 2000 },
+    { assetId: USDC_ASSET, blockchain: 'near', symbol: 'USDC', decimals: 6, price: 1, contractAddress: 'x' },
+  ];
+  assert.equal(pickToken(list, 'eth')!.assetId, 'nep141:eth.omft.near', 'ETH on Ethereum, not bridged ETH on NEAR');
+  assert.equal(pickToken(list, 'nep141:sol.omft.near')!.symbol, 'SOL');
+  assert.equal(pickToken(list, 'DOGE'), null);
+  assert.match((await quoteTopup({ usd: 0, origin: 'SOL', recipient: 'a.near' }) as any).reason, /between 1 and/);
+  const real = globalThis.fetch; const bodies: any[] = [];
+  globalThis.fetch = (async (url: any, init?: any) => {
+    const u = String(url);
+    if (u.endsWith('/tokens')) return new Response(JSON.stringify(list));
+    if (u.includes('rpc')) { const reg = JSON.parse(Buffer.from(JSON.parse(init.body).params.args_base64, 'base64').toString()).account_id === 'reg.near';
+      return new Response(JSON.stringify({ result: { result: [...Buffer.from(reg ? '{"total":"1"}' : 'null')] } })); }
+    bodies.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({ quote: { amountInFormatted: '0.125', amountOutFormatted: '9.95', timeEstimate: 20 } }));
+  }) as any;
+  try {
+    assert.match((await quoteTopup({ usd: 10, origin: 'SOL', recipient: 'new.near' }) as any).reason, /not registered with the USDC contract/);
+    assert.equal(bodies.length, 0, 'no quote for a wallet that cannot receive USDC');
+    const q: any = await quoteTopup({ usd: 10, origin: 'SOL', recipient: 'reg.near' });
+    assert.equal(q.ok, true); assert.equal(q.dry, true); assert.equal(bodies[0].dry, true); assert.equal(bodies[0].amount, '125000000');
+    assert.equal(bodies[0].destinationAsset, USDC_ASSET); assert.equal(q.depositAddress, undefined);
+    assert.match((await quoteTopup({ usd: 10, origin: 'SOL', recipient: 'reg.near', live: true }) as any).reason, /refund address/);
+    assert.match(((await runTopup({ id: 'x', channel: 'whatsapp', from: '15559990000', startedAt: 0, turns: [] } as any, { usd: 10, token: 'SOL' })) as any).reason, /no wallet/);
+  } finally { globalThis.fetch = real; }
+});
 process.once("beforeExit", () => console.log(`${n} passed`));

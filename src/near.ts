@@ -9,7 +9,7 @@ export const NET = {
 export const net = (n = env.network) => NET[n];
 
 export async function rpc(method: string, params: unknown, network = env.network): Promise<any> {
-  const r = await fetch(net(network).rpc, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+  const r = await fetch(net(network).rpc, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }), signal: AbortSignal.timeout(15_000) });
   const d: any = await r.json();
   if (d.error) throw new Error(`rpc ${method}: ${JSON.stringify(d.error).slice(0, 300)}`);
   return d.result;

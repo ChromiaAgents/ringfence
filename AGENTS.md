@@ -15,7 +15,7 @@ Node 22 or newer. Nothing below needs a key, a `.env` file or a wallet. Nothing 
 | # | Command | Network | Rough time | Expected last line |
 | --- | --- | --- | --- | --- |
 | 1 | `npm ci` | yes | 15 s | `added <n> packages ...` and npm's audit summary |
-| 2 | `npm test` | no | 15 s | `<n> passed` (55 on 12 Nov 2026) |
+| 2 | `npm test` | no | 15 s | `<n> passed` (57 on 12 Nov 2026) |
 | 3 | `npm run demo:check` | no | 15 s | `all steps passed` (after 19 lines that start with `PASS`) |
 | 4 | `npm run verify:contracts` | yes | 10 s | 3 blocks, each starting with `ok`; exit code 0 |
 | 5 | `npm run attest` | yes | 10 s | `3/3 models fully verified`, then one line of links |
@@ -25,6 +25,8 @@ Node 22 or newer. Nothing below needs a key, a `.env` file or a wallet. Nothing 
 | 9 | `cd contracts/phone-wallet && cargo test` | first run | 4 min first run | `test result: ok.` (38 unit tests, then 4 sandbox tests) |
 | 10 | `cd contracts/factory && cargo test` | first run | 90 s first run | `test result: ok.` (10 unit tests, 1 sandbox test) |
 | 11 | `cd contracts/packets && cargo test` | first run | 100 s first run | `test result: ok.` (16 unit tests, 1 sandbox test, 1 upgrade test) |
+| 12 | `npm run topup:quote -- 10 SOL` | yes | 5 s | `}` closing a JSON quote with `"dry": true` (first line: the demo wallet is NOT registered with USDC) |
+| 13 | `npm run dao:wallet -- family.sputnik-dao.near 15550104477` | no | 2 s | `REFUSED: WALLET_SECRET is not set. ...` and exit 1 without the secret; with it, `Nothing was signed or sent. ...` |
 
 Notes on single commands:
 
@@ -36,6 +38,8 @@ Notes on single commands:
 - 7: replays 5 fixed attack lines in process. The model is replaced by a script that obeys the attacker; the tools, PIN check and limits are the real code in `src/`. It tests the code around the model, not the model. It ends with a control (a send with the right PIN, as a dry run) to show the check can see a send.
 - 8: opens the call socket of the live site and types 5 lines. It never types a PIN, never confirms a transfer and gives no account to pay. Checks: the greeting arrives; a scam line is refused; "Send 5 NEAR to stranger.near" is refused with the limit named; wrong packet words are rejected; asking for the packet words is refused. The replies come from a real model, so wording varies and a check can fail on one run and pass on the next. The script prints each reply.
 - 8, against a local server: `RINGFENCE_URL=http://localhost:8787 npm run live:check`. With the scripted model (`MOCK_LLM=1`) the scam check fails, because the scripted model has no scam rule; the other 4 pass.
+- 12: a NEAR Intents 1Click quote with `dry: true`, so no deposit address is made. SOL, ETH and BTC were tried.
+- 13: prints the Sputnik DAO proposals for a DAO-owned phone wallet. It needs `WALLET_SECRET` for the phone hash and never prints it. See `docs/dao-wallet.md`.
 - 9 to 11: Rust 1.95 or newer and `cargo install cargo-near`. The first run compiles and downloads a NEAR sandbox.
 
 ## The call socket
@@ -107,7 +111,8 @@ Other views: `get_config` on `ringfence-wallet.near` (custody account, agent acc
 - The spoken voice is made by Cartesia. It is not attested.
 - The demo wallet is custodial: its owner is `ringfence-custody.near`. A wallet is owned by the user only after the user binds their own NEAR account at `/wallet/bind`. There is no mainnet transaction for that path in the evidence table.
 - USDC sends are covered by contract tests (`contracts/mock-ft`). There is no USDC transaction in the evidence table.
-- Sputnik DAO and Trezu are not used.
+- Trezu is not used. A Sputnik DAO can own a phone wallet (`docs/dao-wallet.md`) and fund a money packet (`docs/dao-packet.md`). Neither is on mainnet yet. On a call, a DAO-owned wallet gets a DAO proposal instead of a signing link.
+- NEAR Intents top up (`src/desks/topup.ts`): dry quotes only. A real deposit address needs `TOPUP_LIVE=1` and a wallet registered on the USDC contract; the demo wallet is not registered. Not on mainnet yet.
 - Staking for packets is not built.
 - Spoken languages are English and Chinese.
 - The contracts are AI-reviewed, not audited.

@@ -78,12 +78,11 @@ near call <dao>.sputnik-dao.near add_proposal '{"proposal":{"description":"Fund 
 ### 4. Vote until it passes (OWNER, REAL NEAR)
 
 ```bash
-near call <dao>.sputnik-dao.near act_proposal '{"id":<proposal id>,"action":"VoteApprove"}' --accountId <council member>.near --gas 200000000000000
+near call <dao>.sputnik-dao.near act_proposal '{"id":<proposal id>,"action":"VoteApprove","proposal":<the same "kind" object you proposed>}' --accountId <council member>.near --gas 300000000000000
 ```
 
-- The current Sputnik source also takes the proposal kind in this call (`act_proposal(id, action, proposal, memo)`
-  in `sputnikdao2/src/proposals.rs`). If the DAO refuses the short form, add `"proposal": {the same "kind" object}`.
-  Which form a given mainnet DAO takes was not checked.
+- New DAOs from `sputnik-dao.near` run Sputnik v3.2 (`get_default_version` returns `[3,2]` on 12 Nov 2026), whose
+  `act_proposal(id, action, proposal, memo)` needs the proposal kind repeated, so the short form is refused.
 - When the last needed vote lands, the DAO calls `create` with the deposit. Keep that transaction link.
 - Check the result: `near view packets.ringfence-wallet.near get_packet '{"id":"<id>"}'`. The `creator` is the DAO.
 - If `create` fails (id taken, deposit too small), the proposal shows as failed and no NEAR is locked.

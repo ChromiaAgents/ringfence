@@ -12,6 +12,7 @@ import { CHAINS, chainById, findChain, defaultChainIds } from '../chains.ts';
 import { GasShortError, prepareTransfer } from '../eth.ts';
 import { createPacket, refundExpired, packetsTo, packetUrl, norm, MIN_SHARE } from '../packets.ts';
 import { hold, cancelHeld, minutes } from '../held.ts';
+import { isDao, daoStep } from '../dao.ts';
 import type { DeskDef } from './types.ts';
 
 /** "near", or "evm:<chainId>" for an EVM chain's native coin. */
@@ -116,12 +117,13 @@ function overWhy(asset: Asset, base: bigint, state: WalletState | null, shared: 
 }
 /** The refusal for a send over a limit, worded for where the caller is: the shared demo wallet has no owner on the
  *  line (no link), a browser caller's link is on their screen, a WhatsApp caller's is on WhatsApp. */
-function overStop(call: Call, t: { to?: string; amount: string; asset: Asset; base: bigint }, why: string, shared: boolean): { reason: string; extra: object } {
+function overStop(call: Call, t: { to?: string; amount: string; asset: Asset; base: bigint }, why: string, shared: boolean, b?: Binding): { reason: string; extra: object } {
   const next = 'Say this now: the amount, the limit, and that nothing was sent. Do not look up the account and do not ask whether to go ahead.';
   if (shared) return { reason: `I can't send that: ${why}. Nothing was sent.`, extra: { next } };
   if (isFt(t.asset)) return { reason: `I can't send that: ${why}. The wallet's owner can raise the USDC limit.`, extra: { next } };
   if (t.asset !== 'near') return { reason: `I can't: ${why}. Raise the limit on your wallet page.`, extra: { next } };
   if (!t.to) return { reason: `I can't send that myself: ${why}. Nothing was sent.`, extra: { next } };
+  if (b && isDao(b.owner)) { const d = daoStep(b.owner, b.contract, { to: t.to, amount: t.amount, yocto: t.base.toString() }, 'over'); return { reason: d.reason, extra: { next, proposal: d.proposal, command: d.command } }; }
   links.set(call.id, { url: selfSign(t as Transfer), label: `Sign ${readBack(t as Transfer)} in your own wallet` });
   return { reason: `I can't send that myself: ${why}. A link to sign it in your own wallet is ${linkPlace(call)}.`, extra: { linkSent: true, next } };
 }
@@ -175,7 +177,7 @@ export async function limitCheck(call: Call, text: string): Promise<{ args: obje
   const why = overWhy(asset, base, state, isDemoWallet(b));
   if (!/per-transfer limit/.test(why)) return null; // the daily limit and the rest are prepare_transfer's to say
   const to = parseRecipient(text.match(/\bto\s+([a-z0-9_-]+(?:(?:\.|\s+dot\s+)[a-z0-9_-]+)+)/i)?.[1] ?? '', asset) ?? undefined;
-  const s = overStop(call, { to, amount, asset, base }, why, isDemoWallet(b));
+  const s = overStop(call, { to, amount, asset, base }, why, isDemoWallet(b), b);
   return done(s.reason, limit, s.extra);
 }
 
@@ -249,7 +251,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     if (state && chain && !(state.chains ?? []).includes(chain.id)) return refuse(`${chain.name} is not enabled on your wallet. You can allow it on your wallet contract with allow_chain, with its own limits.`);
     // ponytail: no contract state (dry run, RPC down): overWhy falls back to the configured per-send limit; the contract still has the final say.
     const over = overWhy(asset, t.base, state, shared);
-    if (over) { const s = overStop(call, t, over, shared); return refuse(s.reason, s.extra); }
+    if (over) { const s = overStop(call, t, over, shared, b); return refuse(s.reason, s.extra); }
     if (state) {
       // The shared demo wallet is small: say so before the PIN, not as a failed transaction after it.
       if (shared && asset === 'near' && t.base > BigInt(state.balance)) return refuse(demoLow(state.balance));
@@ -268,6 +270,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
         if (shared) return refuse(`I can't send that: this shared demo wallet only pays accounts its owner saved (${env.demoRecipient}) and money packets, and ${to} is not one of them. Nothing was sent.`);
         if (isFt(asset)) return refuse(`I can't send that: ${to} is not on your saved list. The wallet's owner can save the recipient.`);
         if (asset !== 'near') return refuse(`I can't: that address is not on your saved list. Save the address on your wallet page.`);
+        if (isDao(b.owner)) { const d = daoStep(b.owner, b.contract, { to, amount, yocto: t.base.toString() }, 'new'); return refuse(d.reason, { proposal: d.proposal, command: d.command }); }
         links.set(call.id, { url: selfSign(t), label: `Sign ${readBack(t)} in your own wallet` });
         return refuse(`I can't send that myself: ${to} is a new recipient. A link to sign it in your own wallet is ${linkPlace(call)}.`, { linkSent: true });
       }

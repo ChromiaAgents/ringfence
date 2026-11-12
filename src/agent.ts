@@ -9,6 +9,7 @@ import { launchDesk } from './desks/launch.ts';
 import { walletDesk, takePin, clearPending, limitCheck, namesLimit } from './desks/wallet.ts';
 import { marketDesk, webSearch } from './desks/market.ts';
 import { packetDesk, autoOpen } from './desks/packet.ts';
+import { topupDesk } from './desks/topup.ts';
 
 export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, wallet: walletDesk, market: marketDesk, packet: packetDesk };
 
@@ -19,7 +20,7 @@ export const GREETING = 'Hey, Ringfence here, on NEAR. I can send NEAR or dollar
 const END_CALL = { type: 'function', function: { name: 'end_call', description: 'Hang up. Call it only after you have said a short goodbye and the caller is done.', parameters: { type: 'object', properties: {} } } };
 
 /** The desks the AI may use on a call. */
-const desksFor = (_call: Call): DeskDef[] => [walletDesk, packetDesk, launchDesk, marketDesk];
+const desksFor = (_call: Call): DeskDef[] => [walletDesk, packetDesk, launchDesk, marketDesk, topupDesk];
 const nameOf = (t: any): string => t.function?.name;
 /** One agent, every tool: the wallet and launch tools and end_call. */
 export const toolsFor = (call: Call): unknown[] => [...desksFor(call).flatMap((d) => d.tools), END_CALL];
@@ -67,7 +68,8 @@ Money packets:
 ${packetDesk.system(call)}
 
 Live data:
-${marketDesk.system(call)}${recap(call)}
+${marketDesk.system(call)}
+${topupDesk.system(call)}${recap(call)}
 /no_think`;
 }
 const sys = system;
