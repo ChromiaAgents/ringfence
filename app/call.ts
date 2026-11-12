@@ -97,6 +97,14 @@ export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string, payTo
         const buf = await decoded;
         if (!buf || !s.ctx) return; // empty/undecodable clip (TTS off or failed), or call ended
         const src = s.ctx.createBufferSource(); src.buffer = buf; src.connect(s.ctx.destination);
+        // The agent's voice level, for a character to lip-sync to (the live room's host): window.__rfVoiceLevel().
+        const w = window as any;
+        if (!w.__rfAnalyser || w.__rfAnalyserCtx !== s.ctx) {
+          const an = s.ctx.createAnalyser(); an.fftSize = 512; const d = new Uint8Array(512);
+          w.__rfAnalyser = an; w.__rfAnalyserCtx = s.ctx;
+          w.__rfVoiceLevel = () => { an.getByteTimeDomainData(d); let x = 0; for (const v of d) x += ((v - 128) / 128) ** 2; return Math.min(1, Math.sqrt(x / d.length) * 6); };
+        }
+        src.connect(w.__rfAnalyser);
         const at = Math.max(s.ctx.currentTime + 0.02, s.next ?? 0);
         s.next = at + buf.duration;
         (s.srcs ??= []).push(src);

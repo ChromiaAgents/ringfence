@@ -35,6 +35,8 @@ function Room() {
   const [now, setNow] = useState(Date.now());
   const seen = useRef(new Set<string>());
   const call = useCall('auto');
+  const liveRef = useRef(false);
+  useEffect(() => { liveRef.current = call.live; if (call.live) lastTalk.current = Date.now(); }, [call.live]); // on a call the agent talks, the host only moves its lips
   const queued = useRef<string | null>(null);
   const host = useRef<HostHandle>(null);
   const [sheet, setSheet] = useState(false);
@@ -47,7 +49,7 @@ function Room() {
   // The host keeps talking: thanks every gift as it pops, and says an idle line after 25 s of quiet.
   useEffect(() => {
     const t = setInterval(() => {
-      if (!soundRef.current || Date.now() - lastTalk.current < 25_000) return;
+      if (!soundRef.current || liveRef.current || Date.now() - lastTalk.current < 25_000) return;
       lastTalk.current = Date.now();
       host.current?.speak(`/api/stream/${encodeURIComponent(account)}/voice?idle=${idleN.current++}`);
     }, 3000);
@@ -66,7 +68,7 @@ function Room() {
         seen.current.add(key);
         if (first || Date.now() - g.at > 60_000) continue; // history: in the feed, not popped
         setPop((p) => [...p, { ...g, key }].slice(-3));
-        if (soundRef.current) { lastTalk.current = Date.now(); host.current?.speak(`/api/stream/${encodeURIComponent(account)}/voice?gift=${encodeURIComponent(`${g.at}-${g.from}`)}`); }
+        if (soundRef.current && !liveRef.current) { lastTalk.current = Date.now(); host.current?.speak(`/api/stream/${encodeURIComponent(account)}/voice?gift=${encodeURIComponent(`${g.at}-${g.from}`)}`); }
         setTimeout(() => setPop((p) => p.filter((x) => x.key !== key)), 6000);
       }
     };

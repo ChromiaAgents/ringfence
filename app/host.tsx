@@ -74,7 +74,9 @@ export const Host = forwardRef<HostHandle, { className?: string }>(function Host
         if (acc < 1 / 30) return;
         const dt = Math.min(acc, 0.1); acc = 0;
         const t = clock.elapsedTime;
-        mouth += (level.current - mouth) * Math.min(1, dt * 18);
+        // Its own lines, or the call agent's voice when a call is on (one voice, one face).
+        const call = (window as any).__rfVoiceLevel?.() ?? 0;
+        mouth += (Math.max(level.current, call) - mouth) * Math.min(1, dt * 18);
         const em = vrm.expressionManager;
         em?.setValue('aa', mouth);
         em?.setValue('ih', mouth * 0.3);
