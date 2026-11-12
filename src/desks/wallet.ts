@@ -82,6 +82,7 @@ const fmt = (asset: string, base: bigint | string) => {
 };
 
 const tools = [
+  { type: 'function', function: { name: 'bind_wallet', description: 'The caller wants their own wallet on this number ("bind my wallet", "link my number", "use my own wallet"). Sends the bind page link; if WhatsApp cannot text it, a live panel code is read out.', parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'get_balance', description: "The caller's phone-wallet balance and today's limits.", parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'get_spending', description: 'How much did I spend? Today\'s spending against the daily limit, and the last 5 transfers.', parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'prepare_transfer', description: 'Get a transfer ready. Read back the returned read_back, then ask for the 4-digit PIN.', parameters: { type: 'object', properties: { to: { type: 'string', description: 'NEAR account like liho.near (liho.testnet on testnet), or a 0x address for an EVM chain' }, amount: { type: 'string' }, asset: { type: 'string', description: '"near", "usdc" (US dollars: "send 50 dollars" is 50 USDC), or the EVM chain name for its native coin: base, ethereum, arbitrum, optimism, polygon, bnb, avalanche (sepolia on testnet)' } }, required: ['to', 'amount', 'asset'] } } },
@@ -201,6 +202,10 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     packet = { count, lucky: !/equal|even|same/i.test(String(a.split ?? '')), words };
     a = { to: packetsTo(), amount: amt, asset: 'near' };
     name = 'prepare_transfer';
+  }
+  if (name === 'bind_wallet') {
+    links.set(call.id, { url: `${env.publicUrl}/wallet/bind`, label: 'Bind your own NEAR wallet to this number' });
+    return { ok: true, linkSent: true, next: 'Say the bind page is on its way (or the code you read). They connect their NEAR wallet there, then come back to finish.' };
   }
   const demo = webDemo(call);
   const b = demo ? bindingOf(env.demoPhone) : bindingOf(call.from);

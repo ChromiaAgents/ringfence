@@ -13,12 +13,13 @@ import { setWalletLink } from './wallet.ts';
 const TOOL = { type: 'function', function: { name: 'topup_quote', description: 'Quote a top up of the caller\'s phone wallet: they pay a token on another chain (SOL, ETH, BTC and more) and USDC arrives in their wallet on NEAR through NEAR Intents.', parameters: { type: 'object', properties: {
   usd: { type: 'number', description: 'Dollars to top up' }, token: { type: 'string', description: 'What they pay with, for example SOL, ETH, BTC' },
   confirmed: { type: 'boolean', description: 'true only after the caller said yes to the exact dollar amount you read back. Needed for 100 dollars or more.' },
+  use_demo: { type: 'boolean', description: 'true only if a caller with no wallet chose to top up the shared demo wallet instead of binding their own.' },
   refund_address: { type: 'string', description: 'Their own address on the sending chain, for a refund if the swap fails. Only needed for a live top up.' },
 }, required: ['usd', 'token'] } } };
 
 /** The wallet a top up lands in, and whether it is the shared demo wallet. */
-function target(call: Call) {
-  const demo = webDemo(call);
+function target(call: Call, useDemo = false) {
+  const demo = webDemo(call) || (useDemo && !!env.demoPhone);
   const b = demo ? bindingOf(env.demoPhone) : bindingOf(call.from);
   return b ? { account: b.contract, demo } : null;
 }
@@ -38,7 +39,13 @@ export async function runTopup(call: Call, args: any) {
     return { ok: false, ask: true, reason: `Read the amount back before quoting: "${usd} dollars, is that right?" (buttons are on their screen). Call topup_quote again with confirmed true only after they say yes.`,
       choices: [`Yes, ${usd} dollars.`, ...(small ? [`No, I meant ${small.toFixed(2)} dollars.`] : []), 'Cancel.'] };
   }
-  const t = target(call);
+  // A WhatsApp number with no wallet of its own: bind first (same link-or-live-code path as a launch), unless they
+  // choose the shared demo wallet.
+  if (call.channel === 'whatsapp' && call.from && !bindingOf(call.from) && args?.use_demo !== true) {
+    setWalletLink(call.id, { url: `${env.publicUrl}/wallet/bind`, label: 'Bind your own NEAR wallet to this number, then top up' });
+    return { ok: false, linkSent: true, reason: 'This number has no wallet yet. The bind page is on its way (or the code you read). Tell them to bind their NEAR wallet there, then ask again. Or, if they just want to try it, offer the shared demo wallet (call again with use_demo true).' };
+  }
+  const t = target(call, args?.use_demo === true);
   if (!t) return { ok: false, reason: 'This call has no wallet to top up yet.' };
   const refund = String(args?.refund_address ?? '').trim() || undefined;
   const live = topupLive() && !!refund;
