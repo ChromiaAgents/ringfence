@@ -1,6 +1,6 @@
 # Ringfence
 
-Built at NEAR HACKATHON 2026 · #NEARHackathon · tracks: Social Money, Real-World Money
+Built at NEAR HACKATHON 2026 · #NEARHackathon · tracks: Social Money, Real-World Money, Privacy & Private AI, AI Security & Defense, Open Innovation
 
 ## A phone call is your wallet: send money and red packets by voice, on NEAR.
 
