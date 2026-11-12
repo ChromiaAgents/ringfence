@@ -75,7 +75,7 @@ function PacketPage() {
         <div className="pk-grid">
           <section className={`pk-card${open ? '' : ' shut'}`} aria-label="The money packet">
             <div className="pk-top"><span className="pk-brand">Ringfence</span><span>{p.count} {p.count === 1 ? 'share' : 'shares'}, {p.lucky ? 'lucky split' : 'equal split'}</span></div>
-            <p className="pk-amt">{near(p.near)}<span>NEAR</span></p>
+            <p className="pk-amt" style={{ '--n': near(p.near).length } as React.CSSProperties}>{near(p.near)}<span>NEAR</span></p>
             <p className="pk-say">{open ? <>say <b>“{p.hint ?? 'the words'}”</b></> : <b>{done ? 'all gone' : 'expired'}</b>}</p>
             <div className="pk-foot">
               <span>from <b>{short(p.from)}</b></span>

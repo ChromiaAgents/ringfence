@@ -473,7 +473,7 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .pk-card p { margin: 0; }
 .pk-top { display: flex; justify-content: space-between; align-items: baseline; gap: 3cqi; padding: 5cqi 6cqi 0; font-size: max(13px, 3.3cqi); font-weight: 600; }
 .pk-brand { font: 400 max(16px, 5.2cqi)/1 var(--head); }
-.pk-amt { flex: 1; display: flex; align-items: center; gap: 2.4cqi; padding: 0 6cqi; font: 400 25cqi/0.85 var(--head); letter-spacing: -0.02em; }
+.pk-amt { flex: 1; display: flex; align-items: center; gap: 2.4cqi; padding: 0 6cqi; font: 400 25cqi/0.85 var(--head); letter-spacing: -0.02em; font-size: min(25cqi, calc(100cqi / var(--n, 1))); }
 .pk-amt span { align-self: flex-end; margin-bottom: 5.5cqi; font-size: 5.4cqi; line-height: 1; letter-spacing: 0; }
 /* Where a gift card has its code: the words to say. */
 .pk-say { display: flex; align-items: baseline; gap: 2cqi; padding: 3cqi 6cqi; background: var(--bg); color: var(--fg); font-size: max(13px, 3.5cqi); }
