@@ -64,6 +64,7 @@ export function attachVoice(server: Server) {
     // A typed line that arrives while a reply is still being made is kept and answered next (the newest one wins);
     // it used to be dropped without a word. Audio that arrives then is still dropped: the caller was hearing the agent.
     let queued: string | null = null;
+    let queuedAudio: Buffer | null = null; // speech that arrived while a turn was finishing: answered next, never dropped
     const onMessage = async (data: any, isBinary: boolean) => {
       if (!isBinary) {
         const msg = JSON.parse(String(data));
@@ -86,7 +87,7 @@ export function attachVoice(server: Server) {
         if (msg.type === 'text') data = Buffer.from(msg.text); // typed fallback
         else return;
       }
-      if (busy) { if (!isBinary) queued = String(data); return; }
+      if (busy) { if (!isBinary) queued = String(data); else queuedAudio = Buffer.from(data as Buffer); return; }
       busy = true;
       try {
         const { signal, timing } = line.begin();
@@ -111,7 +112,8 @@ export function attachVoice(server: Server) {
         ws.send(JSON.stringify({ type: 'error', text: e.message }));
       } finally {
         busy = false;
-        if (queued !== null) { const text = queued; queued = null; void onMessage(Buffer.from(JSON.stringify({ type: 'text', text })), false); }
+        if (queuedAudio) { const a = queuedAudio; queuedAudio = null; void onMessage(a, true); }
+        else if (queued !== null) { const text = queued; queued = null; void onMessage(Buffer.from(JSON.stringify({ type: 'text', text })), false); }
       }
     };
     ws.on('message', onMessage);
