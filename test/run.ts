@@ -1205,4 +1205,24 @@ await t('crypto words: NEAR Intents, Sputnik DAO and TEE as heard by judges', as
   assert.match(fixTerms('Is this running in a T?'), /running in a TEE\?/);
   assert.equal(fixTerms('I got a T for my birthday.'), 'I got a T for my birthday.');
 });
+await t('NEAR AI keys: a failing primary falls back, then is skipped for a while; a good primary is used', async () => {
+  const { withAiKey, resetAiKeys } = await import('../src/aikey.ts');
+  const { env } = await import('../src/config.ts');
+  const was = { a: env.nearAiKey, b: env.nearAiKeyFallback };
+  try {
+    env.nearAiKey = 'primary'; env.nearAiKeyFallback = 'fallback'; resetAiKeys();
+    const seen: string[] = [];
+    const ok = (status: number) => (key: string) => { seen.push(key); return Promise.resolve(new Response('x', { status: key === 'primary' ? status : 200 })); };
+    assert.equal((await withAiKey(ok(200))).slot, 0);
+    assert.deepEqual(seen, ['primary']); seen.length = 0;
+    const r = await withAiKey(ok(402)); // no balance on the primary
+    assert.equal(r.slot, 1); assert.equal(r.r.status, 200); assert.deepEqual(seen, ['primary', 'fallback']); seen.length = 0;
+    await withAiKey(ok(402)); // breaker: primary skipped
+    assert.deepEqual(seen, ['fallback']); seen.length = 0;
+    resetAiKeys();
+    assert.equal((await withAiKey(ok(400))).slot, 0, 'a 400 is the request, not the key: no fallback');
+    env.nearAiKeyFallback = ''; resetAiKeys();
+    assert.equal((await withAiKey(ok(402))).r.status, 402, 'no fallback set: the primary answer is returned');
+  } finally { env.nearAiKey = was.a; env.nearAiKeyFallback = was.b; resetAiKeys(); }
+});
 process.once("beforeExit", () => console.log(`${n} passed`));

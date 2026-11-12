@@ -26,6 +26,8 @@ export const env = {
   port: Number(process.env.PORT ?? 8787),
   publicUrl: process.env.PUBLIC_URL ?? `http://localhost:${process.env.PORT ?? 8787}`,
   nearAiKey: process.env.NEARAI_API_KEY ?? '',
+  // Used when the primary key fails (no balance, unauthorised, rate limited, down). See src/aikey.ts.
+  nearAiKeyFallback: process.env.NEARAI_API_KEY_FALLBACK ?? '',
   mockLlm: process.env.MOCK_LLM === '1', // scripted chat + STT for offline timing; TTS stays real
   llmModel: process.env.LLM_MODEL ?? 'deepseek-ai/DeepSeek-V4.1-Flash-1017',
   sttModel: process.env.STT_MODEL ?? 'openai/whisper-large-v3',

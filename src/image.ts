@@ -1,3 +1,4 @@
+import { withAiKey, hasAiKey } from './aikey.ts';
 // Pictures through NEAR AI Cloud TEE models: a coin logo from FLUX.
 import sharp from 'sharp';
 import { env } from './config.ts';
@@ -6,13 +7,13 @@ const BASE = 'https://cloud-api.near.ai/v1';
 
 /** FLUX.2 klein (owned by nearai, runs in a TEE) -> a 256 px WebP data URL, small enough for on-chain storage. */
 export async function generateLogo(vibe: string, name: string): Promise<{ icon: string; bytes: number; model: string }> {
-  if (!env.nearAiKey) throw new Error('no NEARAI_API_KEY');
+  if (!hasAiKey()) throw new Error('no NEARAI_API_KEY');
   const prompt = `A memecoin logo for "${name}": ${vibe}. One bold centred character or object, flat sticker style, thick black outline. A nod to NEAR Protocol: NEAR mint green (#00EC97) as the accent colour and a small round black NEAR "N" badge worn or held by the character. Plain solid background, no other text or letters.`;
-  const r = await fetch(`${BASE}/images/generations`, {
+  const { r } = await withAiKey((key) => fetch(`${BASE}/images/generations`, {
     method: 'POST',
-    headers: { authorization: `Bearer ${env.nearAiKey}`, 'content-type': 'application/json' },
+    headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
     body: JSON.stringify({ model: env.imageModel, prompt, n: 1, size: '512x512', response_format: 'b64_json' }),
-  });
+  }));
   const d: any = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(`image ${r.status}: ${JSON.stringify(d).slice(0, 200)}`);
   const item = d.data?.[0] ?? {};
