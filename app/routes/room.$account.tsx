@@ -46,6 +46,8 @@ function Room() {
   const [follow, setFollow] = useState(false);
   const [confirm, setConfirm] = useState<(typeof GIFTS)[number] | null>(null);
   const [chatText, setChatText] = useState('');
+  const [pin, setPin] = useState('');
+  const pendingPin = useRef<string | null>(null);
   const [chats, setChats] = useState<{ name: string; text: string; at: number }[]>([]);
   const [burst, setBurst] = useState<(Gift & { key: string }) | null>(null);
   const chatBox = useRef<HTMLDivElement>(null);
@@ -85,6 +87,10 @@ function Room() {
 
   // A tapped gift waits for the call to connect, then is said for the caller.
   useEffect(() => { if (call.live && queued.current) { call.say(queued.current); queued.current = null; } }, [call.live]);
+  useEffect(() => {
+    const last = [...call.lines].reverse().find((l) => l.who === 'agent')?.text ?? '';
+    if (pendingPin.current && /\bPIN\b/i.test(last)) { const p = pendingPin.current; pendingPin.current = null; setTimeout(() => call.say(p), 400); }
+  }, [call.lines.length]);
   function gift(near: number) {
     const line = `Send a ${near} NEAR gift to ${account}.`;
     if (call.live) call.say(line); else { queued.current = line; call.start(); }
@@ -191,8 +197,9 @@ function Room() {
             {confirm && (
               <div className="lr-confirm" role="alertdialog" aria-label="Confirm gift">
                 <span>{confirm.icon}</span>
-                <p>Send a <b>{confirm.name}</b>, <b>{confirm.near} NEAR</b>, to {account}?<small>{call.live ? 'Your PIN confirms it on this call.' : 'A short voice call starts and asks for your PIN (demo PIN 4821). Real NEAR on mainnet.'}</small></p>
-                <div><button type="button" onClick={() => setConfirm(null)}>Cancel</button><button type="button" className="go" onClick={() => { gift(confirm.near); setConfirm(null); }}>Send {confirm.near} NEAR</button></div>
+                <p>Send a <b>{confirm.name}</b>, <b>{confirm.near} NEAR</b>, to {account}?<small>Real NEAR on mainnet. A short call sends it; your PIN confirms it.</small></p>
+                <label className="lr-pin">PIN <input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" type="password" placeholder="••••" aria-label="Your 4-digit PIN" /><button type="button" onClick={() => setPin('4821')}>Use demo PIN 4821</button></label>
+                <div><button type="button" onClick={() => setConfirm(null)}>Cancel</button><button type="button" className="go" disabled={pin.length !== 4} onClick={() => { pendingPin.current = pin; gift(confirm.near); setConfirm(null); setPin(''); }}>Send {confirm.near} NEAR</button></div>
               </div>
             )}
             <p className="lr-credit">Gifts go to {account}. Gifts from any NEAR wallet show too. Host: open VRM sample (© pixiv Inc., VRM Public License 1.0).</p>

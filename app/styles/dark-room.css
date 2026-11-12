@@ -929,3 +929,7 @@ html:has(.ov) { color-scheme: normal !important; }
 .dr .room-tease h2 { font-size: var(--step-h2); margin: 0 0 18px; max-width: 18ch; }
 .dr .room-tease ul { margin: 0 0 24px; padding-left: 1.1em; display: grid; gap: 8px; color: var(--fg); max-width: 52ch; }
 @media (max-width: 760px) { .dr .room-tease { grid-template-columns: 1fr; gap: 24px; padding: 20px; } .dr .rt-shot { max-width: 260px; } }
+.lr-pin { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #9b9ba6; }
+.lr-pin input { width: 90px; height: 40px; padding: 0 10px; border: 1px solid #34343f; border-radius: 8px; background: #16161c; color: #fff; font: 600 18px/1 "Geist Mono", monospace; letter-spacing: .2em; }
+.lr-pin button { padding: 8px 10px !important; font-size: 12px !important; }
+.lr-confirm button.go:disabled { opacity: .5; cursor: not-allowed; }

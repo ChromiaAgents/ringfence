@@ -313,7 +313,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     if (!t) return refuse('Nothing to confirm: prepare a transfer first.');
     if (Date.now() > t.until!) { pending.delete(call.id); return refuse('That transfer expired (2 minutes). Say it again.'); }
     const said = spokenPin(call, a);
-    if (!said) return refuse('I did not hear a PIN from them. Ask them to say (or type on the live panel) their 4-digit PIN.');
+    if (!said) return refuse(`I did not hear a PIN from them. Ask them to say their 4-digit PIN${call.channel === 'web' ? ', or type it in the box on their screen' : ', or type it on the live panel'}.`);
     const v = checkPin(b, said);
     if (!v.ok) return refuse(v.reason);
     pending.delete(call.id);
