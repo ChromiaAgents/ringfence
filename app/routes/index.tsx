@@ -64,7 +64,7 @@ function Landing() {
                 <li key={f.name}><a href={f.href} {...(f.href.startsWith('http') ? { target: '_blank', rel: 'noreferrer' } : {})}><b>{f.name === 'WhatsApp' && <WaIcon size={15} />}{f.name}</b><span>{f.what}</span><em className={f.tag === 'Next' ? 'next' : f.tag === 'Pending Meta' ? 'soon' : ''}>{f.tag}</em></a></li>
               ))}
             </ul>
-            <p className="partners rise" style={i(6)} aria-label="Built with">
+            <p className="partners" aria-label="Built with">
               <span>Built with</span>
               <a href="https://near.org" target="_blank" rel="noreferrer"><img src="/brand/near-mark-light.svg" alt="" width={18} height={18} />NEAR</a>
               <a href="https://cloud.near.ai" target="_blank" rel="noreferrer">NEAR AI Cloud</a>

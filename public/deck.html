@@ -3,7 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ringfence: the deck</title>
-<meta name="description" content="Ringfence in nine slides: money packets and payments by phone call on NEAR.">
+<meta name="description" content="Ringfence in ten slides: money packets and payments by phone call on NEAR.">
 <style>
 @font-face { font-family: Battlefin; src: url(/fonts/battlefin-black.woff2); font-weight: 400; font-display: swap; }
 @font-face { font-family: Geist; src: url(/fonts/geist-latin.woff2); font-weight: 100 900; font-display: swap; }
@@ -105,7 +105,9 @@ img.wide { width: 100%; height: auto; display: block; }
     <div class="row"><b>The packets contract</b><span>Fund, split from the block’s random seed, one share per account, refund after expiry.</span></div>
     <div class="row"><b>Private AI with proof</b><span>Chat and speech-to-text run on NEAR AI Cloud inside TEEs. Our server verifies the Intel and NVIDIA attestation and shows it on /proof. The spoken voice is Cartesia and is not attested.</span></div>
     <div class="row"><b>Bring your own wallet</b><span>Already on NEAR? Bind your number to a wallet contract you own, on /wallet/bind: one <code>create_wallet</code> call from any NEAR wallet. You set the limits; nobody can change the wallet code after it is made.</span></div>
-    <div class="row"><b>A family DAO <span class="tag no">wallet not on mainnet yet</span></b><span>A Sputnik DAO funded a money packet on mainnet, and a share was opened on a call (evidence rows 12 to 15). A DAO can also own the phone wallet, so owner changes need a council vote; that is not on mainnet yet. <a href="/packet/family-1">See the packet</a>. Also built: top up in USDC from other chains through NEAR Intents 1Click. Live quotes and real deposit addresses; no swap on mainnet yet.</span></div>
+    <div class="row"><b>A family DAO <span class="tag no">wallet not on mainnet yet</span></b><span>A Sputnik DAO funded a money packet on mainnet, and a share was opened on a call (evidence rows 12 to 15). A DAO can also own the phone wallet, so owner changes need a council vote; that is not on mainnet yet. <a href="/packet/family-1">See the packet</a>.</span></div>
+    <div class="row"><b>Top up from any chain</b><span>NEAR Intents 1Click, by voice. Real swap on mainnet: 1 USDT on Solana became 0.9996 USDC in a phone wallet (evidence row 16).</span></div>
+    <div class="row"><b>Named phone wallets</b><span>liho.ringfence-wallet.near instead of a hash. Bind or unbind by voice or on /wallet/bind.</span></div>
     <div class="row"><b>Names you can say out loud</b><span>“liho dot near” is read back before anything moves.</span></div>
   </div>
 </section>
@@ -121,13 +123,24 @@ img.wide { width: 100%; height: auto; display: block; }
 </section>
 
 <section class="slide">
+  <h2>The live room. <span>Gift by voice, on stream.</span></h2>
+  <div class="rows">
+    <div class="row"><b>A TikTok-style room</b><span>Viewers talk to the AI host (an open 3D character), send real NEAR gifts with a spoken PIN and grab money packets. The host thanks every gift out loud. <a href="/room/liho00.near">Open the room</a>.</span></div>
+    <div class="row"><b>An overlay for streamers</b><span>/stream/&lt;account&gt; drops the same gifts, top gifters and packets into OBS for Twitch or YouTube.</span></div>
+    <div class="row"><b>Launch a coin by voice</b><span>The agent drafts name, ticker and logo on <a href="https://justhoot.fun">JustHoot</a>; you sign; the call says when it is live ($FENCE, $JENSEN).</span></div>
+    <div class="row"><b>AI paid by staking</b><span>AI calls run on a <a href="https://nearon.dev">NEARON</a> key (staking rewards pay for NEAR AI Cloud), production key as fallback.</span></div>
+  </div>
+  <div class="makers"><img src="/brand/near-mark-light.svg" alt="NEAR"><span>NEAR AI Cloud · NEAR Intents</span><img src="/brand/justhoot.png" alt="JustHoot"><img src="/brand/nearon.svg" alt="NEARON"></div>
+</section>
+
+<section class="slide">
   <h2>Live on NEAR mainnet, <span>10 November 2026</span></h2>
   <div class="nums">
     <div><p class="big"><a href="https://nearblocks.io/txns/9k37rWDGE9c4p3DACFjb4BhZ7dZ2ScNLGrnChfBrrFua">Sent</a></p><p>“Send 0.1 NEAR to liho00.near”, PIN on the call. The phone wallet’s contract sent it.</p></div>
     <div><p class="big"><a href="https://nearblocks.io/txns/GmPzx6UgxX9jJsDpHEZRodEhSmABZ3uRqFr2WzANCUd8">Refused</a></p><p>The agent key asks for 5 NEAR. The contract: “over the per-transfer limit”. Nothing moved.</p></div>
     <div><p class="big"><a href="https://nearblocks.io/txns/8EyQjwqWo5vJYqaSKVuo3586zqQQrs86JMvRzGBvZxH">Opened</a></p><p>“Happy new year” said on a call opened a share of a real 0.02 NEAR lucky packet.</p></div>
   </div>
-  <p class="muted">WhatsApp is built. Public number +60 11-7512 3486 is waiting on Meta's verification; until then it runs on Meta's test number +1 555-144-4220 (approved numbers only). The browser call does the same.</p>
+  <p class="muted">Rows 16 to 18 add a real Intents top-up and a held first send to a new account, cancelled in the wait. 18 rows; <code>npm run verify:evidence</code> re-reads them all. WhatsApp is built. Public number +60 11-7512 3486 is waiting on Meta's verification; until then it runs on Meta's test number +1 555-144-4220 (approved numbers only). The browser call does the same.</p>
   <p class="muted">Three contracts live; <code>npm run verify:contracts</code> checks the code on chain is the repo's. 57 app checks, 64 contract unit tests, 7 sandbox tests. AI-reviewed, not audited: the critical and high findings in the packets contract were fixed and redeployed. WhatsApp runs on Meta’s test number until business verification clears; the browser call shows sends and money packets on the shared demo wallet.</p>
 </section>
 
@@ -138,7 +151,7 @@ img.wide { width: 100%; height: auto; display: block; }
   <p class="muted">Tracks: Social Money, Real-World Money, AI Security &amp; Defense, Privacy &amp; Private AI, Open Innovation. Made by Chromia and evalengine. Built on NEAR.</p>
 </section>
 </main>
-<div class="ctl"><button id="prev" aria-label="Previous slide">←</button><span id="n" aria-live="polite">1 / 9</span><button id="next" aria-label="Next slide">→</button></div>
+<div class="ctl"><button id="prev" aria-label="Previous slide">←</button><span id="n" aria-live="polite">1 / 10</span><button id="next" aria-label="Next slide">→</button></div>
 <script>
 // A slider: arrows on screen, arrow keys, space, swipe, and #3 in the address opens slide 3.
 const deck = document.getElementById('deck'), total = deck.children.length;
