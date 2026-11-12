@@ -666,3 +666,37 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .pf .pf-how summary { cursor: pointer; font-weight: 600; }
 .pf .pf-how code { font-size: 15px; }
 .app.pf > :not(.topbar):not(.x) { max-width: 1120px; }
+/* /dashboard: owner console. Same top bar and frame as the site; tabs, stat tiles, panels. */
+.app.db { max-width: none; margin: 0; padding: 20px 24px 96px; font-size: 16px; line-height: 1.5; }
+.db > :not(.topbar) { max-width: 1280px; margin-left: auto; margin-right: auto; }
+.db .db-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.app.db h1 { font-size: clamp(32px, 3.4vw, 48px); margin: 0; }
+.db .db-tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--ui-line); margin-top: 24px; margin-bottom: 24px; }
+.db .db-tabs button { background: none; border: 0; color: var(--muted); font: inherit; padding: 12px 14px; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; display: inline-flex; gap: 8px; align-items: center; }
+.db .db-tabs button:hover { color: var(--fg); }
+.db .db-tabs button.on { color: var(--fg); border-bottom-color: var(--accent); }
+.db .db-tabs b { font-size: 12px; background: var(--surface); padding: 1px 7px; border-radius: 99px; }
+.db .db-tabs b.live { background: var(--accent); color: #0c0a08; }
+.db .db-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+.db-stat { background: var(--surface); padding: 20px; border-top: 3px solid var(--ui-line); }
+.db-stat.ok { border-top-color: var(--accent); } .db-stat.warn { border-top-color: #ff8a7a; }
+.db-stat p { margin: 0; } .db-stat .l { color: var(--muted); font-size: 14px; }
+.db-stat .v { font: 400 44px/1.1 var(--head, serif); margin: 8px 0 4px; font-variant-numeric: tabular-nums; }
+.db-stat .c { color: var(--muted); font-size: 13px; }
+.db .db-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.db .db-split { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr); gap: 8px; align-items: start; }
+.db-panel { background: var(--surface); padding: 20px; min-width: 0; }
+.db-panel > header { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 12px; }
+.db-panel h2 { font-size: 20px; margin: 0; } .db-panel header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.db-link { background: none; border: 0; color: var(--fg); font: inherit; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; white-space: nowrap; }
+.db-empty { color: var(--muted); padding: 24px 0; margin: 0; }
+.db-list { list-style: none; margin: 0; padding: 0; }
+.db-list li + li { border-top: 1px solid var(--ui-line); }
+.db-list button, .db-list .row { display: grid; grid-template-columns: 10px 56px minmax(0, 1fr) auto; gap: 10px; align-items: center; width: 100%; padding: 10px 6px; background: none; border: 0; color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+.db-list .row { grid-template-columns: minmax(0, 1fr) auto; cursor: default; }
+.db-list button:hover, .db-list button.on { background: rgba(255,255,255,.04); }
+.db-list .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ui-line); } .db-list .dot.live { background: var(--accent); }
+.db-list .t { color: var(--muted); font-variant-numeric: tabular-nums; } .db-list .w { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.db-list .m { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.db .transcript { max-height: 70vh; overflow-y: auto; }
+@media (max-width: 900px) { .db .db-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .db .db-two, .db .db-split { grid-template-columns: minmax(0, 1fr); } }
