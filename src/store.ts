@@ -12,7 +12,7 @@ export type Desk = 'launch' | 'wallet' | 'market' | 'packet';
 export type Timing = { start?: number; sttMs?: number; firstTokenMs?: number; firstAudioMs?: number; llmMs?: number; totalMs?: number };
 export type Turn = { at: number; who: 'caller' | 'agent' | 'tool'; text: string; proof?: Proof; timing?: Timing };
 export type Call = {
-  id: string; channel: 'web' | 'whatsapp'; desk?: Desk; from?: string; startedAt: number; endedAt?: number; turns: Turn[];
+  id: string; channel: 'web' | 'whatsapp'; desk?: Desk; from?: string; startedAt: number; endedAt?: number; turns: Turn[]; choices?: string[];
   caller?: Record<string, string>; launchId?: string; routeMisses?: number;
   /** The red packet this call was opened from (a packet page's Call button). */
   packetId?: string;

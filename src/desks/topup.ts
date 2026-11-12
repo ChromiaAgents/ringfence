@@ -28,9 +28,15 @@ export const saidAmount = (call: Call) => call.turns.some((x) => x.who === 'call
 
 export async function runTopup(call: Call, args: any) {
   // Code checks, not left to the model: no spoken amount means ask; a big amount is read back and confirmed first.
-  if (!saidAmount(call)) return { ok: false, ask: true, reason: 'They did not say an amount. Ask how many dollars they want to top up. Do not pick one.' };
+  const tok = String(args?.token ?? '').trim() || 'SOL';
+  if (!saidAmount(call)) return { ok: false, ask: true, reason: 'They did not say an amount. Ask how many dollars they want to top up (buttons are on their screen). Do not pick one.', choices: [2, 5, 10].map((n) => `Top up ${n} dollars of ${tok}.`) };
   const usd = Number(args?.usd);
-  if (usd >= 100 && args?.confirmed !== true) return { ok: false, ask: true, reason: `Read the amount back before quoting: "${usd} dollars, is that right?" Call topup_quote again with confirmed true only after they say yes.` };
+  if (usd >= 100 && args?.confirmed !== true) {
+    // "two fifty" often comes back as 250: offer the small reading too.
+    const small = Number.isInteger(usd) && usd < 1000 ? usd / 100 : null;
+    return { ok: false, ask: true, reason: `Read the amount back before quoting: "${usd} dollars, is that right?" (buttons are on their screen). Call topup_quote again with confirmed true only after they say yes.`,
+      choices: [`Yes, ${usd} dollars.`, ...(small ? [`No, I meant ${small.toFixed(2)} dollars.`] : []), 'Cancel.'] };
+  }
   const t = target(call);
   if (!t) return { ok: false, reason: 'This call has no wallet to top up yet.' };
   const refund = String(args?.refund_address ?? '').trim() || undefined;

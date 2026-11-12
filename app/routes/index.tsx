@@ -216,6 +216,11 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
         : !call.live && !call.lines.length && <p className="help">Press Call, then speak or type. NEAR {network}. The demo wallet’s contract caps every send.</p>}
       {!packet && <p className="help"><b>WhatsApp</b> <a href="https://wa.me/601175123486">+60 11-7512 3486</a> opens once Meta approves us. Same agent.</p>}
       {(call.live || call.lines.length > 0) && <>
+      {call.choices.length > 0 && (
+        <div className="tries pick" role="group" aria-label="Tap to answer">
+          {call.choices.map((c) => <button key={c} type="button" onClick={() => call.say(c)}>{c}</button>)}
+        </div>
+      )}
       <div className="tries" role="group" aria-label="Things to say">
         {(packet ? [packet.say, packet.to ? '' : 'Send it to liho00.near.'].filter(Boolean) : TRY[active]).map((t) => <button key={t} type="button" onClick={() => (call.live ? call.say(t) : setTyped(t))}>{t}</button>)}
       </div>

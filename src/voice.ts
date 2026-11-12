@@ -49,6 +49,7 @@ export function attachVoice(server: Server) {
     const sendLink = () => {
       const l = linkOf(call);
       if (l) ws.send(JSON.stringify({ type: 'link', ...l }));
+      if (call.choices?.length) { ws.send(JSON.stringify({ type: 'choices', options: call.choices })); call.choices = undefined; }
       ws.send(JSON.stringify({ type: 'desk', desk: call.desk ?? 'agent' })); // last: marks the end of the turn
     };
     const hooks = (signal: AbortSignal, timing: any) => ({

@@ -1,6 +1,7 @@
 // One agent, Ringfence. The AI decides every reply and every action; the desks are only tool providers:
 // each brings its prompt section, tools, and the code that enforces its rules (PIN, limits, launch checks, filters).
 import { chat, type Msg } from './ai.ts';
+import { env } from './config.ts';
 import { sentenceSplitter } from './speech.ts';
 import { db, save, id, log, type Call, type Desk, type Timing } from './store.ts';
 import { recap, resume, isKnown } from './memory.ts';
@@ -181,6 +182,8 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
           call.desk = desk.id; // the dashboard label: the last tool family used
           out = await desk.run(call, name, args).catch((e) => ({ ok: false, reason: String(e.message) }));
         }
+        // Tap buttons for the caller ("$2.50 or $250?"): tapping sends the exact words, so nothing has to be heard right. Never a PIN.
+        if (Array.isArray((out as any)?.choices)) call.choices = (out as any).choices.map(String).filter((c: string) => c && !/\bpin\b/i.test(c) && !(env.demoPin && c.includes(String(env.demoPin)))).slice(0, 4);
         call.turns.push({ at: Date.now(), who: 'tool', text: `${tc.function.name}(${tc.function.name === 'confirm_transfer' ? '{"pin":"****"}' : JSON.stringify(args)}) → ${JSON.stringify(out)}`, proof });
         h.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(out) });
       }

@@ -118,6 +118,7 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .dr .msg .who { display: block; font-size: 14px; color: var(--muted); margin-bottom: 2px; }
 .dr .msg.you { align-self: flex-end; background: #241f1a; }
 .dr .msg.agent { align-self: flex-start; background: #1f1b17; border: 1px solid var(--ui-line); }
+.dr .callui .tries.pick button { border-color: var(--accent, #00ec97); color: var(--ink, #f4f3f1); }
 .dr .msg.typing .dots { display: inline-flex; gap: 5px; padding: 6px 0 2px; }
 .dr .msg.typing .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: dr-typing 1.1s ease-in-out infinite; }
 .dr .msg.typing .dots i:nth-child(2) { animation-delay: 0.15s; }

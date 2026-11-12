@@ -1188,4 +1188,21 @@ await t('top up guards: no spoken amount asks, 100 dollars or more needs a confi
   assert.match(fixTerms('can I top up with lie near'), /LiNEAR/);
   assert.equal(fixTerms('the trend is linear'), 'the trend is linear');
 });
+await t('tap choices: a missing amount offers buttons, 250 offers "2.50" too, and no choice ever carries a PIN', async () => {
+  const { runTopup } = await import('../src/desks/topup.ts');
+  const call = (text: string) => ({ id: 'c1', channel: 'whatsapp', from: '15559990002', startedAt: 0, turns: [{ at: 0, who: 'caller', text }] }) as any;
+  const none: any = await runTopup(call('Can I use eth?'), { usd: 10, token: 'ETH' });
+  assert.deepEqual(none.choices, ['Top up 2 dollars of ETH.', 'Top up 5 dollars of ETH.', 'Top up 10 dollars of ETH.']);
+  const big: any = await runTopup(call('top up 250 of USDC'), { usd: 250, token: 'USDC' });
+  assert.deepEqual(big.choices, ['Yes, 250 dollars.', 'No, I meant 2.50 dollars.', 'Cancel.']);
+  const huge: any = await runTopup(call('top up 1500 dollars of SOL'), { usd: 1500, token: 'SOL' });
+  assert.deepEqual(huge.choices, ['Yes, 1500 dollars.', 'Cancel.']);
+});
+await t('crypto words: NEAR Intents, Sputnik DAO and TEE as heard by judges', async () => {
+  const { fixTerms } = await import('../src/ai.ts');
+  assert.match(fixTerms('Does it settle through near intense?'), /NEAR Intents/);
+  assert.match(fixTerms('Can the family Sputnik Tao approve big payments?'), /Sputnik DAO/);
+  assert.match(fixTerms('Is this running in a T?'), /running in a TEE\?/);
+  assert.equal(fixTerms('I got a T for my birthday.'), 'I got a T for my birthday.');
+});
 process.once("beforeExit", () => console.log(`${n} passed`));

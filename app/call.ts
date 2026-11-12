@@ -20,6 +20,7 @@ export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string, payTo
   const [state, setState] = useState('Not connected');
   const [live, setLive] = useState(false);
   const [link, setLink] = useState<{ url: string; label: string } | null>(null);
+  const [choices, setChoices] = useState<string[]>([]);
   const [desk, setDesk] = useState<Desk | 'wallet' | 'agent' | null>(null);
   // The website demo wallet's Approve card (WhatsApp buttons, shown on the page instead).
   const [approval, setApproval] = useState<{ body: string; token: string } | null>(null);
@@ -45,7 +46,7 @@ export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string, payTo
   }
 
   async function start() {
-    setLines([]); setLink(null); setDesk(deskPick === 'auto' ? null : deskPick); setLive(true); setState('Connecting…');
+    setLines([]); setLink(null); setChoices([]); setDesk(deskPick === 'auto' ? null : deskPick); setLive(true); setState('Connecting…');
     const s = r.current;
     s.ctx = new AudioContext({ sampleRate: 16000 });
     // Mic is optional: without it (or if refused) the call continues with typed lines.
@@ -115,6 +116,8 @@ export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string, payTo
       if (d.type === 'error') { add('tool', d.text); setState('Your turn'); }
       if (d.type === 'approval') setApproval({ body: d.body, token: d.token });
       if (d.type === 'link') setLink({ url: d.url, label: d.label });
+      if (d.type === 'choices') setChoices(Array.isArray(d.options) ? d.options.map(String) : []);
+      if (d.type === 'caller') setChoices([]);
       if (d.type === 'desk' && d.desk) setDesk(d.desk);
       // The AI ended the call: wait for the end of the turn (all goodbye audio sent), let it finish playing, then hang up.
       if (d.type === 'hangup') hangAfterTurn = true;
@@ -154,5 +157,5 @@ export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string, payTo
 
   // On unmount only release the mic and socket (no state updates).
   useEffect(() => () => { const s = r.current; s.ws?.close(); s.stream?.getTracks().forEach((t) => t.stop()); s.ctx?.close().catch(() => {}); }, []);
-  return { lines, state, live, link, desk, approval, tap, sendPhoto, start: () => start().catch((e) => { add('tool', e.message); stop(); }), stop, say };
+  return { lines, state, live, link, choices, desk, approval, tap, sendPhoto, start: () => start().catch((e) => { add('tool', e.message); stop(); }), stop, say };
 }
