@@ -18,34 +18,39 @@ function Proof() {
     fetch(`/api/proof${fresh ? '?fresh=1' : ''}`).then(async (r) => (r.ok ? setAtts(await r.json()) : setErr(`The server answered ${r.status}.`))).catch(() => setErr('Can’t reach the server.'));
   };
   useEffect(() => load(), []);
+  const n = atts?.filter(passed).length ?? 0;
   return (
     <>
-    <main className="app pg">
+    <main className="app pg pf">
       <TopBar />
-      <h1>Proof the AI runs privately</h1>
-      <p className="muted">Our app server and Cartesia (speech) aren’t attested.</p>
-      <div className="proof-sum">
-        <h2>{atts ? `${atts.filter(passed).length} of ${atts.length} models verified` : err || 'Checking the models live…'}</h2>
-        {atts && <p>{atts.map((a) => `${ROLE[a.model] ?? 'Model'}: ${passed(a) ? 'verified' : 'not verified'}`).join(' · ')}</p>}
+      <p className="pf-kick">Private AI, checked live</p>
+      <h1 className="pf-score"><span>{atts ? n : '…'}</span>/{atts ? atts.length : 3}</h1>
+      <p className="pf-lead">{atts ? (n === atts.length ? 'models verified inside a TEE. Right now, fresh nonce.' : 'models verified. Some checks failed, see below.') : err || 'Checking Intel and NVIDIA, a few seconds…'}</p>
+      <div className="pf-grid">
+        {(atts ?? []).map((a) => {
+          const bad = 'error' in a;
+          return (
+            <section key={a.model} className={`pf-tile ${passed(a) ? 'ok' : 'no'}`}>
+              <h2>{ROLE[a.model] ?? 'Model'}</h2>
+              <p className="pf-model">{a.model.split('/').pop()}</p>
+              {bad ? <p className="muted">{a.error === 'pending' ? 'Fetching…' : 'Attestation unavailable'}</p> : (
+                <ul>
+                  <li className={a.intel.verified ? 'y' : 'n'}>Intel TDX</li>
+                  <li className={a.quoteBindsKey ? 'y' : 'n'}>Key in the enclave</li>
+                  <li className={a.gpu.verified ? 'y' : 'n'}>NVIDIA {a.gpu.gpus}× {a.gpu.arch}</li>
+                </ul>
+              )}
+            </section>
+          );
+        })}
       </div>
-      <p>The chat, speech-to-text and image models Ringfence uses run on NEAR AI Cloud inside an Intel TDX confidential VM with NVIDIA confidential-computing GPUs. The spoken voice comes from Cartesia and is not attested. For each model this server fetches the attestation report with a fresh random nonce and checks three things.</p>
-      <ol>
-        <li>Intel signed the TDX attestation report, and the platform is up to date (<a href="https://github.com/Phala-Network/dcap-qvl">dcap-qvl</a>, collateral from Intel PCS).</li>
-        <li>The model’s signing key and our nonce are inside that report, so the key was made in that TEE, just now.</li>
-        <li>NVIDIA’s attestation service (NRAS) vouches for every GPU, with the same nonce.</li>
-      </ol>
-      <p>Each chat reply is signed by the model’s key. The dashboard marks a reply TEE-signed only when that signature recovers to a key that passed checks 1 and 2.</p>
-      <div className="card att" style={{ marginTop: 16 }}>
-        {atts ? atts.map((a) => <AttRow key={a.model} a={a} full />) : <p className="muted">{err || 'Verifying (Intel PCS and NVIDIA NRAS, a few seconds)…'}</p>}
-      </div>
-      <p><button className="btn" onClick={() => { setAtts(null); load(true); }}>Check again with a new nonce</button> · <a href="/api/proof">raw JSON</a></p>
-      <h2>Verify it yourself</h2>
-      <ul>
-        <li>From this repo, no key needed: <code>npm run attest</code> prints every check for every model.</li>
-        <li>The raw report: <code>https://cloud-api.near.ai/v1/attestation/report?model=&lt;model&gt;&amp;signing_algo=ecdsa&amp;nonce=&lt;64 hex&gt;</code>, then check <code>intel_quote</code> with <a href="https://github.com/Phala-Network/dcap-qvl">dcap-qvl</a> and post <code>nvidia_payload</code> to <code>https://nras.attestation.nvidia.com/v3/attest/gpu</code>.</li>
-        <li>NEAR AI’s guide: <a href="https://docs.near.ai/cloud/verification/">docs.near.ai/cloud/verification</a>.</li>
-      </ul>
-      <p className="muted">Not checked here: that the TDX measurements (MRTD, RTMRs) equal a published, reproducible NEAR AI build. That needs the image hashes NEAR AI publishes; the NEAR AI docs describe it.</p>
+      <p className="pf-acts"><button className="btn" onClick={() => { setAtts(null); load(true); }}>Re-check now</button><a href="/api/proof">Raw JSON</a><a href="https://docs.near.ai/cloud/verification/">NEAR AI docs</a></p>
+      <details className="pf-how">
+        <summary>How the check works</summary>
+        <p>Chat, speech-to-text and image models run on NEAR AI Cloud in an Intel TDX VM with NVIDIA confidential GPUs. For each one this server sends a fresh nonce and checks: Intel signed the report (<a href="https://github.com/Phala-Network/dcap-qvl">dcap-qvl</a>), the model key and nonce are inside it, and NVIDIA NRAS vouches for every GPU. Every chat reply is signed by that key. Run it yourself: <code>npm run attest</code>.</p>
+        <p className="muted">Not attested: our app server and the Cartesia voice. Not checked: that the TDX measurements match a published NEAR AI build.</p>
+        {atts && <div className="card att">{atts.map((a) => <AttRow key={a.model} a={a} full />)}</div>}
+      </details>
     </main>
     <SiteFooter />
     </>
