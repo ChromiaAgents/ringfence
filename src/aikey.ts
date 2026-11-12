@@ -16,7 +16,10 @@ export const keyOf = (slot: KeySlot) => (slot === 0 ? env.nearAiKey : env.nearAi
 const retryable = (status: number) => status === 401 || status === 402 || status === 403 || status === 429 || status >= 500;
 
 /** Run `f` with the primary key, falling back on a retryable failure. Returns the response and the slot used. */
-export async function withAiKey(f: (key: string) => Promise<Response>): Promise<{ r: Response; slot: KeySlot }> {
+/** The API base for a key: the fallback may live on another NEAR AI endpoint (NEARON keys: cloud-stg-api.near.ai). */
+export const baseOf = (slot: KeySlot) => (slot === 1 ? env.nearAiBaseFallback : env.nearAiBase) || 'https://cloud-api.near.ai/v1';
+
+export async function withAiKey(f: (key: string, base: string) => Promise<Response>): Promise<{ r: Response; slot: KeySlot }> {
   const slots: KeySlot[] = [];
   if (env.nearAiKey && Date.now() >= primaryDownUntil) slots.push(0);
   if (env.nearAiKeyFallback && !fallbackDead) slots.push(1);
@@ -26,7 +29,7 @@ export async function withAiKey(f: (key: string) => Promise<Response>): Promise<
   for (const [i, slot] of slots.entries()) {
     const more = i < slots.length - 1;
     try {
-      const r = await f(keyOf(slot));
+      const r = await f(keyOf(slot), baseOf(slot));
       if (slot === 1 && (r.status === 401 || r.status === 403)) { fallbackDead = true; console.log('[ai] fallback key rejected, not using it again'); }
       if (!retryable(r.status)) {
         // Skip the primary for a while only when the fallback really answered.

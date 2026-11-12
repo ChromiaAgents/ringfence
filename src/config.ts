@@ -27,6 +27,10 @@ export const env = {
   publicUrl: process.env.PUBLIC_URL ?? `http://localhost:${process.env.PORT ?? 8787}`,
   nearAiKey: process.env.NEARAI_API_KEY ?? '',
   // Used when the primary key fails (no balance, unauthorised, rate limited, down). See src/aikey.ts.
+  /** Base URL for the fallback key, e.g. https://cloud-stg-api.near.ai/v1 for a NEARON (testnet) key. */
+  /** Base URL for the main key (default NEAR AI Cloud). A NEARON key: https://cloud-stg-api.near.ai */
+  nearAiBase: (process.env.NEARAI_BASE ?? '').replace(/\/+$/, '').replace(/^(https:\/\/[^/]+)$/, '$1/v1'),
+  nearAiBaseFallback: (process.env.NEARAI_BASE_FALLBACK ?? '').replace(/\/+$/, '').replace(/^(https:\/\/[^/]+)$/, '$1/v1'),
   nearAiKeyFallback: process.env.NEARAI_API_KEY_FALLBACK ?? '',
   mockLlm: process.env.MOCK_LLM === '1', // scripted chat + STT for offline timing; TTS stays real
   llmModel: process.env.LLM_MODEL ?? 'deepseek-ai/DeepSeek-V4.1-Flash-1017',

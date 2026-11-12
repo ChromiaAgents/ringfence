@@ -1,5 +1,5 @@
 // NEAR AI Cloud: chat + speech-to-text on TEE models, and the proof that a reply came from one.
-import { withAiKey, keyOf, type KeySlot } from './aikey.ts';
+import { withAiKey, keyOf, baseOf, type KeySlot } from './aikey.ts';
 import { createHash, randomBytes } from 'node:crypto';
 import { verifyMessage } from 'ethers';
 import { env } from './config.ts';
@@ -153,7 +153,7 @@ export async function chat(messages: Msg[], tools: unknown[], model = env.llmMod
     model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}), temperature: 0.3, max_tokens: o.maxTokens ?? 400,
     stream: true, chat_template_kwargs: { enable_thinking: false }, // Qwen3: no reasoning pass on a phone call
   });
-  const { r, slot } = await withAiKey((key) => again(o.signal, () => fetch(`${BASE}/chat/completions`, {
+  const { r, slot } = await withAiKey((key, base) => again(o.signal, () => fetch(`${base}/chat/completions`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${key}`,
@@ -307,7 +307,7 @@ async function mockChat(messages: Msg[], tools: unknown[], o: ChatOpts): Promise
 async function verifyLater(p: Proof, pre: Attested | null) {
   for (let i = 0; i < 6; i++) {
     await new Promise((res) => setTimeout(res, 1500 * (i + 1)));
-    const r = await fetch(`${BASE}/signature/${encodeURIComponent(p.chatId)}?signing_algo=ecdsa`, {
+    const r = await fetch(`${baseOf(p.slot ?? 0)}/signature/${encodeURIComponent(p.chatId)}?signing_algo=ecdsa`, {
       headers: { accept: 'application/json', authorization: `Bearer ${keyOf(p.slot ?? 0)}` },
     });
     if (r.status === 404) continue;
@@ -353,7 +353,7 @@ async function stt(audio: Uint8Array, mime: string, language?: string): Promise<
   // Whisper reads only the last ~224 tokens of the prompt; this one is about 150. Spellings here are how we want them back.
   fd.set('prompt', 'Ringfence call on NEAR. Send 0.1 NEAR, 1 NEAR, half a NEAR to liho00.near, mum.near, stranger.near or ringfence-family.sputnik-dao.near. Top up 2 dollars of SOL, ETH, BTC, USDC, USDT, wNEAR, stNEAR, DOGE, ADA, AVAX, LINK, UNI, SUI, PEPE, SHIB, TRUMP, ZEC, DAI, XRP, ARB, POL, LTC, TON, AURORA, SWEAT, HOT, RHEA, LiNEAR, Meta Pool. TEE, Trezu. NEAR Intents, NEAR AI, Sputnik DAO, JustHoot, MyNearWallet, HOT wallet, rhea finance. Money packet, lucky split, PIN. 发送NEAR，USDC充值，红包，余额，退款地址。');
   fd.set('file', new Blob([audio as BlobPart], { type: mime }), mime.includes('webm') ? 'a.webm' : mime.includes('ogg') ? 'a.ogg' : 'a.wav');
-  const { r } = await withAiKey((key) => again(undefined, () => fetch(`${BASE}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${key}` }, body: fd, signal: AbortSignal.timeout(12_000) })));
+  const { r } = await withAiKey((key, base) => again(undefined, () => fetch(`${base}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${key}` }, body: fd, signal: AbortSignal.timeout(12_000) })));
   if (!r.ok) throw new Error(`stt ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const j = (await r.json()) as any;
   return { text: j.text?.trim() ?? '', lang: j.language };

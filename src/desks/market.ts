@@ -107,7 +107,7 @@ export async function webSearch(question: string, onText?: (delta: string) => vo
   if (!q) return { ok: false, reason: 'Say what to look up.' };
   if (!hasAiKey() || env.mockLlm) return { ok: false, reason: "Web search isn't set up on this server." };
   return cached(`web:${q.toLowerCase()}`, async () => {
-    const { r } = await withAiKey((key) => fetch('https://cloud-api.near.ai/v1/chat/completions', {
+    const { r } = await withAiKey((key, base) => fetch(`${base}/chat/completions`, {
       method: 'POST', signal: AbortSignal.timeout(25_000),
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
       // Thinking off: with it on, Qwen spent every token reasoning and returned no answer at all.
