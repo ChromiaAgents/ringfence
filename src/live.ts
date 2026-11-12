@@ -108,7 +108,7 @@ async function readJson(req: IncomingMessage): Promise<any> {
 
 /** Handles /api/live/*; returns false for any other path. */
 export async function handleLive(req: IncomingMessage, res: ServerResponse, onTap: TapHandler): Promise<boolean> {
-  const m = /^\/api\/live\/([^/]*)(\/tap)?$/.exec((req.url ?? '/').split('?')[0]);
+  const m = /^\/api\/live\/([^/]*)(\/tap|\/type)?$/.exec((req.url ?? '/').split('?')[0]);
   if (!m) return false;
   const now = Date.now(), b = bucket(ipOf(req), now);
   if (now - wrongAll.at > WINDOW) wrongAll = { at: now, n: 0 };
@@ -120,6 +120,14 @@ export async function handleLive(req: IncomingMessage, res: ServerResponse, onTa
     if (req.headers.origin !== new URL(env.publicUrl).origin) { json(res, 403, { error: 'Forbidden' }); return true; }
     if (!found) { b.wrong++; wrongAll.n++; json(res, 404, { error: 'Not found' }); return true; }
     const body = await readJson(req).catch(() => null);
+    if (m[2] === '/type') {
+      // Typed instead of spoken. The panel code was said on that call only, so this is the caller.
+      const text = String(body?.text ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
+      const p = byCode.get(code);
+      const ok = !!text && !!p && !p.endedAt && !!(globalThis as any).__rfTyped?.(p.callId, text);
+      json(res, ok ? 200 : 409, ok ? { ok: true } : { error: 'The call is not on any more.' });
+      return true;
+    }
     const said = body && (await liveTap(code, String(body.id ?? ''), String(body.action ?? ''), onTap));
     if (!said) { json(res, 409, { error: 'That approval is not valid any more.' }); return true; }
     json(res, 200, { ok: true, message: said });

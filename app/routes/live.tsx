@@ -13,6 +13,8 @@ export const Route = createFileRoute('/live')({
 
 function Live() {
   const [code, setCode] = useState('');
+  const [typed, setTyped] = useState('');
+  const [typeNote, setTypeNote] = useState('');
   const [open, setOpen] = useState('');
   const [view, setView] = useState<View | null>(null);
   const [err, setErr] = useState('');
@@ -84,6 +86,22 @@ function Live() {
           )}
           {note && <p className="live-note">{note}</p>}
           {view && !view.links.length && !view.approval && !note && view.state === 'live' && <p className="muted">Nothing yet. Links and Approve cards show up here while you talk.</p>}
+          {view?.state === 'live' && (
+            <form className="live-type" onSubmit={async (e) => {
+              e.preventDefault(); const text = typed.trim(); if (!text) return;
+              setTypeNote('Sending…');
+              const r = await fetch(`/api/live/${open}/type`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) }).catch(() => null);
+              if (r?.ok) { setTyped(''); setTypeNote(`Sent: "${text}". Listen for the answer on the call.`); } else setTypeNote('The call is not on any more.');
+            }}>
+              <label htmlFor="live-typed">Type instead of speaking</label>
+              <div className="live-type-row">
+                <input id="live-typed" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="send 0.1 NEAR to liho00.near" autoComplete="off" maxLength={300} />
+                <button className="btn" type="submit" disabled={!typed.trim()}>Send</button>
+              </div>
+              <p className="muted small">Account names, amounts, your PIN: typing them here is easier than saying them. The agent answers on the call.</p>
+              {typeNote && <p className="muted small" role="status">{typeNote}</p>}
+            </form>
+          )}
           <p><button className="btn white small" type="button" onClick={() => { setOpen(''); setView(null); setCode(''); setNote(''); }}>Use another code</button></p>
         </>
       )}

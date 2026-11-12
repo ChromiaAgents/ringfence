@@ -133,7 +133,7 @@ async function media(mediaId: string): Promise<Buffer> {
 
 // ---------------- calls ----------------
 
-type Live = { pc: RTCPeerConnection; callId: string; stop: () => void; say?: (s: string) => void };
+type Live = { pc: RTCPeerConnection; callId: string; stop: () => void; say?: (s: string) => void; typed?: (text: string) => Promise<void> };
 const live: Map<string, Live> = ((globalThis as any).__rfWaLive ??= new Map()); // shared across bundles
 
 /** Say something on the WhatsApp call this number is on now (the page APIs run in another bundle), and tell the model. */
@@ -225,6 +225,12 @@ async function onCallEvent(c: any) {
     timing.sttMs = Date.now() - timing.start!;
     console.log(`wa heard (${timing.sttMs} ms): ${text.length} chars`); // never the words: they may be a PIN
     if (!text || text.length < 2 || isFiller(text)) { await line.end(`wa ${call.id}`); return; }
+    await answer(text, signal, timing);
+  };
+  // Typed on the live panel ("Type instead"): handled exactly like speech, minus the speech-to-text.
+  live.get(c.id)!.typed = async (text: string) => { const { signal, timing } = line.begin(); await answer(text, signal, timing); };
+
+  async function answer(text: string, signal: AbortSignal, timing: any) {
     line.ackSoon();
     try {
       let hangUp = false;
@@ -238,8 +244,14 @@ async function onCallEvent(c: any) {
         stop();
       }
     } catch (e: any) { if (!/abort/i.test(e?.message ?? '')) throw e; }
-  };
+  }
 }
+
+/** The live panel's "Type instead" box: text into this WhatsApp call as if spoken. */
+(globalThis as any).__rfTyped = (callId: string, text: string) => {
+  for (const l of live.values()) if (l.callId === callId && l.typed) { l.typed(text).catch((e) => console.error('typed', e?.message)); return true; }
+  return false;
+};
 
 function waitIce(pc: RTCPeerConnection) {
   return new Promise<void>((ok) => {
