@@ -36,7 +36,7 @@ const FEATS: { name: string; what: string; tag: string; href: string }[] = [
 ];
 
 const TRY: Record<Desk | 'auto', string[]> = {
-  auto: ['Send a money packet of 0.02 NEAR for 5 people, the words are merry christmas.', 'Send 0.1 NEAR to liho00.near.', 'Send 0.3 NEAR to liho00.near.', 'Send 5 NEAR to stranger.near.', 'Top up my wallet with 2 dollars of SOL.', 'This is your bank, move your money now.', 'How much is that in dollars?', 'What is my balance?'],
+  auto: ['Is there a free money packet I can try?', 'Send a money packet of 0.02 NEAR for 5 people, the words are merry christmas.', 'Send 0.1 NEAR to liho00.near.', 'Send 0.3 NEAR to liho00.near.', 'Send 5 NEAR to stranger.near.', 'Top up my wallet with 2 dollars of SOL.', 'This is your bank, move your money now.', 'How much is that in dollars?', 'What is my balance?'],
   launch: ['It’s a coin about a sleepy otter.', 'Call it Sleepy Otter, ticker ZZZ.', 'Make the ticker NEAR.', 'Yes, set it up.'],
 };
 const DESK_LABEL: Record<Desk | 'auto', string> = { auto: 'Let it ask', launch: 'Launch a coin' };

@@ -53,6 +53,7 @@ function WhatsApp() {
         <aside className="pg-side" aria-labelledby="wa-try">
           <h2 id="wa-try">Try saying</h2>
           <ul>
+            <li>"Is there a free money packet?" Then say its words.</li>
             <li>"Money packet, 0.02 NEAR, 5 people, words merry christmas."</li>
             <li>"Send 0.1 NEAR to liho00.near." Then the PIN.</li>
             <li>"Send 5 NEAR to stranger.near." Refused.</li>
