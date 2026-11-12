@@ -967,3 +967,7 @@ html:has(.ov) { color-scheme: normal !important; }
 .lr-stack .lr-howto, .lr-stack .lr-sound { position: static !important; transform: none; }
 .lr-stack { max-width: calc(100% - 210px); }
 .lr-howto { max-width: none; font-size: 12.5px; }
+.site-partners { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; padding: 0 var(--m, 24px) 18px; margin: 0; font-size: 14px; color: var(--muted); }
+.site-partners a { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); text-decoration: none; }
+.site-partners a:hover { text-decoration: underline; }
+.site-partners img { border-radius: 4px; }

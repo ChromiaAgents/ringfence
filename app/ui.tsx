@@ -40,6 +40,13 @@ export function SiteFooter({ credits }: { credits?: ReactNode }) {
   return (
     <>
       {credits && <p className="site-credits">{credits}</p>}
+      <p className="site-partners">Built with
+        <a href="https://near.org" target="_blank" rel="noreferrer"><img src="/brand/near-mark-light.svg" alt="" width={16} height={16} />NEAR</a>
+        <a href="https://cloud.near.ai" target="_blank" rel="noreferrer">NEAR AI Cloud</a>
+        <a href="https://near-intents.org" target="_blank" rel="noreferrer">NEAR Intents</a>
+        <a href="https://justhoot.fun" target="_blank" rel="noreferrer"><img src="/brand/justhoot.png" alt="" width={16} height={16} />JustHoot</a>
+        <a href="https://nearon.dev" target="_blank" rel="noreferrer"><img src="/brand/nearon.svg" alt="" width={16} height={16} />NEARON</a>
+      </p>
       <footer className="site-foot">
         <span className="foot-id"><span>Ringfence, built for the NEAR hackathon</span><Makers size="lg" /></span>
         <nav aria-label="Site"><a href="/packet/demo">Open a packet</a><a href="/#call">Try a call</a><a href="/deck.html">Deck</a><a href="/stats">Stats</a><a href="/proof">Proof</a><a href="/wallet/bind">Bind your number</a><a href={CODE_URL}>Code</a></nav>

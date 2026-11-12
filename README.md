@@ -22,6 +22,15 @@ Made by Chromia and evalengine. Built on NEAR, at NEAR HACKATHON.
 | **WhatsApp calls**: same agent; links and the Approve card on the live panel until Meta verifies texts | Test line | [/whatsapp](https://ringfence.evalengine.ai/whatsapp) to get added |
 | **Stake while it waits**: packets that earn staking yield | Next, not built | [Next, not built](#next-not-built) |
 
+## Built with
+
+| | Partner | What it does in Ringfence |
+|---|---|---|
+| <img src="public/brand/justhoot.png" width="28" alt="JustHoot"> | [JustHoot](https://justhoot.fun) | Coin launches by voice: the agent prepares the `launch_meme` call, you sign it; it trades on RHEA at once ($FENCE, $JENSEN) |
+| <img src="public/brand/nearon.svg" width="28" alt="NEARON"> | [NEARON](https://nearon.dev) | Stake NEAR, earn AI credit: Ringfence's AI calls can run on a NEARON key (staking rewards pay for the AI), with NEAR AI Cloud production as fallback |
+| <img src="public/brand/near-mark-light.svg" width="28" alt="NEAR"> | [NEAR AI Cloud](https://cloud.near.ai) | Chat, speech-to-text and logo models in TEEs, attested live on [/proof](https://ringfence.evalengine.ai/proof) |
+| | [NEAR Intents](https://near-intents.org) | Top up from any chain (1Click): row 16 |
+
 Status: live on NEAR mainnet since 10 November 2026, with small amounts. The contracts are AI-reviewed, not audited.
 
 ## The problem

@@ -249,7 +249,7 @@ function Room() {
                 <div><button type="button" onClick={() => setConfirm(null)}>Cancel</button><button type="button" className="go" disabled={pin.length !== 4} onClick={() => { pendingPin.current = pin; gift(confirm.near); setConfirm(null); setPin(''); }}>Send {confirm.near} NEAR</button></div>
               </div>
             )}
-            <p className="lr-credit">Gifts go to {account}. Gifts from any NEAR wallet show too. Host: open VRM sample (© pixiv Inc., VRM Public License 1.0).</p>
+            <p className="lr-credit">Gifts go to {account}. Gifts from any NEAR wallet show too. Coins launch on <a href="https://justhoot.fun" target="_blank" rel="noreferrer">JustHoot</a>; AI on NEAR AI Cloud via <a href="https://nearon.dev" target="_blank" rel="noreferrer">NEARON</a>. Host: open VRM sample (© pixiv Inc., VRM Public License 1.0).</p>
           </div>
         )}
       </div>
