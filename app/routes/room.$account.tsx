@@ -183,7 +183,7 @@ function Room() {
               {GIFTS.filter((g) => g.tab === tab).map((g) => (
                 <button key={g.name} type="button" className={`lr-gift ${pick === g.name ? 'on' : ''}`} onClick={() => setPick(g.name)}>
                   {g.tag && <i>{g.tag}</i>}
-                  <span>{(g as any).img ? <img src={(g as any).img} alt= className={g.name === 'NEAR' ? 'near' : ''} /> : g.icon}</span>
+                  <span>{(g as any).img ? <img src={(g as any).img} alt="" className={g.name === 'NEAR' ? 'near' : ''} /> : g.icon}</span>
                   {pick === g.name ? <><small>{g.near} NEAR</small><b className="lr-send" onClick={(e) => { e.stopPropagation(); setConfirm(g); }}>Send</b></> : <><b>{g.name}</b><small>{g.near} NEAR</small></>}
                 </button>
               ))}
