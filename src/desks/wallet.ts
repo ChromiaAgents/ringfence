@@ -6,7 +6,7 @@ import { callProof } from '../wallet.ts';
 import { randomBytes } from 'node:crypto';
 import { parseUnits, formatUnits } from 'ethers';
 import { env } from '../config.ts';
-import { db, log, type Call } from '../store.ts';
+import { db, log, save, type Call } from '../store.ts';
 import { yoctoToNear } from '../near.ts';
 import { bindingOf, checkPin, normalizePin, live, devServer, custodyLive, sendEvm, sendNear, sendFt, ftBalance, walletState, ethAddressOf, rejectFreeze, digits, type Binding, type WalletState } from '../wallet.ts';
 import { CHAINS, chainById, findChain, defaultChainIds } from '../chains.ts';
@@ -83,6 +83,7 @@ const fmt = (asset: string, base: bigint | string) => {
 };
 
 const tools = [
+  { type: 'function', function: { name: 'unbind_wallet', description: 'The caller wants to unlink their own wallet from this number ("unbind my wallet"). First ask "Unbind this number? Your wallet and its funds stay yours." and only call with confirmed true after a clear yes.', parameters: { type: 'object', properties: { confirmed: { type: 'boolean' } }, required: ['confirmed'] } } },
   { type: 'function', function: { name: 'bind_wallet', description: 'The caller wants their own wallet on this number ("bind my wallet", "link my number", "use my own wallet"). Sends the bind page link; if WhatsApp cannot text it, a live panel code is read out.', parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'get_balance', description: "The caller's phone-wallet balance and today's limits.", parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'get_spending', description: 'How much did I spend? Today\'s spending against the daily limit, and the last 5 transfers.', parameters: { type: 'object', properties: {} } } },
@@ -203,6 +204,15 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     packet = { count, lucky: !/equal|even|same/i.test(String(a.split ?? '')), words };
     a = { to: packetsTo(), amount: amt, asset: 'near' };
     name = 'prepare_transfer';
+  }
+  if (name === 'unbind_wallet') {
+    const own = call.from ? bindingOf(call.from) : undefined;
+    if (!own || isDemoWallet(own)) return { ok: false, reason: 'This number has no wallet of its own to unbind.' };
+    if (a.confirmed !== true) return { ok: false, reason: 'Ask first: "Unbind this number? Your wallet and its funds stay yours." Call again with confirmed true after a clear yes.' };
+    // The call itself proves the number. The on-chain wallet stays with its owner; binding again re-uses it.
+    db.wallets = db.wallets.filter((b) => b.phone !== own.phone); save();
+    log({ kind: 'wallet', desk: 'wallet', callId: call.id, detail: 'unbound by the caller' });
+    return { ok: true, wallet: own.contract, next: 'Say it is unbound: their wallet and funds stay theirs, calls now use the shared demo wallet, and they can say "bind my wallet" any time to link it again.' };
   }
   if (name === 'bind_wallet') {
     links.set(call.id, { url: `${env.publicUrl}/wallet/bind${call.from ? `?phone=${call.from}&proof=${callProof(call.from)}` : ''}`, label: 'Bind your own NEAR wallet to this number' });
