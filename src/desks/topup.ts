@@ -11,6 +11,7 @@ import { setWalletLink } from './wallet.ts';
 
 const TOOL = { type: 'function', function: { name: 'topup_quote', description: 'Quote a top up of the caller\'s phone wallet: they pay a token on another chain (SOL, ETH, BTC and more) and USDC arrives in their wallet on NEAR through NEAR Intents.', parameters: { type: 'object', properties: {
   usd: { type: 'number', description: 'Dollars to top up' }, token: { type: 'string', description: 'What they pay with, for example SOL, ETH, BTC' },
+  confirmed: { type: 'boolean', description: 'true only after the caller said yes to the exact dollar amount you read back. Needed for 100 dollars or more.' },
   refund_address: { type: 'string', description: 'Their own address on the sending chain, for a refund if the swap fails. Only needed for a live top up.' },
 }, required: ['usd', 'token'] } } };
 
@@ -21,7 +22,15 @@ function target(call: Call) {
   return b ? { account: b.contract, demo } : null;
 }
 
+/** Did the caller say an amount on this call? A model can invent "10 dollars"; the caller's own words decide. */
+const NUM = /\d|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|hundred|thousand|half|quarter|tenth|couple)\b/i;
+export const saidAmount = (call: Call) => call.turns.some((x) => x.who === 'caller' && NUM.test(x.text));
+
 export async function runTopup(call: Call, args: any) {
+  // Code checks, not left to the model: no spoken amount means ask; a big amount is read back and confirmed first.
+  if (!saidAmount(call)) return { ok: false, ask: true, reason: 'They did not say an amount. Ask how many dollars they want to top up. Do not pick one.' };
+  const usd = Number(args?.usd);
+  if (usd >= 100 && args?.confirmed !== true) return { ok: false, ask: true, reason: `Read the amount back before quoting: "${usd} dollars, is that right?" Call topup_quote again with confirmed true only after they say yes.` };
   const t = target(call);
   if (!t) return { ok: false, reason: 'This call has no wallet to top up yet.' };
   const refund = String(args?.refund_address ?? '').trim() || undefined;

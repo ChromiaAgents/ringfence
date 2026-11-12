@@ -996,7 +996,7 @@ await t('top up from any chain: picks the home-chain coin, refuses an unregister
     assert.equal(q.ok, true); assert.equal(q.dry, true); assert.equal(bodies[0].dry, true); assert.equal(bodies[0].amount, '125000000');
     assert.equal(bodies[0].destinationAsset, USDC_ASSET); assert.equal(q.depositAddress, undefined);
     assert.match((await quoteTopup({ usd: 10, origin: 'SOL', recipient: 'reg.near', live: true }) as any).reason, /refund address/);
-    assert.match(((await runTopup({ id: 'x', channel: 'whatsapp', from: '15559990000', startedAt: 0, turns: [] } as any, { usd: 10, token: 'SOL' })) as any).reason, /no wallet/);
+    assert.match(((await runTopup({ id: 'x', channel: 'whatsapp', from: '15559990000', startedAt: 0, turns: [{ at: 0, who: 'caller', text: 'top up 10 dollars of SOL' }] } as any, { usd: 10, token: 'SOL' })) as any).reason, /no wallet/);
   } finally { globalThis.fetch = real; }
 });
 await t('crypto words: misheard names are fixed after speech-to-text, and the top up picks the right token', async () => {
@@ -1172,5 +1172,20 @@ await t('top up token names: EDH is ETH, and "ETH on Base" still picks ETH', asy
   const list = [{ assetId: 'nep141:eth.omft.near', blockchain: 'eth', symbol: 'ETH', decimals: 18, price: 3000 }, { assetId: 'nep141:base.omft.near', blockchain: 'base', symbol: 'ETH', decimals: 18, price: 3000 }];
   assert.equal(pickToken(list as any, 'EDH')?.symbol, 'ETH');
   assert.equal(pickToken(list as any, 'ETH on Base')?.symbol, 'ETH');
+});
+await t('top up guards: no spoken amount asks, 100 dollars or more needs a confirmed read-back, LiNEAR is recognised', async () => {
+  const { runTopup, saidAmount } = await import('../src/desks/topup.ts');
+  const { fixTerms } = await import('../src/ai.ts');
+  const call = (text: string) => ({ id: 'g1', channel: 'whatsapp', from: '15559990001', startedAt: 0, turns: [{ at: 0, who: 'caller', text }] }) as any;
+  assert.equal(saidAmount(call('Can I use eth?')), false);
+  assert.equal(saidAmount(call('top up two dollars of SOL')), true);
+  assert.equal(saidAmount(call('top up 250 of USDC')), true);
+  assert.match(((await runTopup(call('Can I use eth?'), { usd: 10, token: 'ETH' })) as any).reason, /did not say an amount/);
+  assert.match(((await runTopup(call('top up 250 of USDC'), { usd: 250, token: 'ETH' })) as any).reason, /250 dollars, is that right/);
+  // Confirmed, or under 100: past the guards (this test phone has no wallet, so it stops there).
+  assert.match(((await runTopup(call('top up 250 of USDC'), { usd: 250, token: 'ETH', confirmed: true })) as any).reason, /no wallet/);
+  assert.match(((await runTopup(call('top up 2 dollars of SOL'), { usd: 2, token: 'SOL' })) as any).reason, /no wallet/);
+  assert.match(fixTerms('can I top up with lie near'), /LiNEAR/);
+  assert.equal(fixTerms('the trend is linear'), 'the trend is linear');
 });
 process.once("beforeExit", () => console.log(`${n} passed`));

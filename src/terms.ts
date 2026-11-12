@@ -8,6 +8,7 @@ const FIXED: Record<string, string[]> = {
   NEAR: ['near', 'nier', 'nir', 'nia', 'nair', 'neer', 'nea', 'neo', 'nearer'],
   wNEAR: ['wnear', 'wnir', 'wnier', 'wnia', 'wneo', 'wrapped near'],
   stNEAR: ['stnear', 'stnir', 'stnier', 'st near', 'st nir', 'staked near'],
+  LiNEAR: ['linear', 'lie near', 'li near', 'lynear'],
   USDC: ['usdc', 'lsdc', 'lxdc', 'osdc', 'usd see'], USDT: ['usdt', 'tether', 'usd tea', 'you sdt'],
   SOL: ['sol', 'solana', 'seoul', 'salt', 'soul', 'sole', 'solo'], ETH: ['eth', 'ether', 'ethereum', 'edh'],
   BTC: ['btc', 'bitcoin'], POL: ['pol', 'polygon', 'matic'], TON: ['ton', 'toncoin'], DOGE: ['doge', 'dogecoin', 'doggy coin'], ADA: ['ada', 'cardano'], AVAX: ['avax', 'avix', 'avalanche'],
@@ -197,6 +198,7 @@ export function correct(input: string): string {
     .replace(/\binterest in ear\b/gi, 'into stNEAR')
     .replace(/\b(?:w|double[ -]?u|dub)[ -]?(?:near|neo|nea|neer|nier|nir|nia|kneel)\b/gi, 'wNEAR')
     .replace(/\bst[ -]?(?:near|nir|nier)\b/gi, 'stNEAR')
+    .replace(/\b(with|of|into|stake|staked|swap|use|using)\s+(?:lie|li|ly)[ -]?(?:near|nir|nier)\b/gi, '$1 LiNEAR')
     .replace(/\b(?:u[ .]?s[ .]?d[ .]?c|you s d c|usd see)\b/gi, 'USDC')
     .replace(/\b(?:u[ .]?s[ .]?d[ .]?t)\b/gi, 'USDT')
     .replace(/\b(?:e[ .]t[ .]h|eath)\b/gi, 'ETH');
