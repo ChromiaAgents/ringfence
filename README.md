@@ -44,7 +44,7 @@ What each one does:
 - `npm run verify:contracts`: hashes the three files in `contracts/release/` and compares them with the code hashes on mainnet.
 - `npm run verify:evidence`: reads the 15 transactions in [Mainnet evidence](#mainnet-evidence) from a public archival RPC and prints signer, receiver, method and result for each. One of them is expected to fail on chain: `GmPzx6Ug...`, with `over the per-transfer limit`.
 - `npm run attest`: fetches the attestation of the three NEAR AI Cloud models and checks it. See [TEE attestation](#tee-attestation).
-- `npm run topup:quote -- <usd> <token>`: asks NEAR Intents 1Click for a dry quote (no deposit address) to top up the demo wallet in USDC from SOL, ETH, BTC or another listed token. It first prints that the demo wallet is not registered on the USDC contract, so a real top up would fail today.
+- `npm run topup:quote -- <usd> <token>`: asks NEAR Intents 1Click for a dry quote (no deposit address) to top up the demo wallet in USDC from SOL, ETH, BTC or another listed token. It first prints whether the recipient is registered on the USDC contract (the demo wallet is, since 12 Nov 2026). Add `--live <refund address>` for a real deposit address; `--status <deposit address>` checks a swap.
 - `npm run dao:wallet -- <dao> <phone>`: prints the Sputnik DAO proposals that make a phone wallet owned by that DAO, and the later owner proposals. It needs the server's `WALLET_SECRET` to compute the phone hash, never prints it, and sends nothing. See [docs/dao-wallet.md](docs/dao-wallet.md).
 - `npm run live:check`: opens the call socket of the live site and types 5 lines. It never types a PIN, never says yes to a transfer and gives no account to pay, so nothing is paid. The replies come from a real model, so the wording varies and a check can fail on one run and pass on the next. The script prints each reply. Reading the demo packet page does what a browser visit does: if the last demo packet is used up, the live server makes the next one.
 
@@ -138,7 +138,7 @@ The demo wallet is `f18d3a55399e.ringfence-wallet.near`. Its PIN is public on pu
 
 - A caller can ask to top up from another chain. The agent asks NEAR Intents 1Click for a quote: send SOL, ETH, BTC or another listed token, and about the same dollar amount arrives in the phone wallet as USDC on NEAR. The money goes from the caller straight to 1Click; the server never holds it.
 - **Quotes are dry by default** (no deposit address). A real deposit address is given when the server sets `TOPUP_LIVE=1` (the live site does) and the caller gives a refund address on the sending chain. The address goes on the caller's screen, never read aloud. On the shared demo wallet the agent first says the USDC goes to the shared demo wallet, not theirs.
-- **USDC registration:** the wallet must be registered on the USDC contract first (about 0.00125 NEAR, once). If it is not, the agent says so and gives no quote. The demo wallet is not registered, so the live agent refuses to quote for it.
+- **USDC registration:** the wallet must be registered on the USDC contract first (about 0.00125 NEAR, once). If it is not, the agent says so and gives no quote. The demo wallet was registered on 12 Nov 2026 (tx `1FBt3s8B...`).
 - **Not on mainnet yet.** No top up has been done. Dry quotes for $10 of SOL, ETH and BTC ran on 12 Nov 2026.
 
 ### Where the code is
@@ -232,7 +232,7 @@ Every row is a transaction on NEAR mainnet. Machine check, no key, about 5 secon
 
 Not in this table, so not shown on mainnet:
 
-- **USDC sends are tested in the sandbox only.** The wallet contract has USDC limits and `transfer_ft`, covered by contract tests with a mock token. No USDC has been sent on mainnet, and the demo wallet is not registered on the USDC contract.
+- **USDC sends are tested in the sandbox only.** The wallet contract has USDC limits and `transfer_ft`, covered by contract tests with a mock token. No USDC has been sent on mainnet yet. The demo wallet is registered on the USDC contract since 12 Nov 2026.
 - A wallet bound to a user's own NEAR account. The path is live at `/wallet/bind`, but the only wallet on chain is the custodial demo wallet.
 - A wallet owned by a DAO, and a campaign packet with the brand fee.
 - A top up through NEAR Intents. Only dry quotes have run.
