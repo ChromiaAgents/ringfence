@@ -35,5 +35,6 @@ export async function snapshot(withAttestation = true) {
     calls: db.calls.slice(-30).reverse(),
     launches: db.launches.filter(isCurrentLaunch).slice(-30).reverse().map((l) => ({ ...l, params: { ...l.params, icon: undefined } })),
     ledger: db.ledger.slice(-150).reverse(),
+    access: (db.access ?? []).slice(-50).reverse(),
   }));
 }

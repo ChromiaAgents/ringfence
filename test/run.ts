@@ -1354,4 +1354,11 @@ await t('live panel: a failed Approve card shows on the panel; a tap there runs 
     assert.equal((await liveReq(`/api/live/${code}/tap`, { method: 'POST', origin, body: { id, action: 'approve' } })).status, 409);
   } finally { setApprovalSender(undefined); console.error = err; resetLiveLimitsForTest(); }
 });
+await t('WhatsApp access requests: phone numbers are cleaned and checked', async () => {
+  const { cleanPhone } = await import('../src/access.ts');
+  assert.equal(cleanPhone('+60 12-345 6789'), '60123456789');
+  assert.equal(cleanPhone('+1 (415) 555-0101'), '14155550101');
+  assert.equal(cleanPhone('12345'), null);
+  assert.equal(cleanPhone('call me maybe'), null);
+});
 process.once("beforeExit", () => console.log(`${n} passed`));

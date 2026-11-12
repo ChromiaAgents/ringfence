@@ -1,6 +1,7 @@
 // One process, one port: TanStack Start (pages + /api routes) and the voice/WhatsApp handlers.
 //   npm run dev  -> Vite in middleware mode (HMR, SSR from source)
 //   npm start    -> the built Start handler from dist/ (run `npm run build` first)
+import { handleAccess } from './src/access.ts';
 import { startHeldLoop } from './src/held.ts';
 import { bindingOf, createCustodial, custodyLive, saveRecipient, walletState } from './src/wallet.ts';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
@@ -64,6 +65,7 @@ function ownerOnly(req: IncomingMessage) {
 
 server.on('request', async (req, res) => {
   if (await handleWebhook(req, res)) return;
+  if ((req.url ?? '').startsWith('/api/whatsapp-access') && await handleAccess(req, res).catch(() => { if (!res.headersSent) res.writeHead(500).end(); return true; })) return;
   // The live panel for WhatsApp calls; a tap there runs the same handler as a WhatsApp button tap.
   if ((req.url ?? '').startsWith('/api/live/') && await handleLive(req, res, onButton).catch((e) => { console.error('live', e.message); if (!res.headersSent) res.writeHead(500).end(); return true; })) return;
   const p = (req.url ?? '/').split('?')[0];

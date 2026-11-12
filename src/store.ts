@@ -33,12 +33,14 @@ export type LedgerEntry = {
   desk?: Desk; callId?: string; launchId?: string; detail: string;
 };
 
-type Db = { calls: Call[]; launches: Launch[]; ledger: LedgerEntry[]; wallets: Binding[]; packets: PacketRow[]; held: Held[] };
+/** Someone asking to be added as a WhatsApp test recipient while Meta verification is pending. */
+export type AccessReq = { phone: string; name: string; at: number };
+type Db = { calls: Call[]; launches: Launch[]; ledger: LedgerEntry[]; wallets: Binding[]; packets: PacketRow[]; held: Held[]; access: AccessReq[] };
 const FILE = process.env.DB_FILE ?? 'data/db.json';
 
 function load(): Db {
   const d = existsSync(FILE) ? JSON.parse(readFileSync(FILE, 'utf8')) : {};
-  return { calls: [], launches: [], ledger: [], wallets: [], packets: [], held: [], ...d };
+  return { calls: [], launches: [], ledger: [], wallets: [], packets: [], held: [], access: [], ...d };
 }
 // Shared through globalThis: the Node server (voice, WhatsApp) and the TanStack Start routes run in one process
 // but may load this module twice (Vite's SSR runner in dev, the built server bundle in prod).

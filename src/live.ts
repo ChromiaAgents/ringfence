@@ -83,7 +83,7 @@ const LIMIT = 180, WRONG = 5, WINDOW = 60_000;
 // Across all IPs: a botnet gets at most this many wrong codes a minute in total (1 in 10^6 each).
 const WRONG_ALL = 300;
 let wrongAll = { at: 0, n: 0 };
-const ipOf = (req: IncomingMessage) => {
+export const ipOf = (req: IncomingMessage) => {
   const a = req.socket.remoteAddress ?? '';
   // Behind the local reverse proxy the socket is loopback: then the proxy's forwarded address is the caller.
   return /^(::1|127\.|::ffff:127\.)/.test(a) ? String(req.headers['x-forwarded-for'] ?? a).split(',')[0].trim() : a;

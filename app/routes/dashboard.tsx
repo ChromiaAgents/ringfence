@@ -19,7 +19,7 @@ type Launch = { id: string; createdAt: number; network: string; status: string; 
 type Ledger = { at: number; kind: string; desk?: string; detail: string };
 type State = {
   launchpad: { rules: Record<string, any>; blocked_tickers: string[]; blocked_names: string[] };
-  network: string; attestation: Att[]; model: string; calls: Call[]; launches: Launch[]; ledger: Ledger[];
+  network: string; attestation: Att[]; model: string; calls: Call[]; launches: Launch[]; ledger: Ledger[]; access?: { phone: string; name: string; at: number }[];
 };
 
 const KIND: Record<string, string> = { refused: 'Refused', launch_prepared: 'Launch ready', launch_signed: 'Signed', logo: 'Logo', filtered: 'Reply filtered', wallet: 'Wallet' };
@@ -124,6 +124,15 @@ function Dashboard() {
           </div>
 
           <div>
+            <section className="railsec" aria-labelledby="wa-req">
+              <h2 id="wa-req">WhatsApp access requests</h2>
+              <div className="card">
+                {s.access?.length ? <ul className="calls">{s.access.slice(0, 20).map((r) => (
+                  <li key={r.phone}><span>+{r.phone}{r.name ? ` · ${r.name}` : ''} · {time(r.at)}</span></li>
+                ))}</ul> : <p className="muted">No requests yet.</p>}
+                <p className="muted" style={{ fontSize: 13 }}>Add each number in Meta: WhatsApp, API Setup, "To", Manage phone numbers (5 at most on the test line).</p>
+              </div>
+            </section>
             <section className="railsec" aria-labelledby="ch">
               <h2 id="ch">Recent calls</h2>
               <div className="card">

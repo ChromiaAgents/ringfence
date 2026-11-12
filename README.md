@@ -29,7 +29,7 @@ Ringfence puts the decision in a NEAR contract. The AI only asks. The contract r
 
 ## Try it
 
-> **WhatsApp:** built and supported (wallet by text, calls, the Approve card, money packets). The public number **+60 11-7512 3486** is waiting on Meta's business verification; once Meta approves it, anyone can message or call it, and we will update this page. Until then it runs on Meta's test number **+1 555-144-4220**, which only answers numbers Meta approved. The browser call does the same things on the shared demo wallet.
+> **WhatsApp:** built and supported (wallet by text, calls, the Approve card, money packets). The public number **+60 11-7512 3486** is waiting on Meta's business verification; once Meta approves it, anyone can message or call it, and we will update this page. Until then it runs on Meta's test number **+1 555-144-4220**, which only answers numbers Meta approved. To try it, leave your number at [/whatsapp](https://ringfence.evalengine.ai/whatsapp) and we add it; during a WhatsApp call, links and the Approve card that WhatsApp cannot deliver appear at [/live](https://ringfence.evalengine.ai/live). The browser call does the same things on the shared demo wallet.
 >
 > **Live panel:** while Meta blocks our WhatsApp messages, a WhatsApp call says a 6-digit code; at [/live](https://ringfence.evalengine.ai/live) that code shows the call's links and Approve card (memory only, gone 10 minutes after the call).
 
