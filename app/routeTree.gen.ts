@@ -22,6 +22,7 @@ import { Route as ApiTickerRouteImport } from './routes/api/ticker'
 import { Route as ApiTokensRouteImport } from './routes/api/tokens'
 import { Route as LaunchIdRouteImport } from './routes/launch.$id'
 import { Route as PacketIdRouteImport } from './routes/packet.$id'
+import { Route as RoomAccountRouteImport } from './routes/room.$account'
 import { Route as StreamAccountRouteImport } from './routes/stream.$account'
 import { Route as TopupIdRouteImport } from './routes/topup.$id'
 import { Route as WalletBindRouteImport } from './routes/wallet.bind'
@@ -102,6 +103,11 @@ const LaunchIdRoute = LaunchIdRouteImport.update({
 const PacketIdRoute = PacketIdRouteImport.update({
   id: '/packet/$id',
   path: '/packet/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoomAccountRoute = RoomAccountRouteImport.update({
+  id: '/room/$account',
+  path: '/room/$account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StreamAccountRoute = StreamAccountRouteImport.update({
@@ -199,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/api/tokens': typeof ApiTokensRoute
   '/launch/$id': typeof LaunchIdRoute
   '/packet/$id': typeof PacketIdRoute
+  '/room/$account': typeof RoomAccountRoute
   '/stream/$account': typeof StreamAccountRoute
   '/topup/$id': typeof TopupIdRoute
   '/wallet/bind': typeof WalletBindRoute
@@ -230,6 +237,7 @@ export interface FileRoutesByTo {
   '/api/tokens': typeof ApiTokensRoute
   '/launch/$id': typeof LaunchIdRoute
   '/packet/$id': typeof PacketIdRoute
+  '/room/$account': typeof RoomAccountRoute
   '/stream/$account': typeof StreamAccountRoute
   '/topup/$id': typeof TopupIdRoute
   '/wallet/bind': typeof WalletBindRoute
@@ -262,6 +270,7 @@ export interface FileRoutesById {
   '/api/tokens': typeof ApiTokensRoute
   '/launch/$id': typeof LaunchIdRoute
   '/packet/$id': typeof PacketIdRoute
+  '/room/$account': typeof RoomAccountRoute
   '/stream/$account': typeof StreamAccountRoute
   '/topup/$id': typeof TopupIdRoute
   '/wallet/bind': typeof WalletBindRoute
@@ -295,6 +304,7 @@ export interface FileRouteTypes {
     | '/api/tokens'
     | '/launch/$id'
     | '/packet/$id'
+    | '/room/$account'
     | '/stream/$account'
     | '/topup/$id'
     | '/wallet/bind'
@@ -326,6 +336,7 @@ export interface FileRouteTypes {
     | '/api/tokens'
     | '/launch/$id'
     | '/packet/$id'
+    | '/room/$account'
     | '/stream/$account'
     | '/topup/$id'
     | '/wallet/bind'
@@ -357,6 +368,7 @@ export interface FileRouteTypes {
     | '/api/tokens'
     | '/launch/$id'
     | '/packet/$id'
+    | '/room/$account'
     | '/stream/$account'
     | '/topup/$id'
     | '/wallet/bind'
@@ -389,6 +401,7 @@ export interface RootRouteChildren {
   ApiTokensRoute: typeof ApiTokensRoute
   LaunchIdRoute: typeof LaunchIdRoute
   PacketIdRoute: typeof PacketIdRoute
+  RoomAccountRoute: typeof RoomAccountRoute
   StreamAccountRoute: typeof StreamAccountRoute
   TopupIdRoute: typeof TopupIdRoute
   WalletBindRoute: typeof WalletBindRoute
@@ -496,6 +509,13 @@ declare module '@tanstack/react-router' {
       path: '/packet/$id'
       fullPath: '/packet/$id'
       preLoaderRoute: typeof PacketIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/room/$account': {
+      id: '/room/$account'
+      path: '/room/$account'
+      fullPath: '/room/$account'
+      preLoaderRoute: typeof RoomAccountRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/stream/$account': {
@@ -641,6 +661,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTokensRoute: ApiTokensRoute,
   LaunchIdRoute: LaunchIdRoute,
   PacketIdRoute: PacketIdRoute,
+  RoomAccountRoute: RoomAccountRoute,
   StreamAccountRoute: StreamAccountRoute,
   TopupIdRoute: TopupIdRoute,
   WalletBindRoute: WalletBindRoute,

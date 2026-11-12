@@ -1,4 +1,4 @@
-import { giftsTo } from './src/stream.ts';
+import { giftsTo, topGifters, totalTo, watch } from './src/stream.ts';
 import { findPacket, publicPacket } from './src/packets.ts';
 import { db, save } from './src/store.ts';
 // One process, one port: TanStack Start (pages + /api routes) and the voice/WhatsApp handlers.
@@ -75,9 +75,10 @@ server.on('request', async (req, res) => {
   { const sm = (req.url ?? '').match(/^\/api\/stream\/([a-z0-9._-]{2,64})(?:\?(.*))?$/);
     if (sm) {
       const q = new URLSearchParams(sm[2] ?? ''), pid = (q.get('packet') ?? '').slice(0, 40);
+      watch(sm[1]);
       const p = pid ? findPacket(pid) : undefined;
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store', 'access-control-allow-origin': '*' })
-        .end(JSON.stringify({ gifts: giftsTo(sm[1], Number(q.get('since')) || 0), packet: p ? { ...publicPacket(p), hint: p.hint ?? null, claims: p.claims.slice(-8).map((c: any) => ({ to: String(c.to).replace(/^(.{6}).*(\..*)$/, '$1…$2'), near: Number(BigInt(c.yocto)) / 1e24, at: c.at })) } : null }));
+        .end(JSON.stringify({ gifts: giftsTo(sm[1], Number(q.get('since')) || 0), top: topGifters(sm[1]), total: totalTo(sm[1]), packet: p ? { ...publicPacket(p), hint: p.hint ?? null, claims: p.claims.slice(-8).map((c: any) => ({ to: String(c.to).replace(/^(.{6}).*(\..*)$/, '$1…$2'), near: Number(BigInt(c.yocto)) / 1e24, at: c.at })) } : null }));
       return;
     } }
   if ((req.url ?? '').startsWith('/api/topup/') && await handleTopup(req, res).catch((e) => { console.error('topup page', e.message); if (!res.headersSent) res.writeHead(500).end(); return true; })) return;
@@ -107,7 +108,9 @@ async function demoWallet() {
     if (!r.ok) return;
   }
   const b = bindingOf(env.demoPhone)!, to = env.demoRecipient.toLowerCase();
-  if (to && !(await walletState(b)).allowlist.includes(to)) { await saveRecipient(b, to); console.log('demo wallet: saved payee', to); }
+  const saved = (await walletState(b)).allowlist;
+  // The payee plus the streamers whose rooms the demo may gift to (STREAM_ROOMS): small sends, under the wallet's own caps.
+  for (const acct of [to, ...env.streamRooms]) if (acct && !saved.includes(acct)) { await saveRecipient(b, acct); console.log('demo wallet: saved payee', acct); }
 }
 demoWallet().catch((e) => console.error('demo wallet failed:', e.message));
 server.listen(env.port, () => {

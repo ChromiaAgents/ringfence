@@ -51,7 +51,7 @@ function Overlay() {
     <div className="ov">
       <div className="ov-gifts" aria-live="polite">
         {pop.map((g) => (
-          <div className="ov-gift" key={g.key}><span className="ov-heart">❤</span><div><b>{g.from}</b> sent <b>{g.near} NEAR</b><small>by phone call · on NEAR</small></div></div>
+          <div className="ov-gift" key={g.key}><span className="ov-heart">❤</span><div><b>{g.from}</b> {(g as any).landsAt ? 'is sending' : 'sent'} <b>{g.near} NEAR</b><small>{(g as any).landsAt ? 'lands in about a minute · on NEAR' : (g as any).via === 'chain' ? 'from a wallet · on NEAR' : 'by phone call · on NEAR'}</small></div></div>
         ))}
       </div>
       {total > 0 && <div className="ov-total">{total.toFixed(3).replace(/\.?0+$/, '')} NEAR gifted this stream</div>}

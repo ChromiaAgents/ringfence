@@ -364,13 +364,14 @@ async function execute(callId: string, b: Binding, t: Transfer): Promise<{ ok: t
   log({ kind: 'wallet', desk: 'wallet', callId, detail: `${readBack(t)} from ${b.contract}: ${r.url}${r.queuedId != null ? ` (queued #${r.queuedId})` : ''}` });
   if (t.packet) return packetOf(callId, b, t, false, r.url);
   if (r.queuedId != null && t.wait != null) {
+    if (t.asset === 'near') pushGift({ to: t.to, near: Number(t.amount), from: maskFrom(b.phone), at: Date.now(), url: r.url, via: 'call', landsAt: Date.now() + t.wait * 1000 });
     hold({ id: r.queuedId, phone: b.phone, contract: b.contract, to: t.to, what: readBack(t), readyAt: Date.now() + t.wait * 1000 + 3000, callId });
     links.set(callId, { url: r.url, label: 'Held by your wallet contract, on chain' });
     return { ok: true, waiting: true, goes_out_in: minutes(t.wait), url: r.url, linkSent: true,
       next: `Tell them: it is a first payment to this account, so the contract holds it for ${minutes(t.wait)} and then it goes; saying "cancel" stops it; if they stay on the call you tell them when it goes out (you will hear it); do not promise a text message.` };
   }
   links.set(callId, { url: r.url, label: r.queuedId != null ? 'Queued transfer' : 'Your transaction' });
-  if (t.asset === 'near' && r.queuedId == null) pushGift({ to: t.to, near: Number(t.amount), from: maskFrom(b.phone, db.calls.find((c) => c.id === callId)?.caller?.name), at: Date.now(), url: r.url });
+  if (t.asset === 'near' && r.queuedId == null) pushGift({ to: t.to, near: Number(t.amount), from: maskFrom(b.phone, db.calls.find((c) => c.id === callId)?.caller?.name), at: Date.now(), url: r.url, tx: r.txHash, via: 'call' });
   return { ok: true, txHash: r.txHash, url: r.url, linkSent: true, queued: r.queuedId != null };
 }
 

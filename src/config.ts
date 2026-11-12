@@ -70,6 +70,8 @@ export const env = {
   demoPhone: (process.env.DEMO_WALLET_PHONE ?? '').replace(/\D/g, ''),
   demoPin: process.env.DEMO_PIN ?? '',
   demoRecipient: process.env.DEMO_RECIPIENT ?? 'liho00.near',
+  /** Streamers the shared demo wallet may gift to on a stream (saved as payees at start). */
+  streamRooms: (process.env.STREAM_ROOMS ?? 'liho00.near').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
   // The demo PIN is public, so what a visitor can take out of the shared demo wallet is capped in code: a packet a
   // visitor makes holds at most this much, expires this soon (what is left goes back), and only this many may be open
   // at once or made in 24 hours. The page's own demo packet is remade at most demoPacketsPerDay times in 24 hours.
