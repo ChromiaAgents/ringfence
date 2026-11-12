@@ -3,7 +3,7 @@
 import { trendingTickers } from './market.ts';
 import { launchpad, env, type Launchpad } from '../config.ts';
 import { db, save, id, log, type Call } from '../store.ts';
-import type { LaunchParams } from '../near.ts';
+import { view, type LaunchParams } from '../near.ts';
 import { generateLogo, drawLogo } from '../image.ts';
 import { smallIcon } from '../justhoot.ts';
 import type { DeskDef } from './types.ts';
@@ -55,6 +55,7 @@ const tools = [
   { type: 'function', function: { name: 'make_logo', description: 'Draw the logo from the vibe the caller describes (colours, character, mood). Takes a few seconds.', parameters: { type: 'object', properties: { vibe: { type: 'string' } }, required: ['vibe'] } } },
   { type: 'function', function: { name: 'set_socials', description: 'Optional links: X/Twitter, Telegram, website.', parameters: { type: 'object', properties: { twitter: { type: 'string' }, telegram: { type: 'string' }, website: { type: 'string' } } } } },
   { type: 'function', function: { name: 'prepare_launch', description: 'Only after you read the full summary back and the caller clearly said yes. Prepares the launch page the caller signs with their own NEAR wallet.', parameters: { type: 'object', properties: { caller_confirmed: { type: 'boolean' } }, required: ['caller_confirmed'] } } },
+  { type: 'function', function: { name: 'check_launch', description: 'Check on NEAR mainnet whether a coin is live on JustHoot (after the caller signed). Ticker optional: defaults to the coin on this call or their last launch.', parameters: { type: 'object', properties: { ticker: { type: 'string' } } } } },
 ];
 
 function system(): string {
@@ -66,7 +67,7 @@ Then make the logo straight away from what you already know (call make_logo with
 There is no auction and no team share: go straight to the recap. No transfer tax and no dev buy are offered.
 Then give a quick one-breath recap and ask "shall I set it up?". Only after a clear yes call prepare_launch with caller_confirmed true.
 Explain that the caller signs the launch with their own NEAR wallet on the link you send; you never hold their keys or money. Talk about it as a coin on NEAR, and mention NEAR naturally when you confirm the launch.
-Never promise returns, price moves or profit, never give financial advice. If a tool refuses, say why in plain words and ask for something else.${r.kill_switch ? '\nLaunches are paused today: chat, but do not prepare any launch.' : ''}`;
+When they say they signed or ask whether it launched, call check_launch. Do not look up prices for a launch.\nNever promise returns, price moves or profit, never give financial advice. If a tool refuses, say why in plain words and ask for something else.${r.kill_switch ? '\nLaunches are paused today: chat, but do not prepare any launch.' : ''}`;
 }
 
 async function run(call: Call, name: string, a: any): Promise<unknown> {
@@ -93,6 +94,18 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
   if (name === 'set_socials') {
     d.socials = { twitter: url(a.twitter), telegram: url(a.telegram), website: url(a.website) };
     return { ok: true };
+  }
+  if (name === 'check_launch') {
+    const last = [...db.launches].reverse().find((l: any) => l.callId === call.id || (call.from && db.calls.find((c) => c.id === l.callId)?.from === call.from));
+    const t = String(a.ticker || d.symbol || last?.params.symbol || '').toUpperCase().replace(/^\$/, '');
+    if (!t) return { ok: false, reason: 'Ask which ticker to check.' };
+    const token = `${t.toLowerCase()}.v2-launchpad.justhoot.near`;
+    const meta = await view<any>('ft_metadata', {}, 'mainnet', token).catch(() => null);
+    if (!meta) return { ok: true, live: false, ticker: t, note: `No $${t} token on JustHoot yet. If they just signed it can take a few seconds; ask them to check the wallet for an error.` };
+    const supply = await view<string>('ft_total_supply', {}, 'mainnet', token).catch(() => null);
+    return { ok: true, live: true, ticker: t, name: meta.name, token,
+      total_supply: supply ? Number(BigInt(supply) / 10n ** BigInt(meta.decimals ?? 18)).toLocaleString('en') : undefined,
+      note: 'Confirm it is live on NEAR mainnet and tradeable on RHEA. Say the token account plainly. Never comment on price or returns.' };
   }
   if (name === 'prepare_launch') {
     if (lp.rules.kill_switch) return refuse('Launches are paused by the desk operator today.');

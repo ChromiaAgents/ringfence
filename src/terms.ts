@@ -199,7 +199,7 @@ export function correct(input: string): string {
     .replace(/\b(?:w|double[ -]?u|dub)[ -]?(?:near|neo|nea|neer|nier|nir|nia|kneel)\b/gi, 'wNEAR')
     .replace(/\bst[ -]?(?:near|nir|nier)\b/gi, 'stNEAR')
     .replace(/\bnear intense\b/gi, 'NEAR Intents')
-    .replace(/\b(jazz ?hood|just hood|jas hoot|justhood)\b/gi, 'JustHoot')
+    .replace(/\b(jazz ?hood|yas ?hood|yash ?hood|just hood|jas hoot|justhood)\b/gi, 'JustHoot')
     .replace(/\blife panel\b/gi, 'live panel')
     .replace(/\b(six|6)[ -]digit quote\b/gi, '$1-digit code')
     .replace(/\bsputnik (?:tao|dow|dough|dau)\b/gi, 'Sputnik DAO')
