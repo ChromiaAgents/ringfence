@@ -962,3 +962,6 @@ html:has(.ov) { color-scheme: normal !important; }
 .lr-bar .mic.on { background: #fe2c55; color: #fff; animation: lr-pulse 1.4s ease-in-out infinite; }
 @keyframes lr-pulse { 50% { box-shadow: 0 0 0 8px rgba(254,44,85,.25); } }
 @media (prefers-reduced-motion: reduce) { .lr-bar .mic.on { animation: none; } }
+.lr-chat { z-index: 2; pointer-events: auto; touch-action: pan-y; overscroll-behavior: contain; max-height: 34%; mask-image: linear-gradient(to bottom, transparent, #000 14%); }
+.lr-stack { position: absolute; left: 10px; top: calc(max(10px, env(safe-area-inset-top)) + 96px); display: grid; gap: 8px; justify-items: start; z-index: 2; max-width: 300px; }
+.lr-stack .lr-howto, .lr-stack .lr-sound { position: static !important; transform: none; }

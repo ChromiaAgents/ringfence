@@ -112,8 +112,9 @@ function Room() {
     ...feed.map((g) => ({ kind: 'gift' as const, at: g.at, from: g.from, near: g.near, landing: !!g.landsAt, text: '' })),
     ...chats.map((c) => ({ kind: 'chat' as const, at: c.at, from: c.name, near: 0, landing: false, text: c.text })),
     ...(call.live ? call.lines.slice(-2).filter((l) => l.who === 'agent').map((l, i) => ({ kind: 'agent' as const, at: Date.now() + i, from: 'Ringfence', near: 0, landing: false, text: l.text })) : []),
-  ].sort((a, b) => a.at - b.at).slice(-8);
-  useEffect(() => { chatBox.current?.scrollTo({ top: 1e6, behavior: 'smooth' }); }, [stream.length]);
+  ].sort((a, b) => a.at - b.at).slice(-60);
+  // Follow new messages only when the reader is already at the bottom; scrolling up to read history is left alone.
+  useEffect(() => { const b = chatBox.current; if (b && b.scrollHeight - b.scrollTop - b.clientHeight < 80) b.scrollTo({ top: b.scrollHeight, behavior: 'smooth' }); }, [stream.length]);
   const lastAgent = [...call.lines].reverse().find((l) => l.who === 'agent')?.text;
 
   return (
@@ -146,8 +147,8 @@ function Room() {
               <p>Tap to open a share</p>
             </a>
           )}
-          <p className="lr-howto">{call.live ? <>🎙 She is listening: “send a 0.01 NEAR gift to {account}”, “open the money packet”, “top up 1 dollar of USDT”… <b>PIN 4821</b></> : <>She <b>is</b> the Ringfence agent. Tap 🎙 to talk, or WhatsApp-call +1 555-144-4220: same agent.</>}</p>
-          {!sound && <button type="button" className="lr-sound" onClick={() => { host.current?.unlock(); setSound(true); soundRef.current = true; lastTalk.current = 0; }}>🔊 Tap to hear the host</button>}
+          <div className="lr-stack"><p className="lr-howto">{call.live ? <>🎙 She is listening: “send a 0.01 NEAR gift to {account}”, “open the money packet”, “top up 1 dollar of USDT”… <b>PIN 4821</b></> : <>She <b>is</b> the Ringfence agent. Tap 🎙 to talk, or WhatsApp-call +1 555-144-4220: same agent.</>}</p>
+          {!sound && !call.live && <button type="button" className="lr-sound" onClick={() => { host.current?.unlock(); setSound(true); soundRef.current = true; lastTalk.current = 0; }}>🔊 Tap to hear the host</button>}</div>
           <div className="lr-pops" aria-live="polite">
             {pop.map((g) => (
               <div className={`lr-pop ${g.landsAt ? 'landing' : ''}`} key={g.key}>
