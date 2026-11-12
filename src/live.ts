@@ -6,6 +6,7 @@
 import { randomInt, randomBytes } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { env } from './config.ts';
+import { db } from './store.ts';
 
 type Panel = { code: string; callId: string; phone: string; endedAt?: number; links: { label: string; url: string }[];
   approval: { id: string; body: string; token: string } | null; told: boolean; startedAt: number };
@@ -59,11 +60,16 @@ export function liveApproval(callId: string, body: string, token: string): strin
   return tellOnce(p);
 }
 
-export type LiveView = { state: 'live' | 'ended'; links: { label: string; url: string }[]; approval: { body: string; id: string } | null };
+export type LiveView = { state: 'live' | 'ended'; startedAt: number; links: { label: string; url: string }[]; approval: { body: string; id: string } | null;
+  turns: { who: 'caller' | 'agent'; text: string }[] };
+/** The call's recent lines for its own panel (the code was said on that call only). PINs are already "[PIN]". */
+const recent = (callId: string) => (db.calls.find((c) => c.id === callId)?.turns ?? [])
+  .filter((t) => t.who === 'caller' || t.who === 'agent').slice(-14)
+  .map((t) => ({ who: t.who as 'caller' | 'agent', text: t.text.replace(/data:image\/\w+;base64,[A-Za-z0-9+/=]+/g, '<image>').replace(/\b\d{4}\b(?=\D*$)/g, (m) => (t.who === 'caller' ? '••••' : m)) }));
 export function liveView(code: string, now = Date.now()): LiveView | null {
   const p = byCode.get(code);
   if (!p || gone(p, now)) return null;
-  return { state: p.endedAt != null ? 'ended' : 'live', links: p.links.map((l) => ({ label: l.label, url: l.url })), approval: p.approval && { body: p.approval.body, id: p.approval.id } };
+  return { state: p.endedAt != null ? 'ended' : 'live', startedAt: p.startedAt, links: p.links.map((l) => ({ label: l.label, url: l.url })), approval: p.approval && { body: p.approval.body, id: p.approval.id }, turns: recent(p.callId) };
 }
 
 /** The same handler a WhatsApp button tap runs (onButton in src/desks/wallet.ts), passed in by the caller. */

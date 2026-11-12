@@ -1,10 +1,11 @@
 // The live panel: during a WhatsApp call the agent says a 6-digit code; typed here, it shows the links and the
-// Approve card that WhatsApp could not deliver. Polls /api/live/:code every 2 seconds. No transcript, PIN or phone here.
+// Approve card that WhatsApp could not deliver, the conversation so far, and a box to type instead of speaking.
+// Polls /api/live/:code every 2 seconds. PINs show as dots; no phone number here. /live?c=123456 opens straight away.
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { Makers, SiteFooter, Wordmark, TopBar } from '../ui';
 
-type View = { state: 'live' | 'ended'; links: { label: string; url: string }[]; approval: { body: string; id: string } | null };
+type View = { state: 'live' | 'ended'; startedAt: number; links: { label: string; url: string }[]; approval: { body: string; id: string } | null; turns: { who: 'caller' | 'agent'; text: string }[] };
 
 export const Route = createFileRoute('/live')({
   head: () => ({ meta: [{ title: 'Live panel · Ringfence' }, { name: 'robots', content: 'noindex' }] }),
@@ -21,6 +22,22 @@ function Live() {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval>>(undefined);
+  const [now, setNow] = useState(Date.now());
+  const seenLinks = useRef<Set<string>>(new Set());
+  const loaded = useRef(false);
+  const [fresh, setFresh] = useState<string | null>(null);
+  useEffect(() => { // /live?c=123456 opens straight away
+    const c = new URLSearchParams(location.search).get('c')?.replace(/\D/g, '') ?? '';
+    if (/^\d{6}$/.test(c)) { setCode(c); setOpen(c); }
+  }, []);
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  useEffect(() => { // the newest link gets a "New" mark and a buzz on phones
+    if (!view) return;
+    const first = !loaded.current; loaded.current = true;
+    for (const l of view.links) if (!seenLinks.current.has(l.url)) { seenLinks.current.add(l.url); if (!first) { setFresh(l.url); navigator.vibrate?.(80); } }
+  }, [view?.links.length]);
+  const talk = useRef<HTMLDivElement>(null);
+  useEffect(() => { talk.current?.scrollTo({ top: 1e6, behavior: 'smooth' }); }, [view?.turns.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -56,7 +73,7 @@ function Live() {
     <>
     <main className="app pg live">
       <TopBar />
-      <div className="pg-two">
+      <div className={open ? 'live-open' : 'pg-two'}>
       <div>
       <h1>Live panel</h1>
       {!open ? (
@@ -64,14 +81,14 @@ function Live() {
           <p className="muted">On a WhatsApp call, when we can’t text you, the agent says a 6-digit code. Enter it to see your links and the Approve card.</p>
           <label htmlFor="live-code">Code from the call</label>
           <input id="live-code" className="live-code" inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} placeholder="000000"
-            value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} autoFocus />
+            value={code} onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 6); setCode(v); if (v.length === 6) { setErr(''); setNote(''); setOpen(v); } }} autoFocus />
           <p><button className="btn" type="submit" disabled={code.length !== 6}>Open</button></p>
         </form>
       ) : (
         <>
-          <p className="muted">{view?.state === 'ended' ? 'Call ended.' : view ? 'On the call. This page updates by itself.' : 'Connecting…'}</p>
-          {view?.links.map((l) => (
-            <div className="signlink" key={l.url}><span>{l.label}</span><a className="btn small" href={l.url} target="_blank" rel="noreferrer">Open</a></div>
+          <p className={`live-state ${view?.state === 'live' ? 'on' : ''}`}>{view?.state === 'ended' ? 'Call ended' : view ? <>On the call · {Math.floor((now - view.startedAt) / 60000)}:{String(Math.floor(((now - view.startedAt) % 60000) / 1000)).padStart(2, '0')} · code {open}</> : 'Connecting…'}</p>
+          {[...(view?.links ?? [])].reverse().map((l) => (
+            <div className={`signlink ${l.url === fresh ? 'fresh' : ''}`} key={l.url}><span>{l.url === fresh && <b className="new">New</b>}{l.label}</span><a className="btn small" href={l.url} target="_blank" rel="noreferrer">Open</a></div>
           ))}
           {view?.approval && (
             <div className="wa-card" role="dialog" aria-label="Approve this transfer">
@@ -86,6 +103,11 @@ function Live() {
           )}
           {note && <p className="live-note">{note}</p>}
           {view && !view.links.length && !view.approval && !note && view.state === 'live' && <p className="muted">Nothing yet. Links and Approve cards show up here while you talk.</p>}
+          {!!view?.turns.length && (
+            <div className="live-talk" ref={talk} aria-label="The conversation so far">
+              {view.turns.map((t, i) => <p key={i} className={t.who}><b>{t.who === 'caller' ? 'You' : 'Ringfence'}</b>{t.text}</p>)}
+            </div>
+          )}
           {view?.state === 'live' && (
             <form className="live-type" onSubmit={async (e) => {
               e.preventDefault(); const text = typed.trim(); if (!text) return;
@@ -107,7 +129,7 @@ function Live() {
       )}
       {err && <p className="live-err" role="alert">{err}</p>}
       </div>
-      <aside className="pg-side" aria-labelledby="live-how">
+      {!open && <aside className="pg-side" aria-labelledby="live-how">
         <h2 id="live-how">How it works</h2>
         <ol>
           <li>Call Ringfence on WhatsApp. Our test line <b>+1 555-144-4220</b> answers <a href="/whatsapp">numbers we have added</a>.</li>
@@ -115,7 +137,7 @@ function Live() {
           <li>Enter it here. Your links and the Approve card show up while the call is on.</li>
         </ol>
         <p className="muted" style={{ marginTop: 16 }}>The PIN is never shown here, and the code stops working 10 minutes after the call. No WhatsApp? <a href="/#call">Try the browser call</a>.</p>
-      </aside>
+      </aside>}
       </div>
     </main>
     <SiteFooter />

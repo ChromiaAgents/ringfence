@@ -713,3 +713,16 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .name-field { display: flex; align-items: center; gap: 8px; } .name-field input { flex: 1; } .name-field span { color: var(--muted); font-family: "Geist Mono", monospace; font-size: 14px; white-space: nowrap; }
 .tp-status { padding: 10px 12px; background: var(--field); border-left: 3px solid var(--muted); } .tp-status.ok { border-left-color: var(--accent); color: var(--accent); } .tp-status.bad { border-left-color: #ff8a7a; }
 .live .live-type { margin: 24px 0; } .live .live-type label { margin-top: 0; } .live-type-row { display: flex; gap: 8px; } .live-type-row input { flex: 1; } .live-type-row .btn { margin: 0; height: 52px; }
+/* /live, open: one column, the call as a companion screen */
+.live .live-open { max-width: 720px; }
+.live .live-state { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.live .live-state.on::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: live-pulse 1.6s ease-in-out infinite; }
+@keyframes live-pulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .live .live-state.on::before { animation: none; } }
+.live .signlink.fresh { border-color: var(--accent); }
+.live .signlink .new { display: inline-block; margin-right: 8px; padding: 1px 6px; font-size: 12px; background: var(--accent); color: #0c0a08; border-radius: 2px; vertical-align: 2px; }
+.live .live-talk { margin: 20px 0; max-height: 340px; overflow-y: auto; padding: 12px; background: var(--surface); display: grid; gap: 8px; }
+.live .live-talk p { margin: 0; padding: 8px 10px; max-width: 88%; font-size: 15px; line-height: 1.45; }
+.live .live-talk p b { display: block; font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
+.live .live-talk .caller { justify-self: end; background: var(--field); }
+.live .live-talk .agent { background: #12261d; }
