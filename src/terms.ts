@@ -201,6 +201,7 @@ export function correct(input: string): string {
     .replace(/\bnear intense\b/gi, 'NEAR Intents')
     .replace(/\b(jazz ?hood|just hood|jas hoot|justhood)\b/gi, 'JustHoot')
     .replace(/\blife panel\b/gi, 'live panel')
+    .replace(/\b(six|6)[ -]digit quote\b/gi, '$1-digit code')
     .replace(/\bsputnik (?:tao|dow|dough|dau)\b/gi, 'Sputnik DAO')
     .replace(/\b(running|run|runs|inside|in) (?:in )?a T\b(?=[?.!,]|$)/g, '$1 in a TEE')
     .replace(/\b(with|of|into|stake|staked|swap|use|using)\s+(?:lie|li|ly)[ -]?(?:near|nir|nier)\b/gi, '$1 LiNEAR')

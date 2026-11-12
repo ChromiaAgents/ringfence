@@ -45,7 +45,7 @@ export function deliverLink(call: Call, link: { url: string; label: string }) {
     const say = panel ?? "I can't text you on this line, so open ringfence dot evalengine dot ai to finish.";
     if (!say) return;
     // Into the transcript too, so the model knows the text failed and what it told the caller (it denied it before).
-    noteToModel(call.id, `The link text did NOT reach the caller: WhatsApp refused it. You already said to them: "${say}". If they ask for the code or the link, repeat exactly that (digits one by one, slowly). Never say the link is on their WhatsApp.`);
+    noteToModel(call.id, `The link text did NOT reach the caller: WhatsApp refused it. You already said to them: "${say}". If they ask for the code, the "quote" (speech-to-text often hears "code" as "quote") or the link, repeat exactly that (digits one by one, slowly). Never say the link is on their WhatsApp.`);
     for (const l of live.values()) if (l.callId === call.id) l.say?.(say);
   });
 }
