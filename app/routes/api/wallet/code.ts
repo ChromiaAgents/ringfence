@@ -29,7 +29,7 @@ export const Route = createFileRoute('/api/wallet/code')({
           const { liveLink } = await import('../../../../src/live.ts');
           const { noteToModel } = await import('../../../../src/agent.ts');
           const call = [...db.calls].reverse().find((c) => c.channel === 'whatsapp' && !c.endedAt && c.from === phone);
-          if (!call) { last.delete(phone); return json({ error: `WhatsApp can't text this number yet (Meta verification pending). Call ${env.publicUrl.includes('ringfence') ? '+1 555-144-4220' : 'our WhatsApp line'} from this number and say "bind my wallet": the code shows on your live panel.` }, 503); }
+          if (!call) { const { dropCode } = await import('../../../../src/wallet.ts'); dropCode(phone); return json({ error: `WhatsApp can't text this number yet (Meta verification pending). Call ${env.publicUrl.includes('ringfence') ? '+1 555-144-4220' : 'our WhatsApp line'} from this number and say "bind my wallet": the code shows on your live panel.` }, 503); }
           const say = liveLink(call.id, { label: `Your ${purpose} code: ${code}`, url: `${env.publicUrl}/wallet/${purpose}` });
           noteToModel(call.id, `The ${purpose} code could not be texted, so it is on the caller's live panel${say ? ' (you just told them the panel code)' : ''}. If they ask, the code is ${code.split('').join(', ')}.`);
           return json({ sent: true, panel: true, note: 'WhatsApp could not text you, so the code is on your live panel (/live).' });

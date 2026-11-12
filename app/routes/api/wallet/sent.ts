@@ -15,6 +15,12 @@ export const Route = createFileRoute('/api/wallet/sent')({
         if (!/^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(hash) || !signer) return json({ error: 'bad request' }, 400);
         const tx: any = await rpc('tx', { tx_hash: hash, sender_account_id: signer, wait_until: 'EXECUTED_OPTIMISTIC' }).catch(() => null);
         if (!tx || !('SuccessValue' in (tx.status ?? {}))) return json({ ok: false, said: false });
+        // Only a transaction from the last 10 minutes, and each one once: no replaying old ones as "just now".
+        const seen: Set<string> = ((globalThis as any).__rfSentSeen ??= new Set());
+        const blk: any = await rpc('block', { block_id: tx.transaction_outcome?.block_hash }).catch(() => null);
+        const ageMs = blk ? Date.now() - Number(BigInt(blk.header.timestamp) / 1_000_000n) : Infinity;
+        if (seen.has(hash) || ageMs > 10 * 60_000) return json({ ok: false, said: false });
+        seen.add(hash);
         const t = tx.transaction, deposit = t.actions?.find((a: any) => a.Transfer)?.Transfer?.deposit;
         const what = deposit ? `${(Number(BigInt(deposit)) / 1e24).toFixed(3).replace(/\.?0+$/, '')} NEAR to ${t.receiver_id}` : `your transaction to ${t.receiver_id}`;
         let said = false;

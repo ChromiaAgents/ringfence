@@ -29,6 +29,8 @@ const ROWS: Row[] = [
   { hash: 'EAL2uMt6dheQ6upUqstRu3UgoMbRixbbE4Nj1ntytgCW', what: 'DAO vote passes, the DAO funds the packet', signer: 'liho00.near', receiver: DAO, method: 'act_proposal', result: 'success', args: ['"action":"VoteApprove"'] },
   { hash: '71C9Ve2z7arjaJxAeZMHH6dDxpUE5cpMxafP2yUAYPw3', what: 'a share of the DAO packet opened', signer: AGENT, receiver: PACKETS, method: 'claim', result: 'success', args: ['"id":"family-1"', '"to":"liho00.near"'] },
   { hash: '8kCunWQQuvp1EpKUgDrcTgqp3AVS5vtN323v7jV316AF', what: 'a top up from Solana landed as USDC through NEAR Intents', signer: 'intents.near', receiver: 'intents.near', method: 'execute_intents', result: 'success', args: ['0ffc41d0982d.ringfence-wallet.near'] },
+  { hash: '2mvYoracrLfSbVae35NRWirQkNWo9nBy1ytu3vbT8MU4', what: 'a voice send to a new recipient, held by the wallet contract', signer: AGENT, receiver: 'liho.ringfence-wallet.near', method: 'transfer_near', result: 'success', args: ['"to":"liho00.near"'] },
+  { hash: '3HWK1vG1tqh9AW4bSQGXSyHMRy6eqS57rVJMKTVHUCEq', what: 'the held send released after the new-recipient wait', signer: AGENT, receiver: 'liho.ringfence-wallet.near', method: 'execute', result: 'success' },
 ];
 
 async function tx(hash: string, sender: string): Promise<any> {

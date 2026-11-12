@@ -89,11 +89,20 @@ export const codeText = (code: string, purpose: CodePurpose, target: string) => 
   ? `Ringfence: code ${code} gives OWNERSHIP of the wallet for this WhatsApp number to ${target}. Whoever has it can take the money. Never read it out or share it. Expires in 10 minutes.`
   : `Ringfence: code ${code} links this WhatsApp number to a wallet owned by ${target}, which can then spend within limits when this number calls. Only share it if you trust ${target}. Expires in 10 minutes.`;
 /** Checks a code sent to the phone (expires in 10 minutes, 5 tries). Returns a reason, or null when it matches. */
+// Wrong guesses per phone across every code (a new code must not reset the count): 10 an hour, then locked.
+const wrongByPhone: Map<string, { at: number; n: number }> = ((globalThis as any).__rfWrongCodes ??= new Map());
+export const dropCode = (phone: string) => codes.delete(digits(phone));
 function codeProblem(phone: string, code: string, purpose: CodePurpose, target: string): string | null {
+  const w = wrongByPhone.get(phone);
+  if (w && Date.now() - w.at < 60 * 60_000 && w.n >= 10) return 'Too many wrong codes for this number. Try again in an hour.';
   const c = codes.get(phone);
   if (!c || Date.now() > c.until || ++c.tries > 5) return 'The code expired. Ask for a new one.';
   if (c.purpose !== purpose || c.target !== target) return 'That code was sent for something else. Ask for a new one.';
-  if (createHash('sha256').update(String(code).trim()).digest('hex') !== c.hash) return 'Wrong code.';
+  if (createHash('sha256').update(String(code).trim()).digest('hex') !== c.hash) {
+    const x = w && Date.now() - w.at < 60 * 60_000 ? w : { at: Date.now(), n: 0 };
+    x.n++; wrongByPhone.set(phone, x);
+    return 'Wrong code.';
+  }
   return null;
 }
 const ownerReason = () => (env.network === 'mainnet' ? 'Mainnet accounts only (name.near or a 64-hex implicit account).' : 'Testnet accounts only (name.testnet or a 64-hex implicit account).');

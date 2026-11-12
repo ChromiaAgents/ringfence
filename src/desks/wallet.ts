@@ -311,7 +311,9 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     const t = pending.get(call.id);
     if (!t) return refuse('Nothing to confirm: prepare a transfer first.');
     if (Date.now() > t.until!) { pending.delete(call.id); return refuse('That transfer expired (2 minutes). Say it again.'); }
-    const v = checkPin(b, spokenPin(call, a));
+    const said = spokenPin(call, a);
+    if (!said) return refuse('I did not hear a PIN from them. Ask them to say (or type on the live panel) their 4-digit PIN.');
+    const v = checkPin(b, said);
     if (!v.ok) return refuse(v.reason);
     pending.delete(call.id);
     if (t.tier === 'approve') {
@@ -331,7 +333,8 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
 
 /** The PIN taken by takePin, else what the model passed (a typed chat). The caller's turn is blanked either way. */
 function spokenPin(call: Call, a: any) {
-  const pin = spokenPins.get(call.id) ?? String(a.pin ?? '');
+  // Only the caller's own words (captured by takePin), never the model's copy: a PIN must not ride through the model.
+  const pin = spokenPins.get(call.id) ?? '';
   spokenPins.delete(call.id);
   const turn = [...call.turns].reverse().find((x) => x.who === 'caller');
   if (turn && normalizePin(turn.text)) turn.text = '[PIN]';

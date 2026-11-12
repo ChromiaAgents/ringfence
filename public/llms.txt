@@ -30,7 +30,7 @@ Status: on NEAR mainnet since 10 November 2026, small amounts. The contracts are
 - npm run demo:check : about 15 s, last line "all steps passed"
 - npm run verify:contracts : about 10 s, 3 blocks starting with "ok" (code on mainnet equals contracts/release/)
 - npm run attest : about 10 s, "3/3 models fully verified"
-- npm run verify:evidence : about 5 s, last line "16 of 16 transactions match" (reads the README evidence transactions from an archival RPC)
+- npm run verify:evidence : about 5 s, last line "18 of 18 transactions match" (reads the README evidence transactions from an archival RPC)
 - npm run attack : about 2 s, last line "5 of 5 attacks blocked" (prompt-injection replay with a scripted model, in process)
 - npm run live:check : 30 to 90 s, last line "5 of 5 checks passed" (types 5 lines into the call socket above; no PIN, nothing paid; replies come from a real model, so wording varies between runs)
 - npm run topup:quote -- 10 SOL : about 5 s, a NEAR Intents 1Click dry quote (no deposit address) printed as JSON, last line "}"

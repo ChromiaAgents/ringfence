@@ -5,6 +5,13 @@ import { isFiller } from '../src/agent.ts';
 import { sentenceSplitter } from '../src/speech.ts';
 import { launchpad } from '../src/config.ts';
 
+// The caller says the PIN (takePin keeps it); confirm_transfer never takes it from the model.
+async function pinRun(c: any, name: string, a: any) {
+  const { walletDesk, takePin } = await import('../src/desks/wallet.ts');
+  takePin(c.id, String(a.pin));
+  return walletDesk.run!(c, name, a);
+}
+
 let n = 0;
 const t = async (name: string, f: () => void | Promise<void>) => { await f(); n++; console.log('ok', name); };
 const lp = launchpad();
@@ -109,7 +116,7 @@ await t('website demo wallet: browser calls use it, Approve card on the page, no
     assert.match(p.next, /their screen/);
     const { takePin } = await import('../src/desks/wallet.ts');
     takePin(c.id, '4821');
-    const k: any = await walletDesk.run(c, 'confirm_transfer', { pin: '[PIN]' });
+    const k: any = await pinRun(c, 'confirm_transfer', { pin: '[PIN]' });
     assert.equal(k.approvalSent, true); assert.ok(token, 'card sent to the browser');
     assert.match(await onButton('19990000001', `reject:${token}`), /this session is locked/);
     assert.equal(bindingOf('19990000001')!.frozenUntil, undefined, 'the shared wallet is not frozen');
@@ -159,7 +166,7 @@ await t('money packets: funded through the wallet (PIN, limits), opened by sayin
   // 0.1 NEAR for 2 people: read back with the words, then the PIN
   const p0: any = await walletDesk.run(mum, 'prepare_packet', { amount: '0.1', count: 2, split: 'lucky', words: 'Wan Shi Ru Yi' });
   assert.match(p0.read_back, /a money packet of 0\.1 NEAR for 2 people, lucky split\. The words to open it are "Wan Shi Ru Yi"/);
-  const made: any = await walletDesk.run(mum, 'confirm_transfer', { pin: '2468' });
+  const made: any = await pinRun(mum, 'confirm_transfer', { pin: '2468' });
   assert.equal(made.packet, true); assert.equal(made.dryRun, true, 'no keys in tests: a labelled dry run');
   const id = made.link.split('/packet/')[1];
   const row = findPacket(id)!;
@@ -438,16 +445,16 @@ await t('wallet: refusals (unbound number, bad input, nothing to confirm) and th
   assert.match(walletDesk.link!(unbound)!.url, /\/wallet\/bind\?phone=\d+&proof=[0-9a-f]{32}$/);
   db.wallets.push({ phone: '15550000010', owner: 'alice.testnet', contract: 'phone.alice.testnet', ...hashPin('1234'), fails: 0, createdAt: Date.now() });
   const c = startCall('whatsapp', '+1 555 000 0010', 'wallet').call;
-  assert.equal(((await walletDesk.run(c, 'confirm_transfer', { pin: '1234' })) as any).ok, false, 'nothing prepared');
+  assert.equal(((await pinRun(c, 'confirm_transfer', { pin: '1234' })) as any).ok, false, 'nothing prepared');
   assert.equal(((await walletDesk.run(c, 'prepare_transfer', { to: 'bob.near', amount: '1', asset: 'near' })) as any).ok, false);
   assert.equal(((await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '-1', asset: 'near' })) as any).ok, false);
   assert.equal(((await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '1', asset: 'doge' })) as any).ok, false);
   const p: any = await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' });
   assert.equal(p.read_back, '0.1 NEAR to bob dot testnet');
   c.turns.push({ at: Date.now(), who: 'caller', text: '9 9 9 9' });
-  assert.match(((await walletDesk.run(c, 'confirm_transfer', { pin: '9 9 9 9' })) as any).reason, /didn't match/);
+  assert.match(((await pinRun(c, 'confirm_transfer', { pin: '9 9 9 9' })) as any).reason, /didn't match/);
   assert.equal(c.turns.at(-1)!.text, '[PIN]', 'PIN blanked from the transcript');
-  const ok: any = await walletDesk.run(c, 'confirm_transfer', { pin: 'one two three four' });
+  const ok: any = await pinRun(c, 'confirm_transfer', { pin: 'one two three four' });
   assert.equal(ok.ok, true); assert.equal(ok.dryRun, true); assert.match(ok.txHash, /^dry-run-/);
   assert.match(db.ledger.at(-1)!.detail, /DRY RUN/);
   assert.match((await import('../src/memory.ts')).recap(startCall('whatsapp', '15550000010').call), /phone\.alice\.testnet/);
@@ -464,9 +471,9 @@ await t('wallet: tiered confirmation: PIN up to 0.2 NEAR, PIN then WhatsApp Appr
   const logs: string[] = []; const orig = console.log; console.log = (s: string) => logs.push(s);
   const big: any = await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.3', asset: 'near' });
   assert.equal(big.approvalSent, undefined, 'no Approve button before the PIN'); assert.match(big.next, /PIN.*Approve/);
-  assert.equal(((await walletDesk.run(c, 'confirm_transfer', { pin: '9999' })) as any).ok, false, 'wrong PIN: no button');
+  assert.equal(((await pinRun(c, 'confirm_transfer', { pin: '9999' })) as any).ok, false, 'wrong PIN: no button');
   assert.ok(!logs.join(' ').includes('approve:'), 'nothing sent on a wrong PIN');
-  const pinned: any = await walletDesk.run(c, 'confirm_transfer', { pin: '1234' });
+  const pinned: any = await pinRun(c, 'confirm_transfer', { pin: '1234' });
   console.log = orig;
   assert.equal(pinned.approvalSent, true, 'PIN, then the Approve button');
   const token = logs.join(' ').match(/approve:([0-9a-f]{32})/)![1];
@@ -478,7 +485,7 @@ await t('wallet: tiered confirmation: PIN up to 0.2 NEAR, PIN then WhatsApp Appr
   assert.match(await onButton('15550000020', `approve:${token}`), /not valid/, 'single use');
   console.log = (s: string) => logs.push(s);
   await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.4', asset: 'near' });
-  await walletDesk.run(c, 'confirm_transfer', { pin: '1234' });
+  await pinRun(c, 'confirm_transfer', { pin: '1234' });
   console.log = orig;
   const t2 = logs.join(' ').match(/approve:([0-9a-f]{32})/g)!.at(-1)!.slice(8);
   assert.match(await onButton('15550000020', `approve:${t2}`, Date.now() + 121_000), /expired/);
@@ -491,7 +498,7 @@ await t('wallet: Reject freezes spending on the server for 15 minutes and is log
   const c = startCall('whatsapp', '15550000020', 'wallet').call;
   const logs: string[] = []; const orig = console.log; console.log = (s: string) => logs.push(s);
   await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.5', asset: 'near' });
-  await walletDesk.run(c, 'confirm_transfer', { pin: '1234' });
+  await pinRun(c, 'confirm_transfer', { pin: '1234' });
   console.log = orig;
   const token = logs.join(' ').match(/reject:([0-9a-f]{32})/)![1];
   // Cancel: changed their mind. Nothing sent, nothing frozen, and the token is spent.
@@ -499,7 +506,7 @@ await t('wallet: Reject freezes spending on the server for 15 minutes and is log
     const c2 = startCall('whatsapp', '15550000020', 'wallet').call;
     console.log = (s: string) => logs.push(s);
     await walletDesk.run(c2, 'prepare_transfer', { to: 'bob.testnet', amount: '0.5', asset: 'near' });
-    await walletDesk.run(c2, 'confirm_transfer', { pin: '1234' });
+    await pinRun(c2, 'confirm_transfer', { pin: '1234' });
     console.log = orig;
     const t2 = logs.join(' ').match(/cancel:([0-9a-f]{32})/g)!.at(-1)!.slice(7);
     assert.match(await onButton('15550000020', `cancel:${t2}`), /Cancelled/);
@@ -729,11 +736,11 @@ await t('security: a spoken PIN never reaches the model or transcript (M4); a pr
   assert.equal(takePin(c.id, 'one three five seven'), true, 'nothing waiting: masked as [PIN] but not kept');
   await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' });
   assert.equal(takePin(c.id, 'two four six eight'), true);
-  const ok: any = await walletDesk.run(c, 'confirm_transfer', { pin: '[PIN]' });
+  const ok: any = await pinRun(c, 'confirm_transfer', { pin: '[PIN]' });
   assert.equal(ok.ok, true, 'the desk uses the PIN it took, the model only passed [PIN]');
   await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' });
   const real = Date.now; Date.now = () => real() + 121_000;
-  try { assert.match(((await walletDesk.run(c, 'confirm_transfer', { pin: '2468' })) as any).reason, /expired/); } finally { Date.now = real; }
+  try { assert.match(((await pinRun(c, 'confirm_transfer', { pin: '2468' })) as any).reason, /expired/); } finally { Date.now = real; }
 });
 await t('security: through the agent, the PIN utterance is stored and sent as [PIN] only (M4)', async () => {
   const { startCall, reply } = await import('../src/agent.ts');
@@ -756,7 +763,7 @@ await t('security: Approve re-checks the wallet and the contract it was asked fo
   const c = startCall('whatsapp', '15550000070', 'wallet').call;
   const logs: string[] = []; const orig = console.log; console.log = (s: string) => logs.push(s);
   await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.3', asset: 'near' });
-  await walletDesk.run(c, 'confirm_transfer', { pin: '2468' });
+  await pinRun(c, 'confirm_transfer', { pin: '2468' });
   console.log = orig;
   const token = logs.join(' ').match(/approve:([0-9a-f]{32})/)![1];
   bindingOf('15550000070')!.contract = 'other.ringfence-wallet.testnet';
@@ -798,7 +805,7 @@ await t('security: hanging up drops the waiting transfer; nothing more is said a
   await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.1', asset: 'near' });
   endCall(c.id);
   assert.equal(takePin(c.id, '2468'), true, 'still masked after the call ended, but not kept for a transfer');
-  assert.match(((await walletDesk.run(c, 'confirm_transfer', { pin: '2468' })) as any).reason, /Nothing to confirm/);
+  assert.match(((await pinRun(c, 'confirm_transfer', { pin: '2468' })) as any).reason, /Nothing to confirm/);
   env.mockLlm = true;
   try {
     const d = startCall('web').call;
@@ -806,7 +813,7 @@ await t('security: hanging up drops the waiting transfer; nothing more is said a
     await reply(d.id, 'bye');
     assert.ok(d.endedAt, 'end_call ends the call');
     assert.equal(await reply(d.id, 'hello?'), '', 'no reply after hanging up');
-    assert.equal(((await walletDesk.run(d, 'confirm_transfer', { pin: '1234' })) as any).ok, false, 'end_call dropped the waiting transfer');
+    assert.equal(((await pinRun(d, 'confirm_transfer', { pin: '1234' })) as any).ok, false, 'end_call dropped the waiting transfer');
     assert.equal(await reply(startCall('web').call.id, 'hmm'), '', 'filler: empty reply (WhatsApp skips sending it)');
   } finally { env.mockLlm = false; }
 });
@@ -882,7 +889,7 @@ await t('demo wallet: a visitor\'s money packet is capped (0.02 NEAR, one hour, 
     const p: any = await walletDesk.run(c, 'prepare_packet', { amount, count: 2, words: 'trick or treat' });
     if (!p.ok) return p;
     takePin(c.id, pin);
-    return { ...(await walletDesk.run(c, 'confirm_transfer', { pin: '[PIN]' }) as any), read_back: p.read_back };
+    return { ...(await pinRun(c, 'confirm_transfer', { pin: '[PIN]' }) as any), read_back: p.read_back };
   };
   try {
     assert.equal((await make(undefined, '4821', '0.5')).reason, 'On this shared demo wallet a money packet can hold at most 0.02 NEAR, and it expires after 60 minutes, then what is left goes back. Try 0.02 NEAR for 3 people.');
@@ -1332,7 +1339,7 @@ await t('live panel: a failed Approve card shows on the panel; a tap there runs 
     const c = startCall('whatsapp', phone, 'wallet').call;
     const code = startLive(c.id, phone);
     await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.3', asset: 'near' });
-    const r: any = await walletDesk.run(c, 'confirm_transfer', { pin: '4321' });
+    const r: any = await pinRun(c, 'confirm_transfer', { pin: '4321' });
     assert.equal(r.ok, true); assert.equal(r.livePanel, true);
     const d = code.split('').join(', ');
     assert.equal(r.live_code_say, `I can't text you right now. Open ringfence dot evalengine dot ai slash live and enter code ${d}. Again, the code is ${d}.`);

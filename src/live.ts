@@ -93,7 +93,8 @@ let wrongAll = { at: 0, n: 0 };
 export const ipOf = (req: IncomingMessage) => {
   const a = req.socket.remoteAddress ?? '';
   // Behind the local reverse proxy the socket is loopback: then the proxy's forwarded address is the caller.
-  return /^(::1|127\.|::ffff:127\.)/.test(a) ? String(req.headers['x-forwarded-for'] ?? a).split(',')[0].trim() : a;
+  // The proxy appends the real peer; anything to its left was sent by the client and is not trusted.
+  return /^(::1|127\.|::ffff:127\.)/.test(a) ? (String(req.headers['x-forwarded-for'] ?? a).split(',').at(-1) ?? a).trim() : a;
 };
 function bucket(ip: string, now: number) {
   let b = hits.get(ip);
@@ -118,9 +119,11 @@ export async function handleLive(req: IncomingMessage, res: ServerResponse, onTa
   if (!m) return false;
   const now = Date.now(), b = bucket(ipOf(req), now);
   if (now - wrongAll.at > WINDOW) wrongAll = { at: now, n: 0 };
-  if (++b.n > LIMIT || b.wrong >= WRONG || wrongAll.n >= WRONG_ALL) { json(res, 429, { error: 'Too many tries. Wait a minute.' }); return true; }
   const code = m[1];
   const found = /^\d{6}$/.test(code) ? liveView(code, now) : null;
+  // A locked IP gets nothing (or a hit would still be served to a brute-forcer); the global cap only stops guesses,
+  // so other people's guessing can never lock a real caller out of their own panel.
+  if (++b.n > LIMIT || b.wrong >= WRONG || (!found && wrongAll.n >= WRONG_ALL)) { json(res, 429, { error: 'Too many tries. Wait a minute.' }); return true; }
   if (m[2]) {
     if (req.method !== 'POST') { json(res, 405, { error: 'POST only' }); return true; }
     if (req.headers.origin !== new URL(env.publicUrl).origin) { json(res, 403, { error: 'Forbidden' }); return true; }

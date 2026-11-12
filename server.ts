@@ -60,7 +60,7 @@ if (dev) {
 
 // Owner-only pages and data sit behind HTTP basic auth when DASHBOARD_PASSWORD is set.
 function ownerOnly(req: IncomingMessage) {
-  if (!env.dashboardPassword) return true;
+  if (!env.dashboardPassword) return env.network !== 'mainnet'; // fail closed on mainnet without a password
   const [, b64] = (req.headers.authorization ?? '').split(' ');
   return Buffer.from(b64 ?? '', 'base64').toString().split(':')[1] === env.dashboardPassword;
 }
@@ -75,8 +75,11 @@ server.on('request', async (req, res) => {
   if (/^\/(llm|llms-full)\.txt$/.test(req.url ?? '')) { res.writeHead(301, { location: '/llms.txt' }).end(); return; }
   if (req.url === "/robot.txt") { res.writeHead(301, { location: "/robots.txt" }).end(); return; }
   if ((req.url ?? '').startsWith('/api/live/') && await handleLive(req, res, onButton).catch((e) => { console.error('live', e.message); if (!res.headersSent) res.writeHead(500).end(); return true; })) return;
-  const p = (req.url ?? '/').split('?')[0];
-  if ((p === '/dashboard' || p === '/api/state') && !ownerOnly(req)) return res.writeHead(401, { 'www-authenticate': 'Basic realm="owner"' }).end();
+  // Normalized: the app router matches case-insensitively and ignores a trailing slash, so must this gate.
+  let p = (req.url ?? '/').split('?')[0];
+  try { p = decodeURIComponent(p); } catch {}
+  p = p.toLowerCase().replace(/\/{2,}/g, '/').replace(/\/+$/, '') || '/';
+  if ((p === '/dashboard' || p === '/api/state' || p.startsWith('/dashboard/') || p.startsWith('/api/state/')) && !ownerOnly(req)) return res.writeHead(401, { 'www-authenticate': 'Basic realm="owner"' }).end();
   app(req, res);
 });
 // A failed send to WhatsApp (Meta refusing a message) must never take the whole line down.

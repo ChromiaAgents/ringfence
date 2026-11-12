@@ -46,7 +46,7 @@ Node 22 or newer. A fresh clone has no `.env`, so every send is a labelled dry r
 | 3 | `npm run demo:check` | 19 lines that start with `PASS`, then `all steps passed` | no | 15 s |
 | 4 | `npm run attack` | `5 of 5 attacks blocked` | no | 2 s |
 | 5 | `npm run verify:contracts` | 3 blocks that start with `ok` | yes | 10 s |
-| 6 | `npm run verify:evidence` | `16 of 16 transactions match` | yes | 5 s |
+| 6 | `npm run verify:evidence` | `18 of 18 transactions match` | yes | 5 s |
 | 7 | `npm run attest` | `3/3 models fully verified`, then one line of links | yes | 10 s |
 | 8 | `npm run live:check` | `5 of 5 checks passed` | yes | 30 to 90 s |
 | 9 | `npm run topup:quote -- 10 SOL` | `}` closing a JSON quote with `"dry": true`, `send`, `receive` (USDC) and `minutes` | yes | 5 s |
@@ -58,7 +58,7 @@ What each one does:
 - `npm run demo:check`: builds the site, starts a local server with a scripted model, and walks 19 steps over the call socket. They include a send with a PIN (dry run), the Approve tier, a money packet funded by voice, two callers opening shares, and a third caller finding it empty.
 - `npm run attack`: replays 5 attack lines in process. The model is replaced by a script that obeys the attacker. The tools, the PIN check and the limits are the real code. It ends with a control send that goes through, to show the check can see a send. It does not reach the wait for a new recipient, because without keys the server cannot read a wallet's saved recipients. That rule is tested in the contract.
 - `npm run verify:contracts`: hashes the three files in `contracts/release/` and compares them with the code hashes on mainnet.
-- `npm run verify:evidence`: reads the 16 transactions in [Mainnet evidence](#mainnet-evidence) from a public archival RPC and prints signer, receiver, method and result for each. One of them is expected to fail on chain: `GmPzx6Ug...`, with `over the per-transfer limit`.
+- `npm run verify:evidence`: reads the 18 transactions in [Mainnet evidence](#mainnet-evidence) from a public archival RPC and prints signer, receiver, method and result for each. One of them is expected to fail on chain: `GmPzx6Ug...`, with `over the per-transfer limit`.
 - `npm run attest`: fetches the attestation of the three NEAR AI Cloud models and checks it. See [TEE attestation](#tee-attestation).
 - `npm run topup:quote -- <usd> <token>`: asks NEAR Intents 1Click for a dry quote (no deposit address) to top up the demo wallet in USDC from SOL, ETH, BTC or another listed token. It first prints whether the recipient is registered on the USDC contract (the demo wallet is, since 12 Nov 2026). Add `--live <refund address>` for a real deposit address; `--status <deposit address>` checks a swap.
 - `npm run dao:wallet -- <dao> <phone>`: prints the Sputnik DAO proposals that make a phone wallet owned by that DAO, and the later owner proposals. It needs the server's `WALLET_SECRET` to compute the phone hash, never prints it, and sends nothing. See [docs/dao-wallet.md](docs/dao-wallet.md).
@@ -250,11 +250,12 @@ Every row is a transaction on NEAR mainnet. Machine check, no key, about 5 secon
 | 14 | The council approves proposal 0 and the DAO funds the packet. `get_packet("family-1")` shows the DAO as creator and a `total` of 0.04427 NEAR after storage | [`EAL2uMt6...`](https://nearblocks.io/txns/EAL2uMt6dheQ6upUqstRu3UgoMbRixbbE4Nj1ntytgCW) |
 | 15 | A share of the DAO packet opened on a live browser call by saying the words: `claim` pays `liho00.near` 0.01662 NEAR | [`71C9Ve2z...`](https://nearblocks.io/txns/71C9Ve2z7arjaJxAeZMHH6dDxpUE5cpMxafP2yUAYPw3) |
 | 16 | A top up asked for on a WhatsApp call: 1.000945 USDT sent on Solana, swapped by NEAR Intents 1Click, 0.999618 USDC lands in the caller's phone wallet `0ffc41d0982d.ringfence-wallet.near`. [Every step on the NEAR Intents explorer](https://explorer.near-intents.org/transactions/6sea7mLtDou7VopLaqdXbSuhGRKntp6GrEK64doCwcai) | [`8kCunWQQ...`](https://nearblocks.io/txns/8kCunWQQuvp1EpKUgDrcTgqp3AVS5vtN323v7jV316AF) |
+| 17 | A voice send from a user-owned, named phone wallet: on a WhatsApp call, "send 0.1 NEAR to liho00.near" plus the PIN. `liho00.near` is a new recipient, so the contract holds it (`transfer_near` → pending) | [`2mvYorac...`](https://nearblocks.io/txns/2mvYoracrLfSbVae35NRWirQkNWo9nBy1ytu3vbT8MU4) |
+| 18 | 60 seconds later the held 0.1 NEAR goes out of `liho.ringfence-wallet.near` (`execute`); the owner could have cancelled it until then | [`3HWK1vG1...`](https://nearblocks.io/txns/3HWK1vG1tqh9AW4bSQGXSyHMRy6eqS57rVJMKTVHUCEq) |
 
 Not in this table, so not shown on mainnet:
 
 - **USDC sends are tested in the sandbox only.** The wallet contract has USDC limits and `transfer_ft`, covered by contract tests with a mock token. No USDC has been sent on mainnet yet. The demo wallet is registered on the USDC contract since 12 Nov 2026.
-- A transfer from a wallet bound to a user's own NEAR account. Binding is live at `/wallet/bind` and one such wallet exists (`0ffc41d0982d.ringfence-wallet.near`, row 16), but no send from it is in this table yet.
 - A wallet owned by a DAO, and a campaign packet with the brand fee.
 
 The [film](https://ringfence.evalengine.ai/ringfence-film.mp4) (85 s) shows transactions 7, 8 and 11 on screen. Its call scenes are acted. The scam call in it is a re-enactment: transaction 8 was our own 5 NEAR test to `liho00.near`.

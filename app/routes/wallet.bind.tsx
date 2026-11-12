@@ -86,7 +86,7 @@ function Bind() {
       if (nameState !== 'off' && n && nameState !== 'free') { w.setErr('Pick a free wallet name, or leave it empty.'); return; }
       const args = { ...tx.args, ...(nameState === 'free' && n ? { name: n } : {}), near_limit: { per_tx: y(lim.nearPerTx), per_day: y(lim.nearPerDay) }, new_recipient_delay_sec: Number(lim.delaySec) };
       const h = await w.send(tx.receiverId, (ac) => [ac.functionCall(tx.method, args, 100_000_000_000_000n, BigInt(tx.deposit))]);
-      if (h) { setHash(h); setTimeout(() => document.getElementById('step-done')?.scrollIntoView({ behavior: 'smooth' }), 50); const wa = await walletOf(tx.args.phone_hash); setWallet(wa); fetch('/api/wallet/bound', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone, wallet: wa }) }).catch(() => {}); }
+      if (h) { setHash(h); setTimeout(() => document.getElementById('step-done')?.scrollIntoView({ behavior: 'smooth' }), 50); const wa = await walletOf(tx.args.phone_hash); setWallet(wa); fetch('/api/wallet/bound', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone, proof }) }).catch(() => {}); }
     } catch (e: any) { w.setErr(e?.message ?? String(e)); } finally { setBusy(false); }
   }
   // The address comes from the factory after signing, never from a guess shown before (a guess could be someone else's).

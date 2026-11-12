@@ -11,7 +11,7 @@ The commands, in order. None needs a key or signs anything (`dao:wallet` needs `
 | `npm run demo:check` | no | 15 s | `all steps passed` |
 | `npm run verify:contracts` | yes | 10 s | 3 blocks, each starting with `ok` |
 | `npm run attest` | yes | 10 s | `3/3 models fully verified`, then one line of links |
-| `npm run verify:evidence` | yes | 5 s | `16 of 16 transactions match` |
+| `npm run verify:evidence` | yes | 5 s | `18 of 18 transactions match` |
 | `npm run attack` | no | 2 s | `5 of 5 attacks blocked` |
 | `npm run live:check` | yes | 30 to 90 s | `5 of 5 checks passed` |
 | `npm run topup:quote -- 10 SOL` | yes | 5 s | `}` closing a JSON quote with `"dry": true` (first line: the demo wallet is NOT registered with USDC) |

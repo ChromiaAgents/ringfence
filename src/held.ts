@@ -32,7 +32,8 @@ export async function runDue(now = Date.now(), d = { run: runQueued, allow: save
     }
     drop(h);
     log({ kind: 'wallet', desk: 'wallet', callId: h.callId, detail: `${h.what} from ${h.contract}, after the new-recipient wait: ${r.url}` });
-    const saved = await d.allow(b, h.to).then(() => true, () => false);
+    // Only a custodial wallet's owner key is ours; an owner-bound wallet saves recipients from its own account.
+    const saved = b.custodial ? await d.allow(b, h.to).then(() => true, () => false) : false;
     notify(h.phone, `Sent: ${h.what}. ${r.url}${saved ? `\n${h.to} is now a saved recipient, so next time it goes at once.` : ''}`);
   }
 }
