@@ -1,3 +1,4 @@
+import { webDemo } from './wallet.ts';
 // Top up from any chain through NEAR Intents 1Click: the caller pays a token on any chain and USDC lands in their
 // phone wallet on NEAR. Dry quotes unless TOPUP_LIVE=1 and the caller gives a refund address. On the shared demo
 // wallet the agent first says plainly that the funds top up the shared demo wallet, not theirs.
@@ -17,7 +18,7 @@ const TOOL = { type: 'function', function: { name: 'topup_quote', description: '
 
 /** The wallet a top up lands in, and whether it is the shared demo wallet. */
 function target(call: Call) {
-  const demo = call.channel === 'web' && !call.from && !!env.demoPhone;
+  const demo = webDemo(call);
   const b = demo ? bindingOf(env.demoPhone) : bindingOf(call.from);
   return b ? { account: b.contract, demo } : null;
 }
