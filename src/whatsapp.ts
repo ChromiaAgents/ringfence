@@ -283,9 +283,12 @@ function callAudio(out: MediaStreamTrack, pt: number) {
     busy: () => queue.length > 0,
     close() { if (closed) return; closed = true; queue = []; clearInterval(timer); dec.delete(); enc.delete(); },
   };
+  // Keep the media flowing while the agent is quiet: with no packets at all, WhatsApp drops the call after about
+  // ten seconds (seen when a caller left to sign in their wallet). One encoded frame of silence, reused.
+  const silence = enc.encode(Buffer.alloc(960 * 2), 960);
   const timer = setInterval(() => {
-    const p = queue.shift();
-    if (!p) return;
+    if (closed) return;
+    const p = queue.shift() ?? silence;
     seq = (seq + 1) & 0xffff; ts = (ts + 960) >>> 0;
     out.writeRtp(new RtpPacket(new RtpHeader({ payloadType: pt, sequenceNumber: seq, timestamp: ts, marker: false }), p));
   }, 20);

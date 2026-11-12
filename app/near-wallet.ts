@@ -22,10 +22,18 @@ export function useNearWallet(description: string, network: 'mainnet' | 'testnet
   }, [network]);
   /** Signs and sends one transaction from the connected account; returns its hash. */
   async function send(receiverId: string, actions: (ac: any) => unknown[]) {
-    const { actionCreators } = await import('@near-wallet-selector/core');
+    const actionCreators = await browserActions();
     const wallet = await ws.current.selector.wallet();
     const out = await wallet.signAndSendTransaction({ signerId: account, receiverId, actions: actions(actionCreators) });
     return (out?.transaction?.hash ?? out?.transaction_outcome?.id) as string | undefined;
   }
   return { account, err, setErr, connect: () => ws.current.modal?.show(), send };
+}
+
+/** The wallet library encodes function-call args with Node's Buffer, which browsers don't have ("Buffer is not
+ *  defined"). Hand it bytes instead: it passes a Uint8Array through untouched. */
+export async function browserActions() {
+  const { actionCreators } = await import('@near-wallet-selector/core');
+  const bytes = (args: unknown) => (args instanceof Uint8Array ? args : new TextEncoder().encode(JSON.stringify(args ?? {})));
+  return { ...actionCreators, functionCall: (method: string, args: unknown, gas?: bigint, deposit?: bigint) => actionCreators.functionCall(method, bytes(args), gas, deposit) };
 }

@@ -1361,4 +1361,16 @@ await t('WhatsApp access requests: phone numbers are cleaned and checked', async
   assert.equal(cleanPhone('12345'), null);
   assert.equal(cleanPhone('call me maybe'), null);
 });
+await t('browser signing: function-call args are passed as bytes, so the wallet library never needs Buffer', async () => {
+  const real = (globalThis as any).Buffer;
+  const { browserActions } = await import('../app/near-wallet.ts');
+  const ac: any = await browserActions();
+  (globalThis as any).Buffer = undefined; // as in a browser
+  try {
+    const a = ac.functionCall('launch_meme', { args: { name: 'X', symbol: 'X' } }, 1n, 2n);
+    const bytes = a.functionCall.args;
+    assert.ok(bytes instanceof Uint8Array);
+    assert.deepEqual(JSON.parse(new TextDecoder().decode(bytes)), { args: { name: 'X', symbol: 'X' } });
+  } finally { (globalThis as any).Buffer = real; }
+});
 process.once("beforeExit", () => console.log(`${n} passed`));

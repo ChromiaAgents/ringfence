@@ -1,3 +1,4 @@
+import { browserActions } from '../near-wallet';
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useRef, useState } from 'react';
@@ -85,7 +86,7 @@ function LaunchPage() {
     if (!tx || !account) return;
     setErr(''); setBusy(true);
     try {
-      const { actionCreators } = await import('@near-wallet-selector/core');
+      const actionCreators = await browserActions();
       const wallet = await ws.current.selector.wallet();
       const out = await wallet.signAndSendTransaction({
         signerId: account,
