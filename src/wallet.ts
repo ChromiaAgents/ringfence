@@ -191,7 +191,7 @@ export async function walletState(b: Binding): Promise<WalletState> {
 
 const account = (id: string, key: string) => new Account(id, new JsonRpcProvider({ url: net(env.network).rpc }), key as KeyPairString);
 const agent = () => account(env.agentAccountId, env.agentKey);
-const custody = () => account(env.custodyAccountId, env.custodyKey);
+export const custody = () => account(env.custodyAccountId, env.custodyKey);
 /** A cross-contract step that failed after our call returned (ft_transfer with too little balance, a transfer to an
  *  account that doesn't exist): the transaction itself still reports success, so the receipts are read here. */
 export function receiptFailure(out: any): string | null {
