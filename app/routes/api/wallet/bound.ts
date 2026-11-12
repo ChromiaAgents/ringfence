@@ -11,9 +11,9 @@ export const Route = createFileRoute('/api/wallet/bound')({
         const b = await request.json().catch(() => ({}));
         const phone = digits(b.phone);
         const w = bindingOf(phone);
-        const wallet = /^[0-9a-f]{12}\.[a-z0-9.-]+$/.test(String(b.wallet ?? '')) ? String(b.wallet) : null;
+        const wallet = /^[a-z0-9_-]{2,64}\.[a-z0-9.-]+$/.test(String(b.wallet ?? '')) ? String(b.wallet) : null;
         if (!w) return json({ error: 'No binding for that number.' }, 404);
-        const said = sayOnCall(phone, `Your wallet is ready${wallet ? `: ${wallet.split('.')[0].split('').slice(0, 4).join(' ')}, and so on` : ''}. Fund it with a little NEAR, then tell me what to send.`,
+        const said = sayOnCall(phone, `Your wallet is ready${wallet && !/^[0-9a-f]{12,}$/.test(wallet.split('.')[0]) ? `: ${wallet.split('.')[0]} dot ringfence-wallet dot near` : ''}. Fund it with a little NEAR, then tell me what to send.`,
           `The caller's own phone wallet is now created${wallet ? ` (${wallet})` : ''} and bound to this number with their PIN. From now on sends, packets and top-ups use it, not the demo wallet.`);
         return json({ ok: true, said });
       },

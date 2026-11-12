@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import walletCss from '../styles/wallet-modal.css?url';
 import { Makers, SiteFooter, Wordmark, TopBar } from '../ui';
 import { useNearWallet } from '../near-wallet';
@@ -36,6 +36,27 @@ function Bind() {
   const [tx, setTx] = useState<Tx | null>(null);
   const [hash, setHash] = useState('');
   const [funded, setFunded] = useState('');
+  // A wallet name: mum.ringfence-wallet.near instead of a hash. Checked live against the factory; the field only
+  // shows once the factory has name support (name_free answers).
+  const [name, setName] = useState('');
+  const [nameState, setNameState] = useState<'off' | 'idle' | 'free' | 'taken' | 'bad'>('idle');
+  useEffect(() => {
+    const n = name.trim().toLowerCase();
+    if (!n) { setNameState((s) => (s === 'off' ? 'off' : 'idle')); return; }
+    const t = setTimeout(async () => {
+      const r = await fetch(cfg.rpc, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'query',
+        params: { request_type: 'call_function', finality: 'final', account_id: cfg.factory, method_name: 'name_free', args_base64: btoa(JSON.stringify({ name: n })) } }) }).then((x) => x.json()).catch(() => null);
+      const bytes = r?.result?.result;
+      if (!bytes) return setNameState('off');
+      setNameState(JSON.parse(String.fromCharCode(...bytes)) ? 'free' : /^[a-z0-9]+([-_][a-z0-9]+)*$/.test(n) && n.length >= 2 && n.length <= 32 ? 'taken' : 'bad');
+    }, 350);
+    return () => clearTimeout(t);
+  }, [name]);
+  useEffect(() => { // does this factory support names at all?
+    fetch(cfg.rpc, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'query',
+      params: { request_type: 'call_function', finality: 'final', account_id: cfg.factory, method_name: 'name_free', args_base64: btoa('{"name":"zz"}') } }) })
+      .then((x) => x.json()).then((r) => { if (!r?.result?.result) setNameState('off'); }).catch(() => setNameState('off'));
+  }, []);
   const [wallet, setWallet] = useState('');
   const [busy, setBusy] = useState(false);
   const post = async (url: string, body: object) => {
@@ -52,7 +73,9 @@ function Bind() {
       const { parseNearAmount } = await import('near-api-js');
       const y = (n: string) => parseNearAmount(n as `${number}`)!;
       // The limits as edited here; the contract takes them at create and only the owner can change them later.
-      const args = { ...tx.args, near_limit: { per_tx: y(lim.nearPerTx), per_day: y(lim.nearPerDay) }, new_recipient_delay_sec: Number(lim.delaySec) };
+      const n = name.trim().toLowerCase();
+      if (nameState !== 'off' && n && nameState !== 'free') { w.setErr('Pick a free wallet name, or leave it empty.'); return; }
+      const args = { ...tx.args, ...(nameState === 'free' && n ? { name: n } : {}), near_limit: { per_tx: y(lim.nearPerTx), per_day: y(lim.nearPerDay) }, new_recipient_delay_sec: Number(lim.delaySec) };
       const h = await w.send(tx.receiverId, (ac) => [ac.functionCall(tx.method, args, 100_000_000_000_000n, BigInt(tx.deposit))]);
       if (h) { setHash(h); setTimeout(() => document.getElementById('step-done')?.scrollIntoView({ behavior: 'smooth' }), 50); const wa = await walletOf(tx.args.phone_hash); setWallet(wa); fetch('/api/wallet/bound', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone, wallet: wa }) }).catch(() => {}); }
     } catch (e: any) { w.setErr(e?.message ?? String(e)); } finally { setBusy(false); }
@@ -135,7 +158,13 @@ function Bind() {
         <section className="card" id="step-sign">
           <h2>{proof && !guardian ? '3' : '4'}. Sign: create the phone wallet</h2>
           <div className="rows">
-            <div className="row"><span>New wallet account</span><b>shown after you sign</b></div>
+            {nameState !== 'off' ? (
+              <div style={{ margin: '4px 0 16px' }}>
+                <label className="field-label" htmlFor="wn">Wallet name (easy to remember)</label>
+                <div className="name-field"><input id="wn" className="control" value={name} onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))} placeholder="mum" maxLength={32} autoComplete="off" /><span>.{cfg.factory}</span></div>
+                <p className="muted small">{nameState === 'free' ? `✓ ${name}.${cfg.factory} is free` : nameState === 'taken' ? 'Taken. Try another.' : nameState === 'bad' ? '2 to 32 of a-z, 0-9, single - or _ inside.' : 'Optional. Leave empty for a random one.'}</p>
+              </div>
+            ) : <div className="row"><span>New wallet account</span><b>shown after you sign</b></div>}
             <div className="row"><span>Created by</span><b className="mono">{tx.receiverId}</b></div>
             <div className="row"><span>Attach (storage; any excess is refunded)</span><b>0.013 NEAR</b></div>
             <div className="row"><span>Owner: full control, withdraw any time</span><b className="mono">{tx.args.owner}</b></div>

@@ -72,7 +72,8 @@ impl Factory {
     /// under the server's secret, so only the server (after a WhatsApp code) can hand out the right one.
     #[payable]
     pub fn create_wallet(&mut self, phone_hash: String, owner: AccountId, agent: Option<AccountId>, near_limit: Option<Limit>,
-                         new_recipient_delay_sec: Option<u64>, recipients: Option<Vec<String>>, custodial: Option<bool>) -> Promise {
+                         new_recipient_delay_sec: Option<u64>, recipients: Option<Vec<String>>, custodial: Option<bool>,
+                         name: Option<String>) -> Promise {
         let code_hash = self.code_hash.unwrap_or_else(|| env::panic_str("no wallet code uploaded yet"));
         require!(phone_hash.len() == 64 && phone_hash.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c)),
             "phone_hash must be 64 lowercase hex chars");
@@ -83,9 +84,19 @@ impl Factory {
         let deposit = env::attached_deposit();
         require!(deposit >= Self::min_deposit(), "attach at least min_deposit() (0.013 NEAR)");
 
-        let mut n = 12;
-        while self.ids.contains_key(&phone_hash[..n]) { n += 4; } // never reaches 64: the full hash is unique
-        let id = phone_hash[..n].to_string();
+        // A chosen name (mum.ringfence-wallet.near) or, without one, a prefix of the phone hash.
+        let id = match name {
+            Some(n) => {
+                require!(name_ok(&n), "name: 2 to 32 of a-z 0-9, single - or _ inside");
+                require!(!self.ids.contains_key(&n), "that name is taken");
+                n
+            }
+            None => {
+                let mut n = 12;
+                while self.ids.contains_key(&phone_hash[..n]) { n += 4; } // never reaches 64: the full hash is unique
+                phone_hash[..n].to_string()
+            }
+        };
         let account: AccountId = [&id, ".", env::current_account_id().as_str()].concat().parse().unwrap();
         self.ids.insert(&id, &());
         self.wallets.insert(&phone_hash, &account);
@@ -121,13 +132,35 @@ impl Factory {
         self.agent = agent;
     }
 
+    /// Owner only: forget which wallet a number uses, so its owner can create a new (named) one. The old wallet account
+    /// stays as it is, with its owner and funds; its name stays taken.
+    #[payable]
+    pub fn forget_number(&mut self, phone_hash: String) {
+        near_sdk::assert_one_yocto();
+        require!(env::predecessor_account_id() == self.owner, "only the owner");
+        self.wallets.remove(&phone_hash);
+    }
+
     // ---- view ----
+
+    pub fn name_free(&self, name: String) -> bool { name_ok(&name) && !self.ids.contains_key(&name) }
 
     pub fn min_deposit() -> NearToken { WALLET_STORAGE.saturating_add(FACTORY_STORAGE) }
     pub fn get_wallet(&self, phone_hash: String) -> Option<AccountId> { self.wallets.get(&phone_hash) }
     pub fn get_config(&self) -> (AccountId, AccountId, Option<Base58CryptoHash>) {
         (self.owner.clone(), self.agent.clone(), self.code_hash.map(Into::into))
     }
+}
+
+/// A wallet name: 2..=32 of a-z 0-9 with single - or _ between them (a valid NEAR account part). Names that look like
+/// a phone-hash id (12+ hex characters) are refused, so a name can never take a number's derived id.
+fn name_ok(n: &str) -> bool {
+    let b = n.as_bytes();
+    let part = |c: u8| c.is_ascii_lowercase() || c.is_ascii_digit();
+    (2..=32).contains(&b.len()) && part(b[0]) && part(b[b.len() - 1])
+        && b.windows(2).all(|w| part(w[0]) || part(w[1]))
+        && b.iter().all(|&c| part(c) || c == b'-' || c == b'_')
+        && !(b.len() >= 12 && b.iter().all(|c| c.is_ascii_hexdigit()))
 }
 
 /// Owner only. Input is the raw phone-wallet wasm (near-cli-rs: `file-args phone_wallet.wasm`). Publishes it as a
@@ -163,7 +196,7 @@ mod tests {
         f.code_hash = Some([7; 32]);
         f
     }
-    fn create(f: &mut Factory, h: &str) { let _ = f.create_wallet(h.into(), accounts(3), None, None, None, None, None); }
+    fn create(f: &mut Factory, h: &str) { let _ = f.create_wallet(h.into(), accounts(3), None, None, None, None, None, None); }
 
     #[test]
     fn derives_short_id_and_refuses_duplicate_number() {
@@ -186,7 +219,7 @@ mod tests {
         let mut f = factory();
         testing_env!(VMContextBuilder::new().current_account_id("ringfence-wallet.near".parse().unwrap())
             .predecessor_account_id("a".repeat(64).parse().unwrap()).attached_deposit(NearToken::from_near(1)).build());
-        let _ = f.create_wallet(H.into(), "a".repeat(64).parse().unwrap(), None, None, None, None, None);
+        let _ = f.create_wallet(H.into(), "a".repeat(64).parse().unwrap(), None, None, None, None, None, None);
         assert!(f.get_wallet(H.into()).is_some());
     }
     #[test]
@@ -197,7 +230,7 @@ mod tests {
     fn bad_phone_hash() { let mut f = factory(); ctx(3, NearToken::from_near(1)); create(&mut f, "+15551234"); }
     #[test]
     #[should_panic(expected = "the agent can't be the owner")]
-    fn agent_never_owner() { let mut f = factory(); ctx(3, NearToken::from_near(1)); ctx(1, NearToken::from_near(1)); let _ = f.create_wallet(H.into(), accounts(1), None, None, None, None, None); }
+    fn agent_never_owner() { let mut f = factory(); ctx(3, NearToken::from_near(1)); ctx(1, NearToken::from_near(1)); let _ = f.create_wallet(H.into(), accounts(1), None, None, None, None, None, None); }
     #[test]
     #[should_panic(expected = "no wallet code uploaded")]
     fn needs_code() { ctx(0, NearToken::from_near(1)); let mut f = Factory::new(accounts(0), accounts(1)); create(&mut f, H); }
@@ -206,5 +239,35 @@ mod tests {
     fn only_owner_sets_agent() { let mut f = factory(); ctx(3, NearToken::from_yoctonear(1)); f.set_agent(accounts(3)); }
     #[test]
     #[should_panic(expected = "the caller must be the owner")]
-    fn cant_create_for_someone_else() { let mut f = factory(); ctx(3, NearToken::from_near(1)); let _ = f.create_wallet(H.into(), accounts(4), None, None, None, None, None); }
+    fn cant_create_for_someone_else() { let mut f = factory(); ctx(3, NearToken::from_near(1)); let _ = f.create_wallet(H.into(), accounts(4), None, None, None, None, None, None); }
+    fn named(f: &mut Factory, h: &str, n: &str) { let _ = f.create_wallet(h.into(), accounts(3), None, None, None, None, None, Some(n.into())); }
+    #[test]
+    fn named_wallet() {
+        let mut f = factory();
+        ctx(3, NearToken::from_near(1)); named(&mut f, H, "mum");
+        assert_eq!(f.get_wallet(H.into()).unwrap().as_str(), "mum.ringfence-wallet.near");
+        assert!(!f.name_free("mum".into()));
+        assert!(f.name_free("liho-wallet".into()));
+        assert!(!f.name_free("abcdef012345".into()), "hex-looking names are reserved");
+        assert!(!f.name_free("-x".into()) && !f.name_free("a".into()) && !f.name_free("Mum".into()) && !f.name_free("a--b".into()));
+    }
+    #[test]
+    #[should_panic(expected = "that name is taken")]
+    fn name_taken() {
+        let mut f = factory();
+        let other = format!("{}{}", "1".repeat(12), "0".repeat(52));
+        ctx(3, NearToken::from_near(1)); named(&mut f, H, "mum"); named(&mut f, &other, "mum");
+    }
+    #[test]
+    fn forget_number_lets_owner_make_a_named_wallet() {
+        let mut f = factory();
+        ctx(3, NearToken::from_near(1)); create(&mut f, H);
+        ctx(0, NearToken::from_yoctonear(1)); f.forget_number(H.into());
+        assert!(f.get_wallet(H.into()).is_none());
+        ctx(3, NearToken::from_near(1)); named(&mut f, H, "liho");
+        assert_eq!(f.get_wallet(H.into()).unwrap().as_str(), "liho.ringfence-wallet.near");
+    }
+    #[test]
+    #[should_panic(expected = "only the owner")]
+    fn forget_number_owner_only() { let mut f = factory(); ctx(3, NearToken::from_yoctonear(1)); f.forget_number(H.into()); }
 }
