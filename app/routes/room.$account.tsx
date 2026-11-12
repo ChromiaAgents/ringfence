@@ -146,6 +146,7 @@ function Room() {
               <p>Tap to open a share</p>
             </a>
           )}
+          <p className="lr-howto">{call.live ? <>🎙 She is listening: “send a 0.01 NEAR gift to {account}”, “open the money packet”, “top up 1 dollar of USDT”… <b>PIN 4821</b></> : <>She <b>is</b> the Ringfence agent. Tap 🎙 to talk, or WhatsApp-call +1 555-144-4220: same agent.</>}</p>
           {!sound && <button type="button" className="lr-sound" onClick={() => { host.current?.unlock(); setSound(true); soundRef.current = true; lastTalk.current = 0; }}>🔊 Tap to hear the host</button>}
           <div className="lr-pops" aria-live="polite">
             {pop.map((g) => (
@@ -180,7 +181,7 @@ function Room() {
             setChatText('');
           }}>
             <input value={chatText} onChange={(e) => setChatText(e.target.value)} placeholder={call.live ? 'Type to the agent…' : 'Say something…'} maxLength={120} aria-label="Chat" />
-            <button type="button" className="ico" onClick={() => setChatText((t) => `${t}😊`)} aria-label="Emoji">😊</button>
+            <button type="button" className={`ico mic ${call.live ? 'on' : ''}`} onClick={() => { host.current?.unlock(); call.live ? call.stop() : call.start(); }} aria-label={call.live ? 'Hang up' : 'Talk to her'}>{call.live ? '⏹' : '🎙'}</button>
             <button type="button" className="ico" onClick={() => { const g = GIFTS[0]; setPick(g.name); setConfirm(g); setSheet(true); }} aria-label="Send a heart">💖</button>
             <button type="button" className="ico" onClick={() => setSheet(true)} aria-label="Gifts">🎁</button>
             <button type="button" className="ico share" onClick={() => { const u = location.href; (navigator as any).share ? (navigator as any).share({ title: `${account} is live`, url: u }).catch(() => {}) : navigator.clipboard?.writeText(u); }} aria-label="Share">↗</button>

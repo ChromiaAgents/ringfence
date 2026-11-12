@@ -92,7 +92,12 @@ export function attachVoice(server: Server) {
         const { signal, timing } = line.begin();
         const text = isBinary ? await transcribe(new Uint8Array(data as Buffer)) : String(data);
         timing.sttMs = Date.now() - timing.start!;
-        if (!text || text.length < 2 || isFiller(text)) { timing.totalMs = Date.now() - timing.start!; return; } // stops the keep-alive
+        if (!text || text.length < 2 || isFiller(text)) {
+          timing.totalMs = Date.now() - timing.start!; // stops the keep-alive
+          // Real speech that came back empty (short numbers, like a PIN, sometimes do): say so, never go silent.
+          if (isBinary && (data as Buffer).length > 24_000) { const m = "Sorry, I didn't catch that. Say it again, or type it below."; ws.send(JSON.stringify({ type: 'agent', text: m })); await line.say(m); ws.send(JSON.stringify({ type: 'desk', desk: null })); }
+          return;
+        }
         ws.send(JSON.stringify({ type: 'caller', text }));
         line.ackSoon();
         let hangUp = false;

@@ -955,3 +955,10 @@ html:has(.ov) { color-scheme: normal !important; }
 @keyframes rp-in { from { transform: scale(.6); opacity: 0; } }
 @keyframes rp-spin { to { transform: rotateY(360deg); } }
 @media (prefers-reduced-motion: reduce) { .rp, .rp-open { animation: none !important; } }
+.lr-howto { position: absolute; left: 10px; right: 10px; top: calc(max(10px, env(safe-area-inset-top)) + 96px); margin: 0; padding: 8px 12px; border-radius: 12px; background: rgba(0,0,0,.42); color: #fff; font-size: 13px; line-height: 1.35; z-index: 2; max-width: 300px; }
+.lr-howto b { color: #00ec97; }
+.lr-sound { top: calc(max(10px, env(safe-area-inset-top)) + 150px) !important; }
+.lr-bar .mic { background: #00ec97; font-size: 20px; color: #0c0a08; }
+.lr-bar .mic.on { background: #fe2c55; color: #fff; animation: lr-pulse 1.4s ease-in-out infinite; }
+@keyframes lr-pulse { 50% { box-shadow: 0 0 0 8px rgba(254,44,85,.25); } }
+@media (prefers-reduced-motion: reduce) { .lr-bar .mic.on { animation: none; } }
