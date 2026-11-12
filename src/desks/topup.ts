@@ -9,6 +9,7 @@ import { env } from '../config.ts';
 import { bindingOf } from '../wallet.ts';
 import { quoteTopup, topupLive } from '../fund.ts';
 import { setWalletLink } from './wallet.ts';
+import { newTopup } from '../topupPage.ts';
 
 const TOOL = { type: 'function', function: { name: 'topup_quote', description: 'Quote a top up of the caller\'s phone wallet: they pay a token on another chain (SOL, ETH, BTC and more) and USDC arrives in their wallet on NEAR through NEAR Intents.', parameters: { type: 'object', properties: {
   usd: { type: 'number', description: 'Dollars to top up' }, token: { type: 'string', description: 'What they pay with, for example SOL, ETH, BTC' },
@@ -58,13 +59,19 @@ export async function runTopup(call: Call, args: any) {
     setWalletLink(call.id, { url: `https://1click.chaindefuser.com/v0/status?depositAddress=${encodeURIComponent(q.depositAddress)}`, label: `Send exactly ${q.send} ${q.symbol} on ${q.chain} to ${q.depositAddress}${q.depositMemo ? ` memo ${q.depositMemo}` : ''} (tap to check the swap)` });
     return { ...q, linkSent: true, say: `Live quote: send exactly ${q.send} ${q.symbol} on ${q.chain} to the address on your screen, and about ${q.receive} USDC lands in ${whose}. Refunds go to ${q.refund}. It holds for ${mins} minutes. Only send from your own wallet.` };
   }
-  return { ...q, say: `Send ${q.send} ${q.symbol} on ${q.chain} and about ${q.receive} USDC lands in ${whose}. This is a dry run, nothing moved. ${topupLive() ? 'For a live top up, give me a refund address of yours on that chain.' : 'Live top ups are off on this server.'} The quote holds for ${mins} minutes.` };
+  if (topupLive()) {
+    // A refund address can't be said on a call: the caller pastes it on the top-up page, which shows the deposit address.
+    const id = newTopup({ usd: Number(args?.usd), token: String(args?.token ?? ''), recipient: t.account, demo: t.demo });
+    setWalletLink(call.id, { url: `${env.publicUrl}/topup/${id}`, label: `Top up ${Number(args?.usd)} dollars of ${q.symbol}: paste your refund address, get the deposit address` });
+    return { ...q, dry: undefined, linkSent: true, say: `About ${q.send} ${q.symbol} on ${q.chain} gets you about ${q.receive} USDC in ${whose}. The top-up page is on its way: paste a refund address of yours there and it shows where to send.` };
+  }
+  return { ...q, say: `Send ${q.send} ${q.symbol} on ${q.chain} and about ${q.receive} USDC lands in ${whose}. This is a dry run, nothing moved. Live top ups are off on this server. The quote holds for ${mins} minutes.` };
 }
 
 export const topupDesk: DeskDef = {
   id: 'wallet', // a wallet action; the Desk type has no separate id for it
   greeting: () => '',
-  system: () => 'To top up their wallet from another chain ("top up 10 dollars of SOL"), call topup_quote and say its say field, briefly. Without a deposit address it is a dry run: say so, and that nothing moved. If they give a refund address, call topup_quote again with it for a live quote; never read the deposit address aloud, it is on their screen. On the shared demo wallet say plainly the funds go to the demo wallet, not theirs.',
+  system: () => 'To top up their wallet from another chain ("top up 10 dollars of SOL"), call topup_quote and say its say field, briefly. Without a deposit address it is a dry run: say so, and that nothing moved. When the result has linkSent, the top-up page (link or live panel code) is where they paste a refund address and see the deposit address: never ask them to say an address aloud, never read one aloud. On the shared demo wallet say plainly the funds go to the demo wallet, not theirs. If topup_quote refuses (a minimum amount, an unlisted token), always tell them the exact reason, for example the minimum, and offer a fix: a bigger amount or another chain.',
   tools: [TOOL],
   run: (call, _name, args) => runTopup(call, args),
 };

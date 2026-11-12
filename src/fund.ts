@@ -82,8 +82,12 @@ export const topupLive = () => process.env.TOPUP_LIVE === '1';
 
 /** "SOL", "eth", "btc" or a full assetId. A symbol prefers the coin on its own chain (SOL on Solana), native before tokens. */
 export function pickToken(list: Token[], what: string): Token | null {
-  // "ETH on Base", "USDC on Arbitrum": the token is the first word; the chain is picked by rank below.
-  const w = String(what ?? '').trim().replace(/\s+on\s+[a-z ]+$/i, '');
+  // "ETH on Base", "USDT on Tron": the token is the first word; a spoken chain wins, else the chain is picked by rank below.
+  const said = String(what ?? '').trim();
+  const onChain = said.match(/\s+on\s+([a-z ]+)$/i)?.[1]?.trim().toLowerCase();
+  const w = said.replace(/\s+on\s+[a-z ]+$/i, '');
+  const CHAIN: Record<string, string> = { ethereum: 'eth', eth: 'eth', solana: 'sol', sol: 'sol', tron: 'tron', bitcoin: 'btc', base: 'base', arbitrum: 'arb', arb: 'arb', polygon: 'pol', bnb: 'bsc', bsc: 'bsc', 'binance smart chain': 'bsc', avalanche: 'avax', optimism: 'op', ton: 'ton', near: 'near', gnosis: 'gnosis', sui: 'sui', aptos: 'aptos', stellar: 'stellar' };
+  const want = onChain ? (CHAIN[onChain] ?? onChain) : undefined;
   if (w.includes(':')) return list.find((t) => t.assetId === w) ?? null;
   // Spoken or misheard names: "WNEO" is wNEAR, "salt" or "Seoul" is SOL, "Zach" is ZEC: the shared glossary in terms.ts.
   const key = w.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -96,7 +100,7 @@ export function pickToken(list: Token[], what: string): Token | null {
   }
   const hits = list.filter((t) => t.symbol.toUpperCase() === sym);
   const home: Record<string, string> = { SOL: 'sol', ETH: 'eth', BTC: 'btc', NEAR: 'near', WNEAR: 'near', USDC: 'eth', USDT: 'eth' };
-  const rank = (t: Token & { contractAddress?: string }) => (t.blockchain === home[sym] ? 0 : 2) + (t.contractAddress ? 1 : 0) + (t.blockchain === 'near' ? 4 : 0);
+  const rank = (t: Token & { contractAddress?: string }) => (want ? (t.blockchain === want ? -10 : 0) : 0) + (t.blockchain === home[sym] ? 0 : 2) + (t.contractAddress ? 1 : 0) + (t.blockchain === 'near' ? 4 : 0);
   return hits.sort((a, b) => rank(a) - rank(b))[0] ?? null;
 }
 

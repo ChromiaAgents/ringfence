@@ -61,7 +61,7 @@ const tools = [
 function system(): string {
   const lp = launchpad();
   const r = lp.rules;
-  return `Coins launch on JustHoot: instant trading on RHEA, about 0.06 to 0.1 NEAR, on NEAR mainnet with real NEAR.
+  return `Coins launch on JustHoot: instant trading on RHEA, about 0.12 NEAR all in (0.1 deposit plus about 0.02 gas; the wallet may need about 1 NEAR in it before it lets them sign, though only about 0.12 is spent), on NEAR mainnet with real NEAR.
 Drive it like a friend who's done this a hundred times. Once you know what the coin is about, pitch a fun name and ticker yourself and ask if they like it ("How about Whisker Coin, ticker WHISK?"); if they give their own, use it. Call set_coin as soon as there's a name and ticker.
 Then make the logo straight away from what you already know (call make_logo with your own vibe idea); only ask about the look if they seem to care.
 There is no auction and no team share: go straight to the recap. No transfer tax and no dev buy are offered.
@@ -136,7 +136,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     save();
     const link = `${env.publicUrl}/launch/${l.id}`;
     log({ kind: 'launch_prepared', desk: 'launch', callId: call.id, launchId: l.id, detail: `$${l.params.symbol} ${l.params.name} on JustHoot, mainnet: ${link}` });
-    return { ok: true, linkSent: true, network: l.network, note: 'Tell them to open the link: it is mainnet, real NEAR, about 0.1 NEAR plus gas, and the coin trades on RHEA the moment they sign with their own wallet.' };
+    return { ok: true, linkSent: true, network: l.network, note: 'Tell them to open the link: it is mainnet, real NEAR, about 0.12 NEAR is spent, but their wallet may want about 1 NEAR in it before it signs, and the coin trades on RHEA the moment they sign with their own wallet.' };
   }
   return { error: 'unknown tool' };
 }

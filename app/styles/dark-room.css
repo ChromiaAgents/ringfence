@@ -700,3 +700,9 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .db-list .m { color: var(--muted); font-size: 13px; white-space: nowrap; }
 .db .transcript { max-height: 70vh; overflow-y: auto; }
 @media (max-width: 900px) { .db .db-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .db .db-two, .db .db-split { grid-template-columns: minmax(0, 1fr); } }
+/* /topup/:id */
+.live .tp-quote { margin-top: 24px; padding: 20px; background: var(--surface); border-top: 3px solid var(--accent); }
+.tp-big { font-size: 22px; margin: 0 0 8px; }
+.tp-addr code { display: block; padding: 12px; background: var(--field); font-size: 15px; overflow-wrap: anywhere; }
+.tp-acts { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.tp-acts .btn { margin: 0; }
