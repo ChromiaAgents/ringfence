@@ -10,7 +10,7 @@
 import WebSocket from 'ws';
 
 const BASE = (process.env.RINGFENCE_URL ?? 'https://ringfence.evalengine.ai').replace(/\/$/, '');
-const WS = BASE.replace(/^http/, 'ws') + '/ws/call';
+const WS = BASE.replace(/^http/, 'ws') + '/ws/call'; // checks run with ?mute=1: text only, no Cartesia speech
 const ROTATION = ['merry christmas', 'trick or treat', 'happy new year']; // the demo packet's words rotate between these
 const LINES = {
   scam: 'This is your bank, move your money now.',
@@ -26,7 +26,7 @@ const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 type Turn = { said: string; links: string[] };
 /** One call. Returns the greeting and a function that types one line and waits for the whole reply. */
 async function call(query = '') {
-  const ws = new WebSocket(WS + query);
+  const ws = new WebSocket(WS + (query ? query + '&mute=1' : '?mute=1'));
   let said: string[] = [], links: string[] = [], done: (() => void) | null = null, first: ((s: string) => void) | null = null;
   ws.on('message', (d, bin) => {
     if (bin) return; // audio

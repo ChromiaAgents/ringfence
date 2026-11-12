@@ -5,7 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { RTCPeerConnection, RtpHeader, RtpPacket, useOPUS, MediaStreamTrack } from 'werift';
 import OpusScript from 'opusscript';
 import { env } from './config.ts';
-import { isFiller, startCall, reply, endCall, setOnLink, photo, noteToModel } from './agent.ts';
+import { isFiller, startCall, reply, endCall, setOnLink, photo, noteToModel, registerSpeaker } from './agent.ts';
 import { transcribe } from './ai.ts';
 import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
@@ -193,6 +193,7 @@ async function onCallEvent(c: any) {
     live.delete(c.id);
   };
   live.set(c.id, { pc, callId: call.id, stop, say: (s: string) => line.say(s) });
+  registerSpeaker(call.id, (s) => line.say(s));
   onCallNews(call.id, (s) => line.say(s)); // "Approved and sent" after a WhatsApp tap
 
   pc.connectionStateChange.subscribe(async (s) => {

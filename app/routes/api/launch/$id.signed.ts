@@ -18,6 +18,9 @@ export const Route = createFileRoute('/api/launch/$id/signed')({
           save();
           const what = `live on JustHoot${r.tokenId ? ` as ${r.tokenId}` : ''}`;
           log({ kind: 'launch_signed', desk: 'launch', launchId: l.id, callId: l.callId, detail: r.ok ? `$${l.params.symbol} is ${what} on ${l.network}, signed by ${signer}` : `tx ${txHash}: ${r.reason}` });
+          const { announce } = await import('../../../../src/agent.ts');
+          announce(l.callId, r.ok ? `It's live! $${l.params.symbol} is trading on JustHoot now. Congrats!` : `The launch didn't go through: ${String(r.reason ?? 'the transaction failed').slice(0, 80)}.`,
+            r.ok ? `The caller signed the launch: $${l.params.symbol} is live on JustHoot as ${r.tokenId ?? 'a token'} (tx ${txHash}). You already told them.` : `The launch transaction failed: ${r.reason}. You already told them.`);
           return json(publicLaunch(l));
         } catch (e: any) {
           return json({ error: e.message }, 502);

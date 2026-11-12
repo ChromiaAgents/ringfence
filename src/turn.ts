@@ -5,7 +5,8 @@ import { save, type Timing } from './store.ts';
 
 export type Play = (pcm: Float32Array, rate: number) => void;
 
-export function voiceLine(play: Play) {
+/** mute: text only, no speech is made (checks and scripts: Cartesia bills every character). */
+export function voiceLine(play: Play, mute = false) {
   let gen = 0; // bumped on barge-in: queued work from an older turn is dropped
   let chain: Promise<void> = Promise.resolve();
   let ctl: AbortController | null = null;
@@ -34,6 +35,7 @@ export function voiceLine(play: Play) {
     },
     /** Queue a sentence: TTS runs in order, each clip goes out as soon as it is rendered. */
     say(text: string) {
+      if (mute) return chain;
       text = text.replace(/\s*\bcall ended\.?\s*$/i, '').trim(); // a stage direction, not speech
       if (!text) return chain;
       const g = gen, t = timing;
@@ -49,6 +51,7 @@ export function voiceLine(play: Play) {
     },
     /** A pre-rendered clip, unless real speech already went out for this turn. */
     filler(kind: FillerKind) {
+      if (mute) return;
       const c = filler(kind), t = timing;
       if (c && !(t && t.firstAudioMs != null)) play(c.pcm, c.rate);
     },

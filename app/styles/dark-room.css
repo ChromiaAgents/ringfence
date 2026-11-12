@@ -965,3 +965,5 @@ html:has(.ov) { color-scheme: normal !important; }
 .lr-chat { z-index: 2; pointer-events: auto; touch-action: pan-y; overscroll-behavior: contain; max-height: 34%; mask-image: linear-gradient(to bottom, transparent, #000 14%); }
 .lr-stack { position: absolute; left: 10px; top: calc(max(10px, env(safe-area-inset-top)) + 96px); display: grid; gap: 8px; justify-items: start; z-index: 2; max-width: 300px; }
 .lr-stack .lr-howto, .lr-stack .lr-sound { position: static !important; transform: none; }
+.lr-stack { max-width: calc(100% - 210px); }
+.lr-howto { max-width: none; font-size: 12.5px; }

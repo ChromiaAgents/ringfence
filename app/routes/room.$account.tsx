@@ -106,12 +106,25 @@ function Room() {
     const line = `Send a ${near} NEAR gift to ${account}.`;
     if (call.live) call.say(line); else { queued.current = line; call.start(); }
   }
+  const firstSeen = useRef<number[]>([]);
+  const seenAt = (i: number) => (firstSeen.current[i] ??= Date.now());
+  useEffect(() => { if (!call.live) firstSeen.current = []; }, [call.live]);
+  // Mic off after a quiet minute on a call: no speech either way. Say so in the chat.
+  const [idleNote, setIdleNote] = useState('');
+  const lastAct = useRef(Date.now());
+  useEffect(() => { lastAct.current = Date.now(); }, [call.lines.length, call.state]);
+  useEffect(() => {
+    if (!call.live) return;
+    setIdleNote('');
+    const t = setInterval(() => { if (Date.now() - lastAct.current > 60_000) { call.stop(); setIdleNote('Mic off after a quiet minute. Tap 🎙 to talk again.'); } }, 5000);
+    return () => clearInterval(t);
+  }, [call.live]);
   const left = packet ? packet.count - packet.claims.length : 0;
   // One chat column: gifts, viewers' messages and the agent, in time order.
   const stream = [
     ...feed.map((g) => ({ kind: 'gift' as const, at: g.at, from: g.from, near: g.near, landing: !!g.landsAt, text: '' })),
     ...chats.map((c) => ({ kind: 'chat' as const, at: c.at, from: c.name, near: 0, landing: false, text: c.text })),
-    ...(call.live ? call.lines.slice(-2).filter((l) => l.who === 'agent').map((l, i) => ({ kind: 'agent' as const, at: Date.now() + i, from: 'Ringfence', near: 0, landing: false, text: l.text })) : []),
+    ...call.lines.map((l, i) => ({ l, i })).filter(({ l }) => l.who === 'agent').map(({ l, i }) => ({ kind: 'agent' as const, at: seenAt(i), from: 'Ringfence', near: 0, landing: false, text: l.text })),
   ].sort((a, b) => a.at - b.at).slice(-60);
   // Follow new messages only when the reader is already at the bottom; scrolling up to read history is left alone.
   useEffect(() => { const b = chatBox.current; if (b && b.scrollHeight - b.scrollTop - b.clientHeight < 80) b.scrollTo({ top: b.scrollHeight, behavior: 'smooth' }); }, [stream.length]);
@@ -171,6 +184,7 @@ function Room() {
           )}
           <div className="lr-chat" ref={chatBox}>
             <p className="lr-sys">Welcome! Ringfence never asks for your seed phrase or for money outside a call with your PIN. Beware of scams.</p>
+            {idleNote && <p className="lr-sys">{idleNote}</p>}
             {stream.map((m, i) => m.kind === 'gift'
               ? <p key={i} className="lr-msg"><span className="lv">{Math.min(99, Math.ceil(m.near * 100))}</span><b>{m.from}:</b> sent {iconOf(m.near)} {m.near} NEAR{m.landing ? ' (landing)' : ''}</p>
               : <p key={i} className={`lr-msg ${m.kind}`}><span className="lv">{m.kind === 'agent' ? 'AI' : '1'}</span><b>{m.from}:</b> {m.text}</p>)}

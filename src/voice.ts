@@ -2,7 +2,7 @@
 // and the WhatsApp webhook (which starts WebRTC calls). Mounted on the same HTTP server as the UI.
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { WebSocketServer } from 'ws';
-import { isFiller, startCall, reply, endCall, photo, linkOf } from './agent.ts';
+import { isFiller, startCall, reply, endCall, photo, linkOf, registerSpeaker } from './agent.ts';
 import { transcribe } from './ai.ts';
 import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
@@ -45,7 +45,8 @@ export function attachVoice(server: Server) {
     const packetId = (sp.get('packet') ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 64) || undefined; // from a packet page's Call button
     const payTo = packetId ? parseRecipient(sp.get('to') ?? '', 'near') ?? undefined : undefined; // typed on the packet page
     const { call, greeting } = startCall('web', from, q === 'launch' ? 'launch' : undefined, packetId, payTo);
-    const line = voiceLine((pcm, rate) => { if (ws.readyState === 1) ws.send(wav(pcm, rate)); });
+    const line = voiceLine((pcm, rate) => { if (ws.readyState === 1) ws.send(wav(pcm, rate)); }, sp.get('mute') === '1');
+    registerSpeaker(call.id, (text) => { if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'agent', text })); line.say(text); });
     const sendLink = () => {
       const l = linkOf(call);
       if (l) ws.send(JSON.stringify({ type: 'link', ...l }));
@@ -96,7 +97,7 @@ export function attachVoice(server: Server) {
         if (!text || text.length < 2 || isFiller(text)) {
           timing.totalMs = Date.now() - timing.start!; // stops the keep-alive
           // Real speech that came back empty (short numbers, like a PIN, sometimes do): say so, never go silent.
-          if (isBinary && (data as Buffer).length > 24_000) { const m = "Sorry, I didn't catch that. Say it again, or type it below."; ws.send(JSON.stringify({ type: 'agent', text: m })); await line.say(m); ws.send(JSON.stringify({ type: 'desk', desk: null })); }
+          if (isBinary && /\bPIN\b/.test([...call.turns].reverse().find((t) => t.who === 'agent')?.text ?? '')) { const m = "Sorry, I didn't catch that. Say it again, or type it below."; ws.send(JSON.stringify({ type: 'agent', text: m })); await line.say(m); ws.send(JSON.stringify({ type: 'desk', desk: null })); }
           return;
         }
         ws.send(JSON.stringify({ type: 'caller', text }));
@@ -120,6 +121,6 @@ export function attachVoice(server: Server) {
     // After an Approve / Reject tap on WhatsApp, the agent on this call says what happened.
     onCallNews(call.id, (s) => { if (ws.readyState !== 1) return; ws.send(JSON.stringify({ type: 'agent', text: s })); line.say(s); });
     onWebApproval(call.id, (body, token) => { if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'approval', body, token })); });
-    ws.on('close', () => { onCallNews(call.id, null); onWebApproval(call.id, null); endCall(call.id); });
+    ws.on('close', () => { registerSpeaker(call.id, null); onCallNews(call.id, null); onWebApproval(call.id, null); endCall(call.id); });
   });
 }

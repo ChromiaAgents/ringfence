@@ -128,6 +128,18 @@ export const isFiller = (t: string) => /^[\s,.!?…-]*((u+h*m+|u+h+|h+m+|e+r+m*|
 
 /** Something the channel did on its own (e.g. a link text WhatsApp refused, and the code it read out instead): the model
  *  must know, or it denies it later. Goes into both the transcript and the model's history. */
+/** Live calls that can be spoken to from anywhere (page APIs run in another bundle): callId -> say. */
+const speakers: Map<string, (text: string) => void> = ((globalThis as any).__rfSpeakers ??= new Map());
+export const registerSpeaker = (callId: string, say: ((text: string) => void) | null) => (say ? speakers.set(callId, say) : speakers.delete(callId));
+/** Something happened outside the call (a launch signed, money landed): say it on that call and tell the model. */
+export function announce(callId: string | undefined, text: string, note: string): boolean {
+  if (!callId) return false;
+  const say = speakers.get(callId);
+  noteToModel(callId, note);
+  if (say) { say(text); return true; }
+  return false;
+}
+
 export function noteToModel(callId: string, note: string) {
   const call = db.calls.find((c) => c.id === callId);
   call?.turns.push({ at: Date.now(), who: 'tool', text: note });
