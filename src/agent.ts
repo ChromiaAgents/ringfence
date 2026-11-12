@@ -182,7 +182,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
         if (TOOL_SAY[tc.function.name]) o.onToolStart?.(TOOL_SAY[tc.function.name]);
         const name = tc.function.name, desk = deskOfTool(call, name);
         let out: unknown;
-        if (name === 'end_call') { console.log(`[call ${call.id}] end_call by the model`); o.onEndCall?.(); clearPending(call.id); call.endedAt = Date.now(); out = { ok: true, note: 'The line hangs up after you finish speaking.' }; }
+        if (name === 'end_call') { console.log(`[call ${call.id}] end_call by the model`); o.onEndCall?.(); clearPending(call.id); call.endedAt = Date.now(); out = { ok: true, note: 'Hanging up. Say nothing more: your goodbye was already said.' }; }
         else if (!desk) out = { error: 'unknown tool' };
         else if (name === 'web_search') {
           // The search model already writes a phone-ready answer: speak it as it arrives instead of paying for a second model pass.

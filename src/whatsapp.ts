@@ -43,7 +43,10 @@ export function deliverLink(call: Call, link: { url: string; label: string }) {
     // live panel (/live) and the code is said once; with no panel, say where to go instead.
     const panel = liveLink(call.id, link);
     const say = panel ?? "I can't text you on this line, so open ringfence dot evalengine dot ai to finish.";
-    if (say) for (const l of live.values()) if (l.callId === call.id) l.say?.(say);
+    if (!say) return;
+    // Into the transcript too, so the model knows the text failed and what it told the caller (it denied it before).
+    call.turns.push({ at: Date.now(), who: 'tool', text: `link_message → failed: WhatsApp would not deliver the text. The agent already said: "${say}"` });
+    for (const l of live.values()) if (l.callId === call.id) l.say?.(say);
   });
 }
 setOnLink(deliverLink);

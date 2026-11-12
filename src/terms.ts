@@ -199,6 +199,8 @@ export function correct(input: string): string {
     .replace(/\b(?:w|double[ -]?u|dub)[ -]?(?:near|neo|nea|neer|nier|nir|nia|kneel)\b/gi, 'wNEAR')
     .replace(/\bst[ -]?(?:near|nir|nier)\b/gi, 'stNEAR')
     .replace(/\bnear intense\b/gi, 'NEAR Intents')
+    .replace(/\b(jazz ?hood|just hood|jas hoot|justhood)\b/gi, 'JustHoot')
+    .replace(/\blife panel\b/gi, 'live panel')
     .replace(/\bsputnik (?:tao|dow|dough|dau)\b/gi, 'Sputnik DAO')
     .replace(/\b(running|run|runs|inside|in) (?:in )?a T\b(?=[?.!,]|$)/g, '$1 in a TEE')
     .replace(/\b(with|of|into|stake|staked|swap|use|using)\s+(?:lie|li|ly)[ -]?(?:near|nir|nier)\b/gi, '$1 LiNEAR')
