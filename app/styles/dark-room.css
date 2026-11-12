@@ -795,3 +795,12 @@ html:has(.ov) { color-scheme: normal !important; }
 .room-host3d canvas { display: block; width: 100% !important; height: 100% !important; }
 .room-sound { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); padding: 8px 16px; border: 0; border-radius: 99px; background: rgba(0,0,0,.55); color: #fff; font: inherit; cursor: pointer; backdrop-filter: blur(6px); }
 .room-top3 li.muted { display: block; color: #b8b2a8; }
+.room { width: 100%; max-width: 100vw; overflow: hidden; }
+.room > * { min-width: 0; }
+@media (max-width: 860px) {
+  .room-gifts { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .room-gifts button { padding: 8px 2px; } .room-gifts span { font-size: 24px; } .room-gifts b { font-size: 13px; }
+  .room-packet { width: 110px; top: 30%; padding: 8px; } .room-packet span { font-size: 28px; }
+  .room-sound { top: 70px; font-size: 14px; }
+  .room-chat { width: 62%; }
+}
