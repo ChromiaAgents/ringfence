@@ -2,7 +2,10 @@
 
 > A phone line for NEAR. A caller in a browser or on WhatsApp talks to one AI agent, and the agent acts from a NEAR wallet contract tied to the caller's phone number. The wallet contract holds the spending rules, so the agent can only ask it. A money packet is NEAR locked in a second contract; each person opens one share by saying the packet's words on a call. A caller can also ask for a top up from another chain ("top up my wallet with 2 dollars of SOL") and get a live NEAR Intents quote.
 
+Built at NEAR HACKATHON 2026 (#NEARHackathon), tracks: Social Money, Real-World Money.
+
 Site: https://ringfence.evalengine.ai
+Demos (recorded live on mainnet): https://ringfence.evalengine.ai/demo.html
 Source: https://github.com/ChromiaAgents/ringfence (MIT). AGENTS.md in the repository has the full version of this file.
 Status: on NEAR mainnet since 10 November 2026, small amounts. The contracts are AI-reviewed, not audited.
 
