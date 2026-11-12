@@ -58,3 +58,7 @@ Status: on NEAR mainnet since 10 November 2026, small amounts. The contracts are
 - Built and supported: wallet by text, calls, the Approve card, money packets.
 - Public number +60 11-7512 3486: waiting on Meta's business verification. Once approved, anyone can message or call it. This file will be updated.
 - Until then: Meta's test number +1 555-144-4220, which only answers numbers Meta approved. The browser call at https://ringfence.evalengine.ai does the same on the shared demo wallet.
+
+## Live room (new)
+- https://ringfence.evalengine.ai/room/<account> : a phone-style live room. Viewers gift real NEAR to <account> by tapping a gift (a browser call sends it with the PIN) or by WhatsApp call. Gifts from any NEAR wallet show too (read from chain). An open-source VRM character hosts, lip-syncing and thanking each gift. Packets can be grabbed live (?packet=<id>&words=...). Embed a stream with ?yt=<id> or ?twitch=<channel>.
+- OBS overlay: https://ringfence.evalengine.ai/stream/<account> (transparent; ?preview=1 for sample gifts).

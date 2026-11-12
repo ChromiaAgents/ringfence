@@ -25,14 +25,13 @@ const i = (n: number) => ({ '--i': n }) as CSSProperties;
 
 // The first-sight feature strip: a short name, what it is, and its real status. Only things that are built.
 const FEATS: { name: string; what: string; tag: string; href: string }[] = [
+  { name: 'Live room', what: 'Gift real NEAR live, AI host thanks you', tag: 'New', href: '/room/liho00.near' },
   { name: 'Money packets', what: 'Split a gift, opened by saying the words', tag: 'Mainnet', href: '/packet/demo' },
   { name: 'Limits in a contract', what: 'The AI asks, the NEAR contract refuses', tag: 'Mainnet', href: 'https://nearblocks.io/txns/GmPzx6UgxX9jJsDpHEZRodEhSmABZ3uRqFr2WzANCUd8' },
-  { name: 'Family DAO', what: 'A Sputnik DAO funded a packet by vote', tag: 'Mainnet', href: '/packet/family-1' },
-  { name: 'Top up from any chain', what: 'SOL, ETH, BTC in, USDC out, via NEAR Intents', tag: 'Mainnet', href: '#call' },
+  { name: 'Top up from any chain', what: 'USDT on Solana in, USDC out, via NEAR Intents', tag: 'Mainnet', href: CODE_URL + '#mainnet-evidence' },
+  { name: 'Launch a coin', what: 'By voice, signed in your wallet, on JustHoot', tag: 'Mainnet', href: 'https://nearblocks.io/address/fence.v2-launchpad.justhoot.near' },
   { name: 'Private AI', what: 'NEAR AI Cloud in a TEE, attested live', tag: '3/3 verified', href: '/proof' },
-  { name: 'Scam calls refused', what: 'Bank and police scams get a no', tag: 'Live', href: '#call' },
-  { name: 'WhatsApp', what: 'Wallet by text, calls, Approve card', tag: 'Pending Meta', href: 'https://wa.me/601175123486' },
-  { name: 'Stake while it waits', what: 'Packets that earn staking yield', tag: 'Next', href: CODE_URL + '#next-not-built' },
+  { name: 'WhatsApp calls', what: 'Your number is the wallet, named like mum.ringfence-wallet.near', tag: 'Test line', href: '/whatsapp' },
 ];
 
 const TRY: Record<Desk | 'auto', string[]> = {

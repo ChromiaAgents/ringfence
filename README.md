@@ -11,11 +11,15 @@ Made by Chromia and evalengine. Built on NEAR, at NEAR HACKATHON.
 | **Money packets**: split a gift, each share opened by saying the words | Mainnet | [demo packet](https://ringfence.evalengine.ai/packet/demo), evidence rows 9 to 11 |
 | **Limits in a contract**: the AI only asks, the NEAR contract refuses | Mainnet | [refusal tx](https://nearblocks.io/txns/GmPzx6UgxX9jJsDpHEZRodEhSmABZ3uRqFr2WzANCUd8), row 8 |
 | **Family DAO**: a Sputnik DAO funded a packet by vote, a share opened by voice | Mainnet | [family packet](https://ringfence.evalengine.ai/packet/family-1), rows 12 to 15 |
-| **Top up from any chain**: SOL, ETH, BTC in, USDC out, through NEAR Intents 1Click | Mainnet, row 16 | say "top up my wallet with 2 dollars of SOL" |
+| **Top up from any chain**: SOL, ETH, BTC in, USDC out, through NEAR Intents 1Click | Mainnet, row 16 | say "top up my wallet with 1 dollar of USDT on Solana" |
+| **Live room**: a TikTok-style room where viewers gift real NEAR by phone call; an AI host (open-source 3D character) thanks each gift aloud; packets to grab; gifts from any wallet show too | Live | [/room/liho00.near](https://ringfence.evalengine.ai/room/liho00.near), OBS overlay at `/stream/<account>` |
+| **Launch a coin by voice** on JustHoot, signed in your own wallet | Mainnet | [$FENCE](https://nearblocks.io/address/fence.v2-launchpad.justhoot.near) |
+| **Your number is a named wallet**: `liho.ringfence-wallet.near`, sends held 60 s for new recipients | Mainnet | rows 17 and 18 |
+| **Free money packet**: call and ask "is there a free money packet?" | Live | [/packet/demo](https://ringfence.evalengine.ai/packet/demo) |
 | **Private AI**: chat, speech-to-text and images on NEAR AI Cloud in a TEE | 3/3 attested | [/proof](https://ringfence.evalengine.ai/proof), `npm run attest` |
 | **Scam calls refused**: bank and police scams get a plain no | Live | `npm run live:check` |
 | **Tap to answer**: when unsure, the agent shows buttons instead of guessing | Live | say "can I use eth?" |
-| **WhatsApp**: wallet by text, calls, the Approve card | Pending Meta | +60 11-7512 3486 opens once Meta approves |
+| **WhatsApp calls**: same agent; links and the Approve card on the live panel until Meta verifies texts | Test line | [/whatsapp](https://ringfence.evalengine.ai/whatsapp) to get added |
 | **Stake while it waits**: packets that earn staking yield | Next, not built | [Next, not built](#next-not-built) |
 
 Status: live on NEAR mainnet since 10 November 2026, with small amounts. The contracts are AI-reviewed, not audited.
