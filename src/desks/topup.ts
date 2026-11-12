@@ -14,6 +14,7 @@ import { newTopup } from '../topupPage.ts';
 const TOOL = { type: 'function', function: { name: 'topup_quote', description: 'Quote a top up of the caller\'s phone wallet: they pay a token on another chain (SOL, ETH, BTC and more) and USDC arrives in their wallet on NEAR through NEAR Intents.', parameters: { type: 'object', properties: {
   usd: { type: 'number', description: 'Dollars to top up' }, token: { type: 'string', description: 'What they pay with, for example SOL, ETH, BTC' },
   confirmed: { type: 'boolean', description: 'true only after the caller said yes to the exact dollar amount you read back. Needed for 100 dollars or more.' },
+  chain: { type: 'string', description: 'The chain they pay from if they named one: solana, ethereum, tron, base, arbitrum, bnb, polygon, ton...' },
   use_demo: { type: 'boolean', description: 'true only if a caller with no wallet chose to top up the shared demo wallet instead of binding their own.' },
   refund_address: { type: 'string', description: 'Their own address on the sending chain, for a refund if the swap fails. Only needed for a live top up.' },
 }, required: ['usd', 'token'] } } };
@@ -28,6 +29,9 @@ function target(call: Call, useDemo = false) {
 /** Did the caller say an amount on this call? A model can invent "10 dollars"; the caller's own words decide. */
 const NUM = /\d|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|hundred|thousand|half|quarter|tenth|couple)\b/i;
 export const saidAmount = (call: Call) => call.turns.some((x) => x.who === 'caller' && NUM.test(x.text));
+
+/** "USDT" plus the chain they named ("solana"): the chain decides which token and which refund address fits. */
+const origin = (a: any) => { const t = String(a?.token ?? '').trim(); const c = String(a?.chain ?? '').trim(); return c && !/\son\s/i.test(t) ? `${t} on ${c}` : t; };
 
 export async function runTopup(call: Call, args: any) {
   // Code checks, not left to the model: no spoken amount means ask; a big amount is read back and confirmed first.
@@ -50,7 +54,7 @@ export async function runTopup(call: Call, args: any) {
   if (!t) return { ok: false, reason: 'This call has no wallet to top up yet.' };
   const refund = String(args?.refund_address ?? '').trim() || undefined;
   const live = topupLive() && !!refund;
-  const q = await quoteTopup({ usd: Number(args?.usd), origin: String(args?.token ?? ''), recipient: t.account, refundTo: refund, live });
+  const q = await quoteTopup({ usd: Number(args?.usd), origin: origin(args), recipient: t.account, refundTo: refund, live });
   if (!q.ok) return q;
   const mins = Math.max(1, Math.round((Date.parse(q.deadline) - Date.now()) / 60_000));
   const whose = t.demo ? 'the shared demo wallet (not yours: anything sent is a gift to the demo)' : 'your wallet';
@@ -61,7 +65,7 @@ export async function runTopup(call: Call, args: any) {
   }
   if (topupLive()) {
     // A refund address can't be said on a call: the caller pastes it on the top-up page, which shows the deposit address.
-    const id = newTopup({ usd: Number(args?.usd), token: String(args?.token ?? ''), recipient: t.account, demo: t.demo });
+    const id = newTopup({ usd: Number(args?.usd), token: `${q.symbol} on ${q.chain}`, recipient: t.account, demo: t.demo });
     setWalletLink(call.id, { url: `${env.publicUrl}/topup/${id}`, label: `Top up ${Number(args?.usd)} dollars of ${q.symbol}: paste your refund address, get the deposit address` });
     return { ...q, dry: undefined, linkSent: true, say: `About ${q.send} ${q.symbol} on ${q.chain} gets you about ${q.receive} USDC in ${whose}. The top-up page is on its way: paste a refund address of yours there and it shows where to send.` };
   }
