@@ -2,7 +2,7 @@
 // A visitor (a judge) leaves their WhatsApp number; the owner adds it in the Meta dashboard and they can call.
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
-import { Makers, SiteFooter, Wordmark } from '../ui';
+import { Makers, SiteFooter, WaIcon, Wordmark } from '../ui';
 
 export const Route = createFileRoute('/whatsapp')({
   head: () => ({ meta: [{ title: 'Try it on WhatsApp · Ringfence' }] }),
@@ -28,7 +28,7 @@ function WhatsApp() {
     <>
       <main className="app canvas live" style={{ maxWidth: 560, margin: '0 auto', padding: '24px 16px' }}>
         <div className="brandrow" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}><Wordmark /><Makers /></div>
-        <h1 style={{ marginTop: 32 }}>Try it on WhatsApp</h1>
+        <h1 style={{ marginTop: 32 }}><WaIcon size={34} />Try it on WhatsApp</h1>
         <p>Ringfence works on a WhatsApp call: same agent, same NEAR contract limits as the browser call.</p>
         <p className="muted">Our public number <b>+60 11-7512 3486</b> opens when Meta finishes verifying our business. Until then the test line <b>+1 555-144-4220</b> only answers numbers we add by hand.</p>
         {state === 'done' ? (

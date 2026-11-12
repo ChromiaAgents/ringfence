@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { useCall, type Desk } from '../call';
-import { CODE_URL, Makers, Phone, SiteFooter, Wordmark } from '../ui';
+import { CODE_URL, Makers, Phone, SiteFooter, WaIcon, Wordmark } from '../ui';
 
 // What the page needs from the config, read on the server.
 const getInfo = createServerFn({ method: 'GET' }).handler(async () => {
@@ -66,12 +66,12 @@ function Landing() {
             <div className="acts rise" style={i(3)}>
               <a className="btn" href="/packet/demo">Open a money packet</a>
               <a href="#call" onClick={tryCall}>Send one by call</a>
-              <a href={d.waUrl} target="_blank" rel="noopener">Message on WhatsApp</a>
+              <a href={d.waUrl} target="_blank" rel="noopener"><WaIcon />Message on WhatsApp</a>
             </div>
             <p className="note rise" style={i(4)}>No app needed: both buttons work in this browser. The contracts are unaudited, so amounts are tiny.</p>
             <ul className="feats rise" style={i(5)} aria-label="What it does">
               {FEATS.map((f) => (
-                <li key={f.name}><a href={f.href} {...(f.href.startsWith('http') ? { target: '_blank', rel: 'noreferrer' } : {})}><b>{f.name}</b><span>{f.what}</span><em className={f.tag === 'Next' ? 'next' : f.tag === 'Pending Meta' ? 'soon' : ''}>{f.tag}</em></a></li>
+                <li key={f.name}><a href={f.href} {...(f.href.startsWith('http') ? { target: '_blank', rel: 'noreferrer' } : {})}><b>{f.name === 'WhatsApp' && <WaIcon size={15} />}{f.name}</b><span>{f.what}</span><em className={f.tag === 'Next' ? 'next' : f.tag === 'Pending Meta' ? 'soon' : ''}>{f.tag}</em></a></li>
               ))}
             </ul>
           </div>
@@ -128,7 +128,7 @@ function Landing() {
             <div className="acts rise" style={i(2)}>
               <a className="btn" href="#call" onClick={tryCall}>Try a call</a>
               <a href="/proof">Read the proof</a>
-              <a href={d.waUrl} target="_blank" rel="noopener">Message on WhatsApp</a>{d.waTest && <span className="muted"> (test number)</span>}
+              <a href={d.waUrl} target="_blank" rel="noopener"><WaIcon />Message on WhatsApp</a>{d.waTest && <span className="muted"> (test number)</span>}
             </div>
           </div>
         </section>
@@ -231,7 +231,7 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
       {packet ? null : demo
         ? <p className="help">Real NEAR {network}. Demo PIN <b>{demo.pin}</b>. Tap a line below or just talk. The <a href={`https://nearblocks.io/address/${demo.wallet}`} target="_blank" rel="noreferrer">demo wallet</a> contract caps a send at 1 NEAR.</p>
         : !call.live && !call.lines.length && <p className="help">Press Call, then speak or type. NEAR {network}. The demo wallet’s contract caps every send.</p>}
-      {!packet && <p className="help"><b>WhatsApp</b> <a href="https://wa.me/601175123486">+60 11-7512 3486</a> opens once Meta approves us. Same agent. <a href="/whatsapp">Try it on WhatsApp now</a> · on a call: <a href="/live">Live panel</a>.</p>}
+      {!packet && <p className="help"><WaIcon size={16} /><b>WhatsApp</b> <a href="https://wa.me/601175123486">+60 11-7512 3486</a> opens once Meta approves us. Same agent. <a href="/whatsapp">Try it on WhatsApp now</a> · on a call: <a href="/live">Live panel</a>.</p>}
       {(call.live || call.lines.length > 0) && <>
       {call.choices.length > 0 && (
         <div className="tries pick" role="group" aria-label="Tap to answer">
