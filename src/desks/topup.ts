@@ -56,13 +56,14 @@ export async function runTopup(call: Call, args: any) {
   if (!t) return { ok: false, reason: 'This call has no wallet to top up yet.' };
   // USDC lands only in a wallet registered on the USDC contract. Anyone may pay that storage for another account, so
   // the agent pays it once (0.00125 NEAR) instead of sending the caller off to do a contract call.
+  let justRegistered = false;
   if (!(await usdcRegistered(t.account).catch(() => true))) {
-    try { await callContract(env.usdcToken, 'storage_deposit', { account_id: t.account, registration_only: true }, 1_250_000_000_000_000_000_000n); console.log('[topup] registered a wallet on USDC'); }
+    try { await callContract(env.usdcToken, 'storage_deposit', { account_id: t.account, registration_only: true }, 1_250_000_000_000_000_000_000n); justRegistered = true; console.log('[topup] registered a wallet on USDC'); }
     catch (e: any) { console.error('usdc register', String(e?.message ?? e).slice(0, 160)); return { ok: false, reason: 'Could not register the wallet for USDC just now. Try again in a minute.' }; }
   }
   const refund = String(args?.refund_address ?? '').trim() || undefined;
   const live = topupLive() && !!refund;
-  const q = await quoteTopup({ usd: Number(args?.usd), origin: origin(args), recipient: t.account, refundTo: refund, live });
+  const q = await quoteTopup({ usd: Number(args?.usd), origin: origin(args), recipient: t.account, refundTo: refund, live, skipStorageCheck: justRegistered }); // a fresh registration is not visible at final finality yet
   if (!q.ok) return q;
   const mins = Math.max(1, Math.round((Date.parse(q.deadline) - Date.now()) / 60_000));
   const whose = t.demo ? 'the shared demo wallet (not yours: anything sent is a gift to the demo)' : 'your wallet';
