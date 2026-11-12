@@ -4,7 +4,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useState } from 'react';
-import { Makers, SiteFooter, Wordmark } from '../ui';
+import { Makers, SiteFooter, Wordmark, TopBar } from '../ui';
 
 type Claim = { to: string; near: number; at: number; url: string | null; luckiest: boolean };
 type Packet = {
@@ -44,7 +44,7 @@ function PacketPage() {
   if (!p) return (
     <>
       <main className="app pk">
-        <div className="brandrow"><Wordmark /><Makers /></div>
+        <TopBar />
         <div className="pk-grid">
           <section className="pk-card shut" aria-label="An empty money packet">
             <div className="pk-top"><span className="pk-brand">Ringfence</span><span>money packet</span></div>
@@ -71,7 +71,7 @@ function PacketPage() {
   return (
     <>
       <main className="app pk">
-        <div className="brandrow"><Wordmark /><Makers /></div>
+        <TopBar />
         <div className="pk-grid">
           <section className={`pk-card${open ? '' : ' shut'}`} aria-label="The money packet">
             <div className="pk-top"><span className="pk-brand">Ringfence</span><span>{p.count} {p.count === 1 ? 'share' : 'shares'}, {p.lucky ? 'lucky split' : 'equal split'}</span></div>

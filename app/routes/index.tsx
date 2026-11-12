@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { useCall, type Desk } from '../call';
-import { CODE_URL, Makers, Phone, SiteFooter, WaIcon, Wordmark } from '../ui';
+import { CODE_URL, Makers, TopBar, Phone, SiteFooter, WaIcon, Wordmark } from '../ui';
 
 // What the page needs from the config, read on the server.
 const getInfo = createServerFn({ method: 'GET' }).handler(async () => {
@@ -47,17 +47,7 @@ function Landing() {
   return (
     <div className="dr">
       <header className="hero">
-        <nav className="bar" aria-label="Ringfence">
-          <Wordmark />
-          <Makers />
-          <span className="sp" />
-          <a className="code" href="/wallet/bind">Bind wallet</a>
-          <a className="code" href="/deck.html">Deck</a>
-          <a className="code" href="/stats">Stats</a>
-          <a className="code" href="/proof">Proof</a>
-          <a className="code" href={CODE_URL}>Code</a>
-          <a className="btn" href="#call" onClick={tryCall}>Try a call</a>
-        </nav>
+        <TopBar onTry={tryCall} />
 
         <div className="top">
           <div className="intro">
@@ -366,7 +356,7 @@ function Scam() {
         </div>
       </div>
       <div className="txt">
-        <h2 id="scam-h" className="rise">A caller can talk Mum into a payment, and they can talk an AI into one too.</h2>
+        <h2 id="scam-h" className="rise">Scammers talk people into paying. And AIs.</h2>
         <p className="rise" style={i(1)}>Say someone claiming to be her bank asks for 50 NEAR, and the AI falls for it and asks for the PIN.</p>
         <p className="rise" style={i(2)}>The contract still refuses. 50 is over the 1 NEAR per-transfer limit, and safe-vault.near isn’t saved, so a smaller send would wait (60 seconds on this site) for the owner to cancel it.</p>
         <p className="worst rise" style={i(3)}>If we went rogue, a bound wallet would lose at most its daily limit: 3 NEAR a day by default, and 60 USDC if it holds any.</p>
@@ -492,9 +482,9 @@ function Evidence() {
 const Qa = ({ q, a }: { q: string; a: ReactNode }) => (<><dt className="rise">{q}</dt><dd className="rise" style={i(1)}>{a}</dd></>);
 // How the line earns. What is built is said to be built; what is not is said to be next.
 const MONEY: [string, ReactNode][] = [
-  ['Brands pay to hand out packets (a contract method, no page yet)', 'A shop or a community could fund a packet as a promotion. The packets contract has a campaign option on its create method: it takes 5% plus 0.013 NEAR per share when the packet is funded, and sends that to the contract owner, a Ringfence account. Nothing on this site makes a campaign packet yet, and none has been sold. Family packets pay no fee.'],
+  ['Brands can fund packets (contract only)', 'A shop or a community could fund a packet as a promotion. The packets contract has a campaign option on its create method: it takes 5% plus 0.013 NEAR per share when the packet is funded, and sends that to the contract owner, a Ringfence account. Nothing on this site makes a campaign packet yet, and none has been sold. Family packets pay no fee.'],
   ['A packet is a reason to get a wallet', 'Opening a share does not make a wallet by itself. On WhatsApp, someone with no wallet texts “create a wallet” first, then opens the share into it. On a browser call the share goes to the NEAR account the opener names. Red packets are how WeChat Pay got onto phones in 2015. A new phone wallet costs 0.013 NEAR.'],
-  ['Packets that grow: staking and yield (next, not built)', 'A packet that is staked until it is opened: a gift for a birthday three months away earns NEAR staking yield in the meantime, the opener gets the gift plus the yield, and Ringfence keeps a share of the yield. It is designed, and it only changes the packets contract. It is not in this build.'],
+  ['Staking packets (next, not built)', 'A packet that is staked until it is opened: a gift for a birthday three months away earns NEAR staking yield in the meantime, the opener gets the gift plus the yield, and Ringfence keeps a share of the yield. It is designed, and it only changes the packets contract. It is not in this build.'],
   ['Cash-out and swap fees (later)', 'A small fee when someone moves their money out to a bank or another chain through NEAR Intents.'],
 ];
 
@@ -506,7 +496,7 @@ const FAQ: [string, ReactNode][] = [
   ['Is the voice private?', 'Partly. The chat, speech-to-text and image models run on NEAR AI Cloud in Intel TDX and NVIDIA confidential GPUs, and /proof checks them live. The spoken voice is made by Cartesia, which is not attested and sees the reply text it speaks. Our app server is not attested either, and on WhatsApp Meta sees the call metadata.'],
   ['Has it moved real money yet?', 'Yes, on NEAR mainnet since 10 November 2026: a voice send, a refusal by the contract and a packet share opened by voice, each linked above. The contracts are AI-reviewed, not audited, so amounts stay tiny. An audit comes before higher limits.'],
   ['Can Mum start with just a phone?', 'Yes. She texts “create a wallet” on WhatsApp and picks a PIN. It starts custodial: we hold the owner key, with a small balance cap, until the family claims it to their own NEAR wallet.'],
-  ['Can a family DAO own the wallet instead of you?', <>Yes, by design, but the DAO-owned wallet is not on mainnet yet. A Sputnik DAO can create the phone wallet itself, so the DAO is the owner and Ringfence's custody account has no power over it. Raising a limit, saving a new person or switching the AI off then needs a council vote. A family DAO has already funded a money packet on mainnet, and a share was opened on a call: <a href="/packet/family-1">see the packet</a>. Mum still just calls.</>],
+  ['Can a family DAO own the wallet?', <>Yes, by design, but the DAO-owned wallet is not on mainnet yet. A Sputnik DAO can create the phone wallet itself, so the DAO is the owner and Ringfence's custody account has no power over it. Raising a limit, saving a new person or switching the AI off then needs a council vote. A family DAO has already funded a money packet on mainnet, and a share was opened on a call: <a href="/packet/family-1">see the packet</a>. Mum still just calls.</>],
   ['Can I use it on WhatsApp?', 'It is built and supported: a wallet by text, calls, the Approve card and money packets. Our public number +60 11-7512 3486 is waiting on Meta\'s business verification; once approved, message or call it and it just works, and we will update this page. Until then it runs on Meta\'s test number +1 555-144-4220, which only answers numbers Meta approved. The browser call does the same things.'],
   ['Can I top up from another chain?', 'You get a live quote, and no swap has run on mainnet yet. Say "top up my wallet with 2 dollars of SOL": the agent asks NEAR Intents 1Click for a quote, so you send SOL, ETH, BTC and more, and about the same dollar amount arrives as USDC on NEAR. Type a refund address and you get a real deposit address on screen; the agent never reads it aloud. On this demo the USDC goes to the shared demo wallet, not to you, and the agent says so first.'],
   ['What else works on the line?', 'Checking a balance, NEAR in US dollars, sending USDC (tested in the sandbox only, not yet on mainnet), checking an account before paying it (new or unknown accounts get a warning), what’s trending, and launching a coin on JustHoot, which you sign in your own wallet. English only for now.'],

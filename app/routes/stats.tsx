@@ -2,7 +2,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useState } from 'react';
-import { Makers, SiteFooter, Wordmark } from '../ui';
+import { Makers, SiteFooter, Wordmark, TopBar } from '../ui';
 import type { PublicStats } from '../../src/stats.ts';
 
 const getStats = createServerFn({ method: 'GET' }).handler(async () => {
@@ -34,7 +34,7 @@ function Stats() {
   return (
     <>
       <main className="app stp">
-        <div className="brandrow"><Wordmark /><Makers /></div>
+        <TopBar />
         <h1>The line, in numbers</h1>
         <p className="st-lead">Live counts from this server on NEAR {s.network}{s.since ? `, since ${new Date(s.since).toLocaleDateString('en-GB', { dateStyle: 'medium' })}` : ''}. Counts only: what people said on calls stays private. {s.realMoney ? 'Sends are real.' : 'The server has no keys yet, so every send and packet so far is a labelled dry run.'}</p>
         <div className="st-grid">

@@ -2,7 +2,7 @@
 // A visitor (a judge) leaves their WhatsApp number; the owner adds it in the Meta dashboard and they can call.
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
-import { Makers, SiteFooter, WaIcon, Wordmark } from '../ui';
+import { Makers, SiteFooter, WaIcon, Wordmark, TopBar } from '../ui';
 
 export const Route = createFileRoute('/whatsapp')({
   head: () => ({ meta: [{ title: 'Try it on WhatsApp · Ringfence' }] }),
@@ -27,7 +27,7 @@ function WhatsApp() {
   return (
     <>
       <main className="app pg live">
-        <div className="brandrow"><Wordmark /><Makers /></div>
+        <TopBar />
         <div className="pg-two">
         <div>
         <h1><WaIcon size={34} />Try it on WhatsApp</h1>

@@ -106,3 +106,21 @@ export function AttRow({ a, full }: { a: Att; full?: boolean }) {
     </div>
   );
 }
+
+/** The one top bar every page uses: wordmark, makers, an optional pill, the site links and "Try a call". */
+export function TopBar({ children, onTry }: { children?: ReactNode; onTry?: (e: React.MouseEvent) => void }) {
+  return (
+    <nav className="bar topbar" aria-label="Ringfence">
+      <Wordmark />
+      <Makers />
+      {children}
+      <span className="sp" />
+      <a className="code" href="/wallet/bind">Bind wallet</a>
+      <a className="code" href="/deck.html">Deck</a>
+      <a className="code" href="/stats">Stats</a>
+      <a className="code" href="/proof">Proof</a>
+      <a className="code" href={CODE_URL}>Code</a>
+      <a className="btn" href={onTry ? '#call' : '/#call'} onClick={onTry}>Try a call</a>
+    </nav>
+  );
+}

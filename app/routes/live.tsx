@@ -2,7 +2,7 @@
 // Approve card that WhatsApp could not deliver. Polls /api/live/:code every 2 seconds. No transcript, PIN or phone here.
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import { Makers, SiteFooter, Wordmark } from '../ui';
+import { Makers, SiteFooter, Wordmark, TopBar } from '../ui';
 
 type View = { state: 'live' | 'ended'; links: { label: string; url: string }[]; approval: { body: string; id: string } | null };
 
@@ -53,7 +53,7 @@ function Live() {
   return (
     <>
     <main className="app pg live">
-      <div className="brandrow"><Wordmark /><Makers /></div>
+      <TopBar />
       <div className="pg-two">
       <div>
       <h1>Live panel</h1>

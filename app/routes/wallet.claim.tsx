@@ -4,7 +4,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
 import walletCss from '../styles/wallet-modal.css?url';
-import { Makers, SiteFooter, Wordmark } from '../ui';
+import { Makers, SiteFooter, Wordmark, TopBar } from '../ui';
 import { useNearWallet } from '../near-wallet';
 
 const getNet = createServerFn({ method: 'GET' }).handler(async () => ({ network: (await import('../../src/config.ts')).env.network }));
@@ -42,7 +42,7 @@ function Claim() {
   return (
     <>
     <main className="app pay">
-      <div className="brandrow"><Wordmark /><Makers /><span className="pill wait">NEAR {cfg.network}</span></div>
+      <TopBar><span className="pill wait">NEAR {cfg.network}</span></TopBar>
       <h1>Claim your phone wallet</h1>
       <p className="err" role="note"><b>Unaudited prototype: keep small amounts.</b> Until you claim it, your demo wallet is custodial: Ringfence holds the owner key.</p>
       <p className="muted">Made a wallet in WhatsApp chat? Move ownership to your own NEAR account. The agent keeps the same limits; as the owner you can change them, withdraw, or revoke the agent.</p>

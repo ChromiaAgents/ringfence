@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
 import walletCss from '../styles/wallet-modal.css?url';
-import { Makers, SiteFooter, Wordmark } from '../ui';
+import { Makers, SiteFooter, Wordmark, TopBar } from '../ui';
 import { useNearWallet } from '../near-wallet';
 
 const getNet = createServerFn({ method: 'GET' }).handler(async () => ({ network: (await import('../../src/config.ts')).env.network }));
@@ -31,7 +31,7 @@ function Send() {
   return (
     <>
     <main className="app pay">
-      <div className="brandrow"><Wordmark /><Makers /><span className="pill wait">NEAR {cfg.network}</span></div>
+      <TopBar><span className="pill wait">NEAR {cfg.network}</span></TopBar>
       <p className="err" role="note"><b>Unaudited prototype: keep small amounts.</b> The phone-wallet contract has not been audited.{cfg.network === 'mainnet' ? ' This is NEAR mainnet: real money.' : ''}</p>
 
       <h1>{ok ? `Send ${amount} NEAR to ${to}` : 'This link is not valid'}</h1>

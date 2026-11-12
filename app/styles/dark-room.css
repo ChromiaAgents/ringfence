@@ -618,3 +618,20 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .live .live-note { padding: 12px; background: var(--surface); border-left: 3px solid var(--accent); }
 .live .live-err { color: #ff8a7a; }
 .wa-icon { display: inline-block !important; vertical-align: -0.18em; } /* the reset makes svg block-level; this one sits in a line of text */
+
+/* One top bar on every page (home included): same row, same links, same gaps. */
+.topbar { display: flex; align-items: center; gap: 28px; font-size: 16px; }
+.topbar .wordmark { font-size: var(--step-lead, 1.4rem); text-decoration: none; }
+.topbar .sp { flex: 1; }
+.topbar a.code { color: var(--fg); text-underline-offset: 3px; }
+.topbar .btn { white-space: nowrap; flex-shrink: 0; }
+.app > .topbar, .app > div > .topbar { margin-bottom: 56px; }
+@media (max-width: 860px) { .topbar { flex-wrap: wrap; row-gap: 12px; } .topbar .makers { order: 3; flex-basis: 100%; } }
+@media (max-width: 700px) { .topbar { gap: 16px; } .topbar .code { display: none; } .topbar .btn { height: 44px; padding: 0 16px; } .app > .topbar { margin-bottom: 28px; } }
+/* Narrow-column pages (bind, claim, send, launch) keep the shared full-width bar; their content stays 600px. */
+.app.pay { max-width: none; margin: 0; padding: 32px 24px 96px; }
+.app.pay > :not(.topbar) { max-width: 600px; }
+@media (max-width: 700px) { .app.pay { padding: 24px 16px 72px; } }
+/* FAQ: one column under 900px so questions stay within two lines. */
+@media (max-width: 900px) { .dr .faq > h2, .dr .faq dt, .dr .faq dd { grid-column: 1 / -1; max-width: none; } }
+@media (max-width: 760px) { .dr .intro h1 { font-size: clamp(26px, 7vw, 44px); } }

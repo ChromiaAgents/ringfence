@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { AttRow, Makers, ROLE, SiteFooter, Wordmark, type Att } from '../ui';
+import { AttRow, Makers, ROLE, SiteFooter, Wordmark, type Att, TopBar } from '../ui';
 
 const passed = (a: Att) => !('error' in a) && a.intel.verified && a.quoteBindsKey && a.gpu.verified;
 
@@ -21,7 +21,7 @@ function Proof() {
   return (
     <>
     <main className="app pg">
-      <div className="brandrow"><Wordmark /><Makers /></div>
+      <TopBar />
       <h1>Proof the AI runs privately</h1>
       <p className="muted">Our app server and Cartesia (speech) aren’t attested.</p>
       <div className="proof-sum">
