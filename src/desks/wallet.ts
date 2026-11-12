@@ -106,7 +106,7 @@ export const webDemo = (call?: Call) => !!call && !!env.demoPhone && !!bindingOf
 
 /** The wallet for DEMO_WALLET_PHONE: its PIN is public, so visitors get tighter rules than a real user's wallet. */
 const isDemoWallet = (b?: Pick<Binding, 'phone'> | null) => !!b && !!env.demoPhone && b.phone === env.demoPhone;
-const linkPlace = (call: Call) => (call.channel === 'web' ? 'on your screen' : 'on WhatsApp');
+const linkPlace = (call: Call) => (call.channel === 'web' ? 'on your screen' : (globalThis as any).__rfWaTextBlocked ? 'on your live panel' : 'on WhatsApp');
 const demoLow = (balance?: string) => `The shared demo wallet is too low for that right now${balance != null ? `: it holds ${fmt('near', balance)}` : ''}. Nothing was sent. Try a smaller amount, or come back after it is topped up.`;
 
 /** Why a send of this size cannot go, or '': the per-transfer limit first, then the daily one. Read from the wallet
@@ -363,7 +363,7 @@ async function execute(callId: string, b: Binding, t: Transfer): Promise<{ ok: t
     hold({ id: r.queuedId, phone: b.phone, contract: b.contract, to: t.to, what: readBack(t), readyAt: Date.now() + t.wait * 1000 + 3000, callId });
     links.set(callId, { url: r.url, label: 'Held by your wallet contract, on chain' });
     return { ok: true, waiting: true, goes_out_in: minutes(t.wait), url: r.url, linkSent: true,
-      next: `Tell them: it is a first payment to this account, so the contract holds it for ${minutes(t.wait)} and then it goes; saying "cancel" stops it; a message arrives when it is sent.` };
+      next: `Tell them: it is a first payment to this account, so the contract holds it for ${minutes(t.wait)} and then it goes; saying "cancel" stops it; if they stay on the call you tell them when it goes out (you will hear it); do not promise a text message.` };
   }
   links.set(callId, { url: r.url, label: r.queuedId != null ? 'Queued transfer' : 'Your transaction' });
   return { ok: true, txHash: r.txHash, url: r.url, linkSent: true, queued: r.queuedId != null };

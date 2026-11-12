@@ -35,23 +35,32 @@ export const sendText = (to: string, text: string) =>
 // Links (launch page, wallet page) go out as a WhatsApp message to whoever is on the line, on any channel that knows their number.
 export function deliverLink(call: Call, link: { url: string; label: string }) {
   if (!call.from || !env.waToken) return;
+  // Meta refused texts already (test line, verification pending): skip the text, straight to the live panel.
+  if ((globalThis as any).__rfWaTextBlocked) { sendViaPanel(call, link); return; }
   const text = call.desk === 'launch'
     ? `Your launch is ready to check and sign with your own NEAR wallet: ${link.url}\nNothing is launched until you sign. Memecoins are risky; most lose value.`
     : `${link.label}: ${link.url}`;
   sendText(call.from, text).catch((e) => {
     console.error('link message', String(e.message).slice(0, 160));
+    if (/13103[02]|131000|141010/.test(String(e.message))) (globalThis as any).__rfWaTextBlocked = true;
+    sendViaPanel(call, link);
+  });
+}
+
+function sendViaPanel(call: Call, link: { url: string; label: string }) {
+  {
     // Meta refuses messages until business verification passes (131030, 131032): on a call the link goes to its
     // live panel (/live) and the code is said once; with no panel, say where to go instead.
     const panel = liveLink(call.id, link);
     const say = panel ?? "I can't text you on this line, so open ringfence dot evalengine dot ai to finish.";
     if (!say) { // the panel code was already given on this call: the new link is on the same panel
-      noteToModel(call.id, `WhatsApp refused this link text too. "${link.label}" is on the caller's live panel (/live, same code as before). Say that; never say it reached WhatsApp.`);
+      noteToModel(call.id, `"${link.label}" is on the caller's live panel (/live, same code as before). Say that; never say it reached WhatsApp.`);
       return;
     }
     // Into the transcript too, so the model knows the text failed and what it told the caller (it denied it before).
     noteToModel(call.id, `The link text did NOT reach the caller: WhatsApp refused it. You already said to them: "${say}". If they ask for the code, the "quote" (speech-to-text often hears "code" as "quote") or the link, repeat exactly that (digits one by one, slowly). Never say the link is on their WhatsApp.`);
     for (const l of live.values()) if (l.callId === call.id) l.say?.(say);
-  });
+  }
 }
 setOnLink(deliverLink);
 

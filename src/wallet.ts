@@ -46,7 +46,9 @@ export const bindingOf = (phone?: string) => (phone ? db.wallets.find((b) => b.p
 const WORDS: Record<string, string> = { zero: '0', oh: '0', o: '0', one: '1', won: '1', two: '2', to: '2', too: '2', three: '3', four: '4', for: '4', five: '5', six: '6', seven: '7', eight: '8', ate: '8', nine: '9' };
 /** Whisper writes PINs as "1234", "12 34", "one two three four" or "1, 2, 3, 4". Returns 4 digits or null. */
 export function normalizePin(said: string): string | null {
-  const out = String(said ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
+  // "my 4 digit pin is 1234": the "4 digit" is not part of the PIN.
+  const t = String(said ?? '').toLowerCase().replace(/\b(4|four)[ -]?digits?\b/g, ' ');
+  const out = t.replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
     .map((w) => (/^\d+$/.test(w) ? w : WORDS[w] ?? '')).join('');
   return /^\d{4}$/.test(out) ? out : null;
 }
