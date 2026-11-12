@@ -604,7 +604,7 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .live input:not(.live-code)::placeholder { color: var(--muted); opacity: .6; }
 .live input:not(.live-code):hover { border-color: #5a524a; }
 .live input:not(.live-code):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-color: var(--fg); }
-.live form label { margin: 12px 0 0; }
+.live form label { margin: 20px 0 12px; }
 .live .btn:disabled { background: #3a342e; color: var(--muted); cursor: not-allowed; }
 .live .signlink { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; padding: 12px; background: var(--surface); border: 1px solid var(--ui-line); border-radius: 10px; }
 .live .signlink span { overflow-wrap: anywhere; }
