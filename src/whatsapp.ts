@@ -12,7 +12,7 @@ import { voiceLine } from './turn.ts';
 import { onboard, bindingOf, NO_WALLET, devServer } from './wallet.ts';
 import { onButton, setApprovalSender, onCallNews } from './desks/wallet.ts';
 import { setNotifier } from './notify.ts';
-import type { Call } from './store.ts';
+import { db, type Call } from './store.ts';
 import { startLive, endLive, liveLink } from './live.ts';
 
 const GRAPH = 'https://graph.facebook.com/v23.0';
@@ -130,7 +130,16 @@ async function media(mediaId: string): Promise<Buffer> {
 // ---------------- calls ----------------
 
 type Live = { pc: RTCPeerConnection; callId: string; stop: () => void; say?: (s: string) => void };
-const live = new Map<string, Live>();
+const live: Map<string, Live> = ((globalThis as any).__rfWaLive ??= new Map()); // shared across bundles
+
+/** Say something on the WhatsApp call this number is on now (the page APIs run in another bundle), and tell the model. */
+export function sayOnCall(phone: string, text: string, note?: string): boolean {
+  for (const l of live.values()) {
+    const call = db.calls.find((c) => c.id === l.callId);
+    if (call && !call.endedAt && call.from === phone) { l.say?.(text); noteToModel(call.id, note ?? `You just told the caller: "${text}"`); return true; }
+  }
+  return false;
+}
 
 async function onCallEvent(c: any) {
   // Meta may omit `from` for some callers; fall back to other id fields and log which keys arrived.

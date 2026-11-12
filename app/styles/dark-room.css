@@ -706,3 +706,4 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .tp-addr code { display: block; padding: 12px; background: var(--field); font-size: 15px; overflow-wrap: anywhere; }
 .tp-acts { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
 .tp-acts .btn { margin: 0; }
+.bind-done { padding: 14px 16px; background: #12261d; border-left: 3px solid var(--accent); }

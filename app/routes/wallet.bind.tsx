@@ -53,7 +53,7 @@ function Bind() {
       // The limits as edited here; the contract takes them at create and only the owner can change them later.
       const args = { ...tx.args, near_limit: { per_tx: y(lim.nearPerTx), per_day: y(lim.nearPerDay) }, new_recipient_delay_sec: Number(lim.delaySec) };
       const h = await w.send(tx.receiverId, (ac) => [ac.functionCall(tx.method, args, 100_000_000_000_000n, BigInt(tx.deposit))]);
-      if (h) { setHash(h); setWallet(await walletOf(tx.args.phone_hash)); }
+      if (h) { setHash(h); const wa = await walletOf(tx.args.phone_hash); setWallet(wa); fetch('/api/wallet/bound', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone, wallet: wa }) }).catch(() => {}); }
     } catch (e: any) { w.setErr(e?.message ?? String(e)); } finally { setBusy(false); }
   }
   // The address comes from the factory after signing, never from a guess shown before (a guess could be someone else's).
@@ -95,7 +95,7 @@ function Bind() {
         <label className="field-label" htmlFor="pn">4-digit PIN you will say on calls</label>
         <input id="pn" className="control" type="password" value={pin} onChange={(e) => setPin(e.target.value)} inputMode="numeric" maxLength={4} />
         <p className="muted small">We keep only a salted hash of the PIN. Three wrong tries lock the wallet for 15 minutes.</p>
-        <button className="btn ink small" disabled={!w.account || pin.length !== 4} onClick={async () => { const d = await post('/api/wallet/bind', { phone, proof, pin, owner: w.account }); if (d) setTx(d); }}>Bind</button>
+        <button className="btn ink small" disabled={!!tx || !w.account || pin.length !== 4} onClick={async () => { const d = await post('/api/wallet/bind', { phone, proof, pin, owner: w.account }); if (d) { setTx(d); setTimeout(() => document.getElementById('step-sign')?.scrollIntoView({ behavior: 'smooth' }), 50); } }}>{tx ? 'PIN saved ✓' : 'Save PIN'}</button>
       </section>
       ) : (<>
       <section className="card">
@@ -113,13 +113,13 @@ function Bind() {
         <label className="field-label" htmlFor="pn">PIN {who} will say on calls</label>
         <input id="pn" className="control" type="password" value={pin} onChange={(e) => setPin(e.target.value)} inputMode="numeric" maxLength={4} />
         <p className="muted small">We keep only a salted hash of the PIN. Three wrong tries lock the wallet for 15 minutes.</p>
-        <button className="btn ink small" disabled={!w.account || code.length !== 6 || pin.length !== 4} onClick={async () => { const d = await post('/api/wallet/bind', { phone, code, pin, owner: w.account }); if (d) setTx(d); }}>Bind</button>
+        <button className="btn ink small" disabled={!!tx || !w.account || code.length !== 6 || pin.length !== 4} onClick={async () => { const d = await post('/api/wallet/bind', { phone, code, pin, owner: w.account }); if (d) { setTx(d); setTimeout(() => document.getElementById('step-sign')?.scrollIntoView({ behavior: 'smooth' }), 50); } }}>{tx ? 'PIN saved ✓' : 'Save PIN'}</button>
       </section>
 
       </>)}
       {tx && (
-        <section className="card">
-          <h2>4. Sign: create the phone wallet</h2>
+        <section className="card" id="step-sign">
+          <h2>{proof && !guardian ? '3' : '4'}. Sign: create the phone wallet</h2>
           <div className="rows">
             <div className="row"><span>New wallet account</span><b>shown after you sign</b></div>
             <div className="row"><span>Created by</span><b className="mono">{tx.receiverId}</b></div>
@@ -132,7 +132,7 @@ function Bind() {
             <div key={k}><label className="field-label" htmlFor={k}>{label}</label>
               <input id={k} className="control" inputMode="decimal" value={String(lim[k])} onChange={(e) => setLim({ ...lim, [k]: k === 'delaySec' ? Number(e.target.value) || 0 : e.target.value })} /></div>))}
           <p className="explain">One function call from your account: {tx.receiverId}.create_wallet. Works in any NEAR wallet, including Meteor and implicit accounts. Nothing runs until you sign. The new wallet's address appears here after.</p>
-          {hash ? <p>Done. <a href={`${explorer}/txns/${hash}`} target="_blank" rel="noreferrer">See the transaction</a>. {wallet ? <>Your wallet is <b className="mono">{wallet}</b>. Fund it, then call</> : 'The wallet address is not readable yet: check the transaction for it before you fund anything. Then call'} and say “send 0.1 NEAR to liho.{sfx}”.</p>
+          {hash ? <p className="bind-done">Done. <a href={`${explorer}/txns/${hash}`} target="_blank" rel="noreferrer">See the transaction</a>. {wallet ? <>Your wallet is <b className="mono">{wallet}</b>. Fund it, then call</> : 'The wallet address is not readable yet: check the transaction for it before you fund anything. Then call'} and say “send 0.1 NEAR to liho.{sfx}”.</p>
             : <button className="btn green" onClick={sign} disabled={busy}>{busy ? 'Waiting for your wallet…' : 'Sign and create'}</button>}
           <details className="txdetails"><summary>Call arguments</summary><pre>{JSON.stringify(tx.args, null, 1)}</pre></details>
         </section>

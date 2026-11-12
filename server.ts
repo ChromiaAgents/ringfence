@@ -67,6 +67,8 @@ function ownerOnly(req: IncomingMessage) {
 
 server.on('request', async (req, res) => {
   if (await handleWebhook(req, res)) return;
+  // For the deploy script: how many calls are on right now (a count only), so it restarts only when the line is idle.
+  if (req.url === '/api/live-calls') { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ calls: db.calls.filter((c) => !c.endedAt && Date.now() - c.startedAt < 30 * 60_000).length })); return; }
   if ((req.url ?? '').startsWith('/api/topup/') && await handleTopup(req, res).catch((e) => { console.error('topup page', e.message); if (!res.headersSent) res.writeHead(500).end(); return true; })) return;
   if ((req.url ?? '').startsWith('/api/whatsapp-access') && await handleAccess(req, res).catch(() => { if (!res.headersSent) res.writeHead(500).end(); return true; })) return;
   // The live panel for WhatsApp calls; a tap there runs the same handler as a WhatsApp button tap.

@@ -11,6 +11,8 @@ export const Route = createFileRoute('/api/wallet/bind')({
         const b = await request.json().catch(() => ({}));
         const r = bind({ phone: b.phone, code: b.code, pin: b.pin, owner: String(b.owner ?? ''), proof: b.proof });
         if (!r.ok) return json({ error: r.reason }, 400);
+        const { sayOnCall } = await import('../../../../src/whatsapp.ts');
+        sayOnCall(r.binding.phone, 'Got your PIN. Now tap Sign and create on the page, and I will tell you when the wallet is ready.', 'The caller saved their PIN on the bind page and is now signing create_wallet. Wait for them; the server tells you when it is done.');
         return json(bindTx(r.binding));
       },
     },
