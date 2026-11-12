@@ -1159,4 +1159,18 @@ await t('speech glossary, held-out round: spoken numbers, spelled accounts, coin
   const sp = system({ id: 'x', channel: 'web', startedAt: 0, turns: [] } as any);
   for (const w of ['lah', 'Point 1', 'dogecoin DOGE', 'polygon or matic POL', 'never say you can\'t take a coin', 'Send all my money', 'double', 'web_search for any other coin']) assert.ok(sp.includes(w), w);
 });
+await t('crypto words: garbled coin names from the held-out eval', async () => {
+  const { fixTerms } = await import('../src/ai.ts');
+  assert.match(fixTerms('top up with Taja coin'), /DOGE/);
+  assert.match(fixTerms('top up 3 dollars of doja coin'), /DOGE/);
+  assert.match(fixTerms('I have Sheba, top up with Sheba'), /SHIB/);
+  assert.equal(fixTerms('Sheba is my cat'), 'Sheba is my cat');
+  assert.equal(fixTerms('Shiva is a god'), 'Shiva is a god');
+});
+await t('top up token names: EDH is ETH, and "ETH on Base" still picks ETH', async () => {
+  const { pickToken } = await import('../src/fund.ts');
+  const list = [{ assetId: 'nep141:eth.omft.near', blockchain: 'eth', symbol: 'ETH', decimals: 18, price: 3000 }, { assetId: 'nep141:base.omft.near', blockchain: 'base', symbol: 'ETH', decimals: 18, price: 3000 }];
+  assert.equal(pickToken(list as any, 'EDH')?.symbol, 'ETH');
+  assert.equal(pickToken(list as any, 'ETH on Base')?.symbol, 'ETH');
+});
 process.once("beforeExit", () => console.log(`${n} passed`));

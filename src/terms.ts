@@ -8,11 +8,11 @@ const FIXED: Record<string, string[]> = {
   NEAR: ['near', 'nier', 'nir', 'nia', 'nair', 'neer', 'nea', 'neo', 'nearer'],
   wNEAR: ['wnear', 'wnir', 'wnier', 'wnia', 'wneo', 'wrapped near'],
   stNEAR: ['stnear', 'stnir', 'stnier', 'st near', 'st nir', 'staked near'],
-  USDC: ['usdc', 'lsdc', 'lxdc', 'osdc', 'usd see'], USDT: ['usdt', 'tether'],
-  SOL: ['sol', 'solana', 'seoul', 'salt', 'soul', 'sole', 'solo'], ETH: ['eth', 'ether', 'ethereum'],
-  BTC: ['btc', 'bitcoin'], POL: ['pol', 'polygon', 'matic'], TON: ['ton', 'toncoin'], DOGE: ['doge', 'dogecoin'], ADA: ['ada', 'cardano'], AVAX: ['avax', 'avix', 'avalanche'],
+  USDC: ['usdc', 'lsdc', 'lxdc', 'osdc', 'usd see'], USDT: ['usdt', 'tether', 'usd tea', 'you sdt'],
+  SOL: ['sol', 'solana', 'seoul', 'salt', 'soul', 'sole', 'solo'], ETH: ['eth', 'ether', 'ethereum', 'edh'],
+  BTC: ['btc', 'bitcoin'], POL: ['pol', 'polygon', 'matic'], TON: ['ton', 'toncoin'], DOGE: ['doge', 'dogecoin', 'doggy coin'], ADA: ['ada', 'cardano'], AVAX: ['avax', 'avix', 'avalanche'],
   BNB: ['bnb', 'binance'], LINK: ['link', 'chainlink'], UNI: ['uni', 'uniswap'], ARB: ['arb', 'arm', 'arbitrum'], OP: ['op', 'optimism'],
-  SUI: ['sui', 'suey', 'sway'], PEPE: ['pepe', 'pipay', 'pepay'], SHIB: ['shib', 'shig', 'shame', 'shiba'],
+  SUI: ['sui', 'suey', 'sway'], PEPE: ['pepe', 'pipay', 'pepay'], SHIB: ['shib', 'shig', 'shame', 'shiba', 'sheba', 'shiva'],
   TRUMP: ['trump'], ZEC: ['zec', 'zach', 'zack', 'zek', 'zeg', 'zik', 'zeck', 'zcash'], TRX: ['trx', 'tron'],
   DAI: ['dai', 'dye', 'die'], APT: ['apt', 'aptos'], SWEAT: ['sweat', 'swe'], LTC: ['ltc', 'litecoin'],
   XRP: ['xrp', 'ripple'], AURORA: ['aurora'], RHEA: ['rhea'], HOT: ['hot'],
@@ -202,7 +202,7 @@ export function correct(input: string): string {
     .replace(/\b(?:e[ .]t[ .]h|eath)\b/gi, 'ETH');
   // Coin names said as two words, never ordinary English.
   t = t.replace(/\bshiba inu\b/gi, 'SHIB').replace(/\bton ?coin\b/gi, 'TON').replace(/\bbinance coin\b/gi, 'BNB')
-    .replace(/\bdoge ?coin\b/gi, 'DOGE').replace(/\bbit coin\b/gi, 'bitcoin').replace(/\blite coin\b/gi, 'litecoin').replace(/\bmeta ?pool\b/gi, 'Meta Pool');
+    .replace(/\b(?:doge|doja|taja|dodge|dosh|doggy) ?coin\b/gi, 'DOGE').replace(/\bbit coin\b/gi, 'bitcoin').replace(/\blite coin\b/gi, 'litecoin').replace(/\bmeta ?pool\b/gi, 'Meta Pool');
   t = numbers(t);
   const unit = new RegExp(String.raw`^\s+${NUM_UNIT}`, 'i');
   t = t.replace(/(?<![\d.])\b(?:(\d+)\s+)?point\s+(\d+)\b/gi, (m, a: string | undefined, b: string, off: number, all: string) =>

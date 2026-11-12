@@ -82,7 +82,8 @@ export const topupLive = () => process.env.TOPUP_LIVE === '1';
 
 /** "SOL", "eth", "btc" or a full assetId. A symbol prefers the coin on its own chain (SOL on Solana), native before tokens. */
 export function pickToken(list: Token[], what: string): Token | null {
-  const w = String(what ?? '').trim();
+  // "ETH on Base", "USDC on Arbitrum": the token is the first word; the chain is picked by rank below.
+  const w = String(what ?? '').trim().replace(/\s+on\s+[a-z ]+$/i, '');
   if (w.includes(':')) return list.find((t) => t.assetId === w) ?? null;
   // Spoken or misheard names: "WNEO" is wNEAR, "salt" or "Seoul" is SOL, "Zach" is ZEC: the shared glossary in terms.ts.
   const key = w.toUpperCase().replace(/[^A-Z0-9]/g, '');

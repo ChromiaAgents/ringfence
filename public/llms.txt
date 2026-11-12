@@ -52,7 +52,7 @@ Status: on NEAR mainnet since 10 November 2026, small amounts. The contracts are
 - Trezu is not used. A Sputnik DAO can own a phone wallet and fund a money packet (docs/dao-wallet.md, docs/dao-packet.md). The DAO-funded packet is on mainnet (README evidence rows 12 to 15). The DAO-owned wallet is not on mainnet yet.
 - Top up from any chain through NEAR Intents 1Click: live deposit addresses when the caller gives a refund address (the server has TOPUP_LIVE=1), dry quotes otherwise. No swap is on mainnet yet.
 - Staking for packets is not built.
-- Spoken languages: English and Chinese.
+- Spoken language: English for now (speech-to-text is set to English). Chinese replies are built and come back with STT_LANGUAGE=auto.
 
 ## WhatsApp
 - Built and supported: wallet by text, calls, the Approve card, money packets.

@@ -330,7 +330,8 @@ async function verifyLater(p: Proof, pre: Attested | null) {
 
 export async function transcribe(audio: Uint8Array, mime = 'audio/wav'): Promise<string> {
   if (env.mockLlm) { await new Promise((ok) => setTimeout(ok, Number(process.env.MOCK_STT_MS ?? 350))); return 'I want to launch a memecoin about sleepy otters.'; }
-  // English and Chinese only: auto-detect, and if Whisper hears any other language (English heard as Malay, 'bye' as Korean), retry as English.
+  if (env.sttLanguage !== 'auto') return fixTerms((await stt(audio, mime, env.sttLanguage)).text);
+  // STT_LANGUAGE=auto: English and Chinese, auto-detect, and if Whisper hears any other language (English heard as Malay, 'bye' as Korean), retry as English.
   const { text, lang } = await stt(audio, mime).then((r) => ({ ...r, text: fixTerms(r.text) }));
   const ok = (!lang || /^(en|english|zh|chinese)$/i.test(lang)) && /^[\p{Script=Latin}\p{Script=Han}\p{N}\p{P}\p{Zs}\p{S}]*$/u.test(text);
   return ok ? text : fixTerms((await stt(audio, mime, 'en')).text);

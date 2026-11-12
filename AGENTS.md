@@ -116,7 +116,7 @@ Other views: `get_config` on `ringfence-wallet.near` (custody account, agent acc
 - Trezu is not used. A Sputnik DAO can own a phone wallet (`docs/dao-wallet.md`) and fund a money packet (`docs/dao-packet.md`). The DAO-funded packet is on mainnet (README evidence rows 12 to 15). The DAO-owned wallet is not on mainnet yet. On a call, a DAO-owned wallet gets a DAO proposal instead of a signing link.
 - NEAR Intents top up (`src/desks/topup.ts`): a real deposit address when the server sets `TOPUP_LIVE=1` (it does) and the caller gives a refund address; otherwise a dry quote. The demo wallet is registered on the USDC contract. On the shared demo wallet the agent says the funds go to the demo, not the caller. No swap is on mainnet yet.
 - Staking for packets is not built.
-- Spoken languages are English and Chinese.
+- Speech is English only for now (`STT_LANGUAGE=en`, the default). `STT_LANGUAGE=auto` turns English and Chinese detection back on.
 - The contracts are AI-reviewed, not audited.
 - `npm run attack` does not reach the wait for a new recipient: without keys the server cannot read a wallet's saved recipients. That rule is tested in the contract.
 

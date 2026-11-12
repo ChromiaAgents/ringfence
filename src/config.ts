@@ -29,6 +29,9 @@ export const env = {
   mockLlm: process.env.MOCK_LLM === '1', // scripted chat + STT for offline timing; TTS stays real
   llmModel: process.env.LLM_MODEL ?? 'deepseek-ai/DeepSeek-V4.1-Flash-1017',
   sttModel: process.env.STT_MODEL ?? 'openai/whisper-large-v3',
+  // Speech is English only for now: Whisper guessing the language turned accented English into Malay or Chinese.
+  // Set STT_LANGUAGE=auto to let it detect English or Chinese again.
+  sttLanguage: process.env.STT_LANGUAGE ?? 'en',
   imageModel: process.env.IMAGE_MODEL ?? 'black-forest-labs/FLUX.2-klein-4B',
   network: (process.env.NETWORK === 'mainnet' ? 'mainnet' : 'testnet') as 'mainnet' | 'testnet',
   oneClickJwt: process.env.ONECLICK_JWT ?? '',

@@ -373,7 +373,7 @@ What the tests do not show:
 
 - The contracts are on mainnet and unaudited (AI-reviewed only). Amounts are kept small.
 - Packets are NEAR only. Sends are NEAR on mainnet; USDC sends are tested in the sandbox only.
-- English and Chinese are the only spoken languages. Other languages get an English reply.
+- Speech is English only for now: speech-to-text is set to English (`STT_LANGUAGE=en`), because language guessing turned accented English into Malay or Chinese. `STT_LANGUAGE=auto` turns English and Chinese detection back on.
 - Storage is one JSON file.
 - NEAR Intents top up: no swap is on mainnet yet. The live server gives a real deposit address when the caller gives a refund address.
 - A DAO-owned wallet must be set up through the API or `npm run dao:wallet`; the bind page only takes a connected wallet as owner. Whether 200 Tgas is enough for `create_wallet` through a proposal is untested on chain.
