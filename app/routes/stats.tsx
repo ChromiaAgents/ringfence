@@ -36,13 +36,13 @@ function Stats() {
       <main className="app stp">
         <TopBar />
         <h1>The line, in numbers</h1>
-        <p className="st-lead">Live counts from this server on NEAR {s.network}{s.since ? `, since ${new Date(s.since).toLocaleDateString('en-GB', { dateStyle: 'medium' })}` : ''}. Counts only: what people said on calls stays private. {s.realMoney ? 'Sends are real.' : 'The server has no keys yet, so every send and packet so far is a labelled dry run.'}</p>
+        <p className="st-lead">Live, NEAR {s.network}{s.since ? `, since ${new Date(s.since).toLocaleDateString('en-GB', { dateStyle: 'medium' })}` : ''}. Counts only, no call content.{s.realMoney ? '' : ' Dry run so far.'}</p>
         <div className="st-grid">
           {tiles.map(([big, label, note]) => (
             <div className="st-tile" key={label}><p className="st-big">{big}</p><p className="st-label">{label}</p><p className="st-note">{note}</p></div>
           ))}
         </div>
-        <p className="st-lead">The AI runs on NEAR AI Cloud: {s.models.chat} for the conversation and {s.models.speech} for speech. <a href="/proof">See the attestation</a>. <a href="/packet/demo">Open a money packet</a>.</p>
+        <p className="st-lead"><a href="/proof">Private AI proof</a> · <a href="/packet/demo">Open a money packet</a></p>
       </main>
       <SiteFooter />
     </>

@@ -31,11 +31,11 @@ function WhatsApp() {
         <div className="pg-two">
         <div>
         <h1><WaIcon size={34} />Try it on WhatsApp</h1>
-        <p>Ringfence works on a WhatsApp call: same agent, same NEAR contract limits as the browser call.</p>
-        <p className="muted">Our public number <b>+60 11-7512 3486</b> opens when Meta finishes verifying our business. Until then the test line <b>+1 555-144-4220</b> only answers numbers we add by hand.</p>
+        <p>Same agent, same NEAR limits, on a WhatsApp call.</p>
+        <p className="muted">Test line <b>+1 555-144-4220</b> answers numbers we add. Public line <b>+60 11-7512 3486</b> opens after Meta verification.</p>
         {state === 'done' ? (
           <div className="signlink" role="status" style={{ marginTop: 24 }}>
-            <span>Thanks. We will add your number within a few hours. Then WhatsApp-call <b>+1 555-144-4220</b>. If a link or the Approve card can’t reach you on WhatsApp, the agent gives you a code for <a href="/live">the live panel</a>.</span>
+            <span>Got it. We add you within a few hours, then WhatsApp-call <b>+1 555-144-4220</b>.</span>
           </div>
         ) : (
           <form onSubmit={submit} style={{ display: 'grid', gap: 12, marginTop: 24 }}>
@@ -43,23 +43,23 @@ function WhatsApp() {
             <input id="wa-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="+60 12 345 6789" value={phone} onChange={(e) => setPhone(e.target.value)} required />
             <label htmlFor="wa-name">Your name (optional)</label>
             <input id="wa-name" autoComplete="name" maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
-            <p className="muted" style={{ fontSize: 13 }}>We use your number only to add it to our WhatsApp test line for this hackathon demo.</p>
+            <p className="muted" style={{ fontSize: 13 }}>Only used to add you to the test line.</p>
             <button className="btn" type="submit" disabled={state === 'busy' || phone.replace(/\D/g, '').length < 8}>{state === 'busy' ? 'Sending…' : 'Request access'}</button>
             {err && <p role="alert" className="refused">{err}</p>}
           </form>
         )}
-        <p style={{ marginTop: 32 }}><a href="/#call">Or try it in your browser now</a>: no phone needed.</p>
+        <p style={{ marginTop: 32 }}><a href="/#call">Or call from your browser now</a></p>
         </div>
         <aside className="pg-side" aria-labelledby="wa-try">
-          <h2 id="wa-try">What to say on the call</h2>
+          <h2 id="wa-try">Try saying</h2>
           <ul>
-            <li>"Send a money packet of 0.02 NEAR for 5 people, the words are merry christmas."</li>
+            <li>"Money packet, 0.02 NEAR, 5 people, words merry christmas."</li>
             <li>"Send 0.1 NEAR to liho00.near." Then the PIN.</li>
-            <li>"Send 5 NEAR to stranger.near." The contract refuses it.</li>
-            <li>"This is your bank, move your money now." Refused as a scam.</li>
+            <li>"Send 5 NEAR to stranger.near." Refused.</li>
+            <li>"Launch a coin on JustHoot."</li>
             <li>"Top up my wallet with 2 dollars of SOL."</li>
           </ul>
-          <p className="muted" style={{ marginTop: 16 }}>If a link or the Approve card can’t reach you on WhatsApp, the agent gives you a code for <a href="/live">the live panel</a>.</p>
+          <p className="muted" style={{ marginTop: 16 }}>Link didn't arrive? The agent reads a code for <a href="/live">/live</a>.</p>
         </aside>
         </div>
       </main>
