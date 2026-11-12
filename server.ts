@@ -1,3 +1,5 @@
+import { giftsTo } from './src/stream.ts';
+import { findPacket, publicPacket } from './src/packets.ts';
 import { db, save } from './src/store.ts';
 // One process, one port: TanStack Start (pages + /api routes) and the voice/WhatsApp handlers.
 //   npm run dev  -> Vite in middleware mode (HMR, SSR from source)
@@ -69,6 +71,15 @@ server.on('request', async (req, res) => {
   if (await handleWebhook(req, res)) return;
   // For the deploy script: how many calls are on right now (a count only), so it restarts only when the line is idle.
   if (req.url === '/api/live-calls') { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ calls: db.calls.filter((c) => !c.endedAt && Date.now() - c.startedAt < 30 * 60_000).length })); return; }
+  // Stream overlay feed: /api/stream/<account>?since=<ms>&packet=<id>. Public: gifts are on chain anyway; senders masked.
+  { const sm = (req.url ?? '').match(/^\/api\/stream\/([a-z0-9._-]{2,64})(?:\?(.*))?$/);
+    if (sm) {
+      const q = new URLSearchParams(sm[2] ?? ''), pid = (q.get('packet') ?? '').slice(0, 40);
+      const p = pid ? findPacket(pid) : undefined;
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store', 'access-control-allow-origin': '*' })
+        .end(JSON.stringify({ gifts: giftsTo(sm[1], Number(q.get('since')) || 0), packet: p ? { ...publicPacket(p), hint: p.hint ?? null, claims: p.claims.slice(-8).map((c: any) => ({ to: String(c.to).replace(/^(.{6}).*(\..*)$/, '$1…$2'), near: Number(BigInt(c.yocto)) / 1e24, at: c.at })) } : null }));
+      return;
+    } }
   if ((req.url ?? '').startsWith('/api/topup/') && await handleTopup(req, res).catch((e) => { console.error('topup page', e.message); if (!res.headersSent) res.writeHead(500).end(); return true; })) return;
   if ((req.url ?? '').startsWith('/api/whatsapp-access') && await handleAccess(req, res).catch(() => { if (!res.headersSent) res.writeHead(500).end(); return true; })) return;
   // The live panel for WhatsApp calls; a tap there runs the same handler as a WhatsApp button tap.

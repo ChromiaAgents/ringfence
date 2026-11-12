@@ -22,6 +22,7 @@ import { Route as ApiTickerRouteImport } from './routes/api/ticker'
 import { Route as ApiTokensRouteImport } from './routes/api/tokens'
 import { Route as LaunchIdRouteImport } from './routes/launch.$id'
 import { Route as PacketIdRouteImport } from './routes/packet.$id'
+import { Route as StreamAccountRouteImport } from './routes/stream.$account'
 import { Route as TopupIdRouteImport } from './routes/topup.$id'
 import { Route as WalletBindRouteImport } from './routes/wallet.bind'
 import { Route as WalletClaimRouteImport } from './routes/wallet.claim'
@@ -101,6 +102,11 @@ const LaunchIdRoute = LaunchIdRouteImport.update({
 const PacketIdRoute = PacketIdRouteImport.update({
   id: '/packet/$id',
   path: '/packet/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StreamAccountRoute = StreamAccountRouteImport.update({
+  id: '/stream/$account',
+  path: '/stream/$account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TopupIdRoute = TopupIdRouteImport.update({
@@ -193,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/api/tokens': typeof ApiTokensRoute
   '/launch/$id': typeof LaunchIdRoute
   '/packet/$id': typeof PacketIdRoute
+  '/stream/$account': typeof StreamAccountRoute
   '/topup/$id': typeof TopupIdRoute
   '/wallet/bind': typeof WalletBindRoute
   '/wallet/claim': typeof WalletClaimRoute
@@ -223,6 +230,7 @@ export interface FileRoutesByTo {
   '/api/tokens': typeof ApiTokensRoute
   '/launch/$id': typeof LaunchIdRoute
   '/packet/$id': typeof PacketIdRoute
+  '/stream/$account': typeof StreamAccountRoute
   '/topup/$id': typeof TopupIdRoute
   '/wallet/bind': typeof WalletBindRoute
   '/wallet/claim': typeof WalletClaimRoute
@@ -254,6 +262,7 @@ export interface FileRoutesById {
   '/api/tokens': typeof ApiTokensRoute
   '/launch/$id': typeof LaunchIdRoute
   '/packet/$id': typeof PacketIdRoute
+  '/stream/$account': typeof StreamAccountRoute
   '/topup/$id': typeof TopupIdRoute
   '/wallet/bind': typeof WalletBindRoute
   '/wallet/claim': typeof WalletClaimRoute
@@ -286,6 +295,7 @@ export interface FileRouteTypes {
     | '/api/tokens'
     | '/launch/$id'
     | '/packet/$id'
+    | '/stream/$account'
     | '/topup/$id'
     | '/wallet/bind'
     | '/wallet/claim'
@@ -316,6 +326,7 @@ export interface FileRouteTypes {
     | '/api/tokens'
     | '/launch/$id'
     | '/packet/$id'
+    | '/stream/$account'
     | '/topup/$id'
     | '/wallet/bind'
     | '/wallet/claim'
@@ -346,6 +357,7 @@ export interface FileRouteTypes {
     | '/api/tokens'
     | '/launch/$id'
     | '/packet/$id'
+    | '/stream/$account'
     | '/topup/$id'
     | '/wallet/bind'
     | '/wallet/claim'
@@ -377,6 +389,7 @@ export interface RootRouteChildren {
   ApiTokensRoute: typeof ApiTokensRoute
   LaunchIdRoute: typeof LaunchIdRoute
   PacketIdRoute: typeof PacketIdRoute
+  StreamAccountRoute: typeof StreamAccountRoute
   TopupIdRoute: typeof TopupIdRoute
   WalletBindRoute: typeof WalletBindRoute
   WalletClaimRoute: typeof WalletClaimRoute
@@ -483,6 +496,13 @@ declare module '@tanstack/react-router' {
       path: '/packet/$id'
       fullPath: '/packet/$id'
       preLoaderRoute: typeof PacketIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stream/$account': {
+      id: '/stream/$account'
+      path: '/stream/$account'
+      fullPath: '/stream/$account'
+      preLoaderRoute: typeof StreamAccountRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/topup/$id': {
@@ -621,6 +641,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTokensRoute: ApiTokensRoute,
   LaunchIdRoute: LaunchIdRoute,
   PacketIdRoute: PacketIdRoute,
+  StreamAccountRoute: StreamAccountRoute,
   TopupIdRoute: TopupIdRoute,
   WalletBindRoute: WalletBindRoute,
   WalletClaimRoute: WalletClaimRoute,

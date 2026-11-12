@@ -1,3 +1,4 @@
+import { pushGift, maskFrom } from '../stream.ts';
 import { callProof } from '../wallet.ts';
 // The wallet desk: "send 0.1 NEAR to liho.testnet", read back, then confirmed by tier: up to SMALL_LIMIT NEAR to a saved
 // recipient by spoken 4-digit PIN; more (still within limits) by the PIN and then an Approve tap on WhatsApp; over a
@@ -369,6 +370,7 @@ async function execute(callId: string, b: Binding, t: Transfer): Promise<{ ok: t
       next: `Tell them: it is a first payment to this account, so the contract holds it for ${minutes(t.wait)} and then it goes; saying "cancel" stops it; if they stay on the call you tell them when it goes out (you will hear it); do not promise a text message.` };
   }
   links.set(callId, { url: r.url, label: r.queuedId != null ? 'Queued transfer' : 'Your transaction' });
+  if (t.asset === 'near' && r.queuedId == null) pushGift({ to: t.to, near: Number(t.amount), from: maskFrom(b.phone, db.calls.find((c) => c.id === callId)?.caller?.name), at: Date.now(), url: r.url });
   return { ok: true, txHash: r.txHash, url: r.url, linkSent: true, queued: r.queuedId != null };
 }
 

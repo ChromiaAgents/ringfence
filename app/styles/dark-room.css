@@ -726,3 +726,18 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .live .live-talk p b { display: block; font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
 .live .live-talk .caller { justify-self: end; background: var(--field); }
 .live .live-talk .agent { background: #12261d; }
+/* /stream/<account>: OBS overlay, transparent page */
+.ov { position: fixed; inset: 0; pointer-events: none; font-family: "Geist", system-ui, sans-serif; color: #fff; }
+.ov-gifts { position: absolute; left: 32px; bottom: 220px; display: grid; gap: 10px; }
+.ov-gift { display: flex; align-items: center; gap: 12px; padding: 12px 18px 12px 12px; background: rgba(12,10,8,.82); border-left: 4px solid #00ec97; border-radius: 2px; font-size: 22px; animation: ov-in 400ms cubic-bezier(.2,.8,.2,1) both; }
+.ov-gift small { display: block; font-size: 14px; color: #b8b2a8; }
+.ov-heart { font-size: 34px; color: #ff5a7a; animation: ov-beat 900ms ease-in-out 2; }
+.ov-total { position: absolute; top: 24px; right: 32px; padding: 8px 14px; background: rgba(12,10,8,.82); font-size: 18px; border-radius: 2px; }
+.ov-packet { position: absolute; right: 32px; bottom: 32px; width: 460px; padding: 18px 20px; background: rgba(0,108,70,.92); border-radius: 4px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.ov-packet p { margin: 0; } .ov-k { font-size: 15px; opacity: .85; }
+.ov-words { font-size: 26px; margin: 6px 0 !important; line-height: 1.2; } .ov-words b { color: #fff3a6; }
+.ov-how { font-size: 14px; opacity: .85; font-family: "Geist Mono", monospace; }
+.ov-packet ul { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 4px; font-size: 16px; }
+@keyframes ov-in { from { opacity: 0; transform: translateX(-40px); } }
+@keyframes ov-beat { 50% { transform: scale(1.25); } }
+@media (prefers-reduced-motion: reduce) { .ov-gift, .ov-heart { animation: none; } }
