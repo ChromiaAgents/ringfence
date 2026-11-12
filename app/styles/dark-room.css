@@ -481,7 +481,7 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
    A gift card in the site's one accent: the amount, a dark strip with the words to say (where a gift card has its
    code), who it is from and a coin for every share. Beside it, the slip of who got what. Sizes inside the card
    follow the card's width (cqi), so it reads the same at 480px and on a phone. */
-.pk { --pk-paper: var(--fg); --pk-ink: var(--bg); max-width: 1120px; margin: 0 auto; padding: 32px 24px 96px; font-size: 17px; line-height: 1.5; }
+.pk { --pk-paper: var(--fg); --pk-ink: var(--bg); margin: 0; padding: 32px 24px 96px; font-size: 17px; line-height: 1.5; }
 .pk .brandrow { display: flex; align-items: center; margin-bottom: 56px; font-size: 16px; }
 .pk-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 72px; align-items: start; }
 
@@ -557,10 +557,10 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 }
 
 /* ---------- /stats: the line in numbers. Filled tiles, one step lighter than the ground; no outlines. ---------- */
-.stp { max-width: 1120px; margin: 0 auto; padding: 32px 24px 96px; font-size: 17px; line-height: 1.5; }
+.stp { margin: 0; padding: 32px 24px 96px; font-size: 17px; line-height: 1.5; }
 /* The shared frame for secondary pages (proof, live panel, WhatsApp access): the same width, gutters and header row
    as /stats and /packet, with the readable content held to one column under the wordmark. */
-.pg { max-width: 1120px; margin: 0 auto; padding: 32px 24px 96px; font-size: 17px; line-height: 1.5; }
+.pg { margin: 0; padding: 32px 24px 96px; font-size: 17px; line-height: 1.5; }
 .pg .brandrow { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 56px; font-size: 16px; }
 .pg > :not(.brandrow) { max-width: 720px; }
 .app.pg h1 { font-size: clamp(34px, 3.6vw, 52px); line-height: 1.02; margin: 0 0 20px; }
@@ -570,7 +570,7 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .pg .pg-side { background: var(--surface); padding: 28px; }
 .pg .pg-side h2 { font-size: 22px; margin: 0 0 14px; }
 .pg .pg-side ol, .pg .pg-side ul { margin: 0; padding-left: 1.2em; display: grid; gap: 10px; }
-@media (max-width: 520px) { .pg { padding: 24px 20px 72px; } .pg .brandrow { margin-bottom: 28px; } }
+@media (max-width: 700px) { .pg { padding: 24px 16px 72px; } .pg .brandrow { margin-bottom: 28px; } }
 .stp .brandrow { display: flex; align-items: center; margin-bottom: 56px; font-size: 16px; }
 .stp h1 { font-size: clamp(40px, 4.4vw, 64px); line-height: 1; margin: 0; }
 .st-lead { margin: 20px 0 0; max-width: 62ch; color: var(--fg); }
@@ -581,7 +581,7 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .st-big { font: 400 clamp(40px, 4.4vw, 64px)/1 var(--head); font-variant-numeric: tabular-nums; }
 .st-label { margin-top: 10px !important; font-weight: 600; }
 .st-note { margin-top: 6px !important; font-size: 16px; color: var(--muted); }
-.stp + .site-foot { max-width: 1120px; margin-inline: auto; padding-inline: 24px; }
+.stp + .site-foot { padding-inline: 24px; }
 @media (max-width: 900px) { .st-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .stp { padding: 24px 20px 72px; } .stp .brandrow { margin-bottom: 28px; } .st-grid { grid-template-columns: minmax(0, 1fr); } .stp + .site-foot { padding-inline: 20px; } }
 
@@ -596,7 +596,9 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 
 /* /live: the WhatsApp-call fallback panel (code box, links, the same Approve card as the browser call). Mobile first. */
 .live label { display: block; margin: 20px 0 8px; color: var(--muted); font-size: 14px; }
-.live .live-code { width: 100%; max-width: 260px; padding: 12px 14px; font: 600 32px/1 "Geist Mono", monospace; letter-spacing: .3em; background: var(--field); color: var(--fg); border: 1px solid var(--ui-line); border-radius: 8px; }
+.live .live-code { display: block; width: 100%; max-width: 280px; height: 64px; padding: 0 20px; font: 600 28px/1 "Geist Mono", monospace; letter-spacing: .32em; background: var(--field); color: var(--fg); border: 1px solid var(--ui-line); border-radius: 2px; box-sizing: border-box; }
+.live .live-code::placeholder { color: var(--muted); opacity: .45; }
+.live form .btn { margin-top: 16px; height: 52px; padding: 0 28px; }
 .live .live-code:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 .live input:not(.live-code) { width: 100%; height: 52px; padding: 0 16px; background: var(--field); color: var(--fg); border: 1px solid var(--ui-line); border-radius: 2px; font: inherit; font-size: 17px; appearance: none; -webkit-appearance: none; transition: border-color 160ms ease; }
 .live input:not(.live-code)::placeholder { color: var(--muted); opacity: .6; }
