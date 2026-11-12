@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useCall } from '../call';
 
 import { Host, type HostHandle } from '../host';
+import { WaIcon } from '../ui';
 
 export const Route = createFileRoute('/room/$account')({
   head: ({ params }) => ({ meta: [{ title: `${params.account} live · Ringfence` }, { name: 'description', content: `Send ${params.account} real NEAR gifts by phone call, grab money packets live, and watch the AI host thank you.` }, { property: 'og:title', content: `${params.account} is live on Ringfence` }, { property: 'og:description', content: 'Gift real NEAR by phone call. Grab the money packet. On NEAR mainnet.' }] }),
@@ -16,9 +17,9 @@ export const Route = createFileRoute('/room/$account')({
 type Gift = { to: string; near: number; from: string; at: number; via: 'call' | 'chain'; landsAt?: number; url?: string };
 type Packet = { id: string; near: number; count: number; hint: string | null; expired: boolean; claims: { to: string; near: number; at: number }[] };
 const GIFTS = [
-  { name: 'Heart', icon: '💖', near: 0.01, tab: 'Popular' }, { name: 'Duck', icon: '🐥', near: 0.02, tab: 'Popular' }, { name: 'Kiss', icon: '😘', near: 0.03, tab: 'Popular', tag: 'Hot' }, { name: 'Star', icon: '🌟', near: 0.05, tab: 'Popular', tag: 'Combo' },
-  { name: 'Rose', icon: '🌹', near: 0.01, tab: 'Popular' }, { name: 'Coffee', icon: '☕', near: 0.01, tab: 'Popular' }, { name: 'Ice cream', icon: '🍦', near: 0.02, tab: 'Popular' }, { name: 'Cake', icon: '🎂', near: 0.05, tab: 'Popular', tag: 'Party' }, { name: 'Red packet', icon: '🧧', near: 0.05, tab: 'Lucky', tag: 'Lucky' }, { name: 'Gold ingot', icon: '🪙', near: 0.08, tab: 'Lucky' }, { name: 'Lotus', icon: '🪷', near: 0.1, tab: 'Lucky', tag: 'New' },
-  { name: 'Sports car', icon: '🏎️', near: 0.5, tab: 'Luxury' }, { name: 'Rocket', icon: '🚀', near: 0.2, tab: 'Luxury' }, { name: 'Crown', icon: '👑', near: 0.3, tab: 'Luxury', tag: 'Top' }, { name: 'Castle', icon: '🏰', near: 1, tab: 'Luxury' },
+  { name: 'NEAR', icon: '💖', img: '/brand/near-mark-light.svg', near: 0.01, tab: 'Popular', tag: 'NEAR' }, { name: 'Heart', icon: '💖', near: 0.01, tab: 'Popular' }, { name: 'Duck', icon: '🐥', near: 0.02, tab: 'Popular' }, { name: 'Kiss', icon: '😘', near: 0.03, tab: 'Popular', tag: 'Hot' }, { name: 'Star', icon: '🌟', near: 0.05, tab: 'Popular', tag: 'Combo' },
+  { name: 'Rose', icon: '🌹', near: 0.01, tab: 'Popular' }, { name: 'Ice cream', icon: '🍦', near: 0.02, tab: 'Popular' }, { name: 'Cake', icon: '🎂', near: 0.05, tab: 'Popular', tag: 'Party' }, { name: 'Red packet', icon: '🧧', near: 0.05, tab: 'Lucky', tag: 'Lucky' }, { name: 'Gold ingot', icon: '🪙', near: 0.08, tab: 'Lucky' }, { name: 'Lotus', icon: '🪷', near: 0.1, tab: 'Lucky', tag: 'New' },
+  { name: 'Hoot', icon: '🦉', img: '/brand/justhoot.png', near: 0.05, tab: 'Lucky', tag: 'JustHoot' }, { name: 'Sports car', icon: '🏎️', near: 0.5, tab: 'Luxury' }, { name: 'Rocket', icon: '🚀', near: 0.2, tab: 'Luxury' }, { name: 'Crown', icon: '👑', near: 0.3, tab: 'Luxury', tag: 'Top' }, { name: 'Castle', icon: '🏰', near: 1, tab: 'Luxury' },
 ];
 const TABS = ['Popular', 'Lucky', 'Luxury'];
 const iconOf = (n: number) => [...GIFTS].sort((a, b) => b.near - a.near).find((g) => n >= g.near)?.icon ?? '💖';
@@ -119,8 +120,8 @@ function Room() {
             </div>
           </div>
           <div className="lr-row2">
-            <span className="lr-chip">Hourly rank</span>
-            <a className="lr-chip right" href="/whatsapp">Call on WhatsApp ›</a>
+            <a className="lr-chip brand" href="/proof" title="Built on NEAR"><img src="/brand/near-mark-light.svg" alt="" width="14" height="14" />Built on NEAR</a>
+            <a className="lr-chip right" href="/whatsapp"><WaIcon size={15} /> Call on WhatsApp ›</a>
           </div>
           {packet && !packet.expired && left > 0 && (
             <a className="lr-event" href={`/packet/${packet.id}`} target="_blank" rel="noreferrer">
@@ -182,7 +183,7 @@ function Room() {
               {GIFTS.filter((g) => g.tab === tab).map((g) => (
                 <button key={g.name} type="button" className={`lr-gift ${pick === g.name ? 'on' : ''}`} onClick={() => setPick(g.name)}>
                   {g.tag && <i>{g.tag}</i>}
-                  <span>{g.icon}</span>
+                  <span>{(g as any).img ? <img src={(g as any).img} alt= className={g.name === 'NEAR' ? 'near' : ''} /> : g.icon}</span>
                   {pick === g.name ? <><small>{g.near} NEAR</small><b className="lr-send" onClick={(e) => { e.stopPropagation(); setConfirm(g); }}>Send</b></> : <><b>{g.name}</b><small>{g.near} NEAR</small></>}
                 </button>
               ))}

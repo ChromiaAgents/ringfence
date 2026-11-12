@@ -78,6 +78,7 @@ export const Host = forwardRef<HostHandle, { className?: string; onTap?: () => v
       size(); const ro = new ResizeObserver(size); ro.observe(el);
       const clock = new THREE.Clock();
       let nextBlink = 2, mouth = 0, acc = 0, onScreen = true;
+      const lookS = { x: 0, y: 0 };
       const io = new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; }); io.observe(el);
       // 30 fps, and nothing at all while the tab is hidden: smooth on weak phones, cool laptops.
       const loop = () => {
@@ -90,6 +91,8 @@ export const Host = forwardRef<HostHandle, { className?: string; onTap?: () => v
         if (!onScreen || acc < 1 / (busy ? 30 : 15)) return;
         const dt = Math.min(acc, 0.1); acc = 0;
         const t = clock.elapsedTime;
+        // Ease toward the finger: about a third of a second, so the head turns, not snaps.
+        lookS.x += (look.current.x - lookS.x) * Math.min(1, dt * 3); lookS.y += (look.current.y - lookS.y) * Math.min(1, dt * 3);
         // Its own lines, or the call agent's voice when a call is on (one voice, one face).
         const call = (window as any).__rfVoiceLevel?.() ?? 0;
         mouth += (Math.max(level.current, call) - mouth) * Math.min(1, dt * 18);
@@ -100,7 +103,7 @@ export const Host = forwardRef<HostHandle, { className?: string; onTap?: () => v
         em?.setValue('happy', Math.min(1, 0.25 + mouth * 0.2 + tapped));
         if (t > nextBlink) { em?.setValue('blink', 1); if (t > nextBlink + 0.12) { em?.setValue('blink', 0); nextBlink = t + 2 + Math.random() * 3; } }
         const head = h?.getNormalizedBoneNode('head'), spine = h?.getNormalizedBoneNode('spine');
-        if (head) { head.rotation.y = Math.sin(t * 0.6) * 0.12 + look.current.x * 0.35; head.rotation.x = Math.sin(t * 0.9) * 0.04 + mouth * 0.06 - look.current.y * 0.2 + tapped * 0.12; }
+        if (head) { head.rotation.y = Math.sin(t * 0.6) * 0.12 + lookS.x * 0.3; head.rotation.x = Math.sin(t * 0.9) * 0.04 + mouth * 0.06 - lookS.y * 0.15 + tapped * 0.12; }
         if (spine) spine.rotation.z = Math.sin(t * 0.7) * 0.03;
         vrm.update(dt);
         renderer.render(scene, camera);

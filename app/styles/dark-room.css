@@ -915,3 +915,7 @@ html:has(.ov) { color-scheme: normal !important; }
 .lr-choices { display: flex; flex-wrap: wrap; gap: 6px; }
 .lr-choices button { padding: 8px 12px; border: 0; border-radius: 99px; background: rgba(255,255,255,.9); color: #111; font: inherit; font-size: 13px; cursor: pointer; }
 .lr-msg, .lr-sys, .lr-bar input, .lr-anchor, .room-host { backdrop-filter: none !important; }
+.lr-chip { display: inline-flex; align-items: center; gap: 6px; }
+.lr-chip.brand img { filter: none; }
+.lr-gift span img { width: 44px; height: 44px; object-fit: contain; border-radius: 10px; }
+.lr-gift span img.near { padding: 8px; background: #111; border-radius: 50%; box-sizing: border-box; }
