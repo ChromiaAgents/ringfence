@@ -1225,4 +1225,10 @@ await t('NEAR AI keys: a failing primary falls back, then is skipped for a while
     assert.equal((await withAiKey(ok(402))).r.status, 402, 'no fallback set: the primary answer is returned');
   } finally { env.nearAiKey = was.a; env.nearAiKeyFallback = was.b; resetAiKeys(); }
 });
+await t('goodbye: a plain goodbye is spotted (the model is reminded), a payment that mentions bye is not', async () => {
+  const { isGoodbye, TOOL_SAY } = await import('../src/agent.ts');
+  for (const x of ['bye', 'Okay, thanks, bye!', "that's all", 'goodbye', 'see you']) assert.equal(isGoodbye(x), true, x);
+  for (const x of ['send 0.1 NEAR to bye.near', 'pay goodbye dot near', 'what is my balance', 'bye, wait, send a packet to mum']) assert.equal(isGoodbye(x), false, x);
+  assert.ok(TOOL_SAY.web_search && TOOL_SAY.confirm_transfer && TOOL_SAY.get_balance);
+});
 process.once("beforeExit", () => console.log(`${n} passed`));

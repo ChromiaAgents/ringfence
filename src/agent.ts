@@ -103,6 +103,8 @@ export type ReplyOpts = {
   onSentence?: (s: string) => void;
   /** Called before a slow tool runs, so the channel can play a short filler. */
   onSlowTool?: (name: string) => void;
+  /** A short line to say now because a network tool is starting. */
+  onToolStart?: (say: string) => void;
   signal?: AbortSignal;
   /** Filled in here (firstTokenMs, llmMs) and by the channel (sttMs, firstAudioMs, totalMs); stored on the agent turn. */
   timing?: Timing;
@@ -110,6 +112,17 @@ export type ReplyOpts = {
   onEndCall?: () => void;
 };
 const SLOW_TOOLS = new Set(['make_logo', 'web_search']);
+/** Said out loud the moment a tool that touches the network starts, so the caller is not left in silence. */
+export const TOOL_SAY: Record<string, string> = {
+  web_search: 'Let me look that up.', get_price: 'Checking the price.', get_trends: 'Let me check.',
+  get_balance: 'Checking your balance.', get_spending: 'Checking that now.', check_account: 'Checking that account.',
+  confirm_transfer: 'Sending that on NEAR now.', open_packet: 'Opening it on NEAR now.', topup_quote: 'Getting a quote.',
+};
+/** A whole utterance that is only a goodbye ("bye", "okay thanks, bye", "that's all"). Short on purpose: "pay bye.near" is not one. */
+export const isGoodbye = (t: string) => {
+  const s = String(t ?? '').toLowerCase().replace(/[^a-z' ]+/g, ' ').trim();
+  return s.split(/\s+/).length <= 6 && /\b(bye|goodbye|bye bye|see you|see ya|that's all|that is all|i'm done|im done|hang up)\b/.test(s) && !/\b(send|pay|transfer|packet|to)\b/.test(s);
+};
 
 export const isFiller = (t: string) => /^[\s,.!?…-]*((u+h*m+|u+h+|h+m+|e+r+m*|a+h+|o+h+|mm+)[\s,.!?…-]*)+$/i.test(t);
 
@@ -127,6 +140,8 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   call.turns.push({ at: Date.now(), who: 'caller', text });
   h[0] = { role: 'system', content: sys(call) }; // pick up config changes mid-call
   h.push({ role: 'user', content: text });
+  // The model decides when to hang up; a plain goodbye only reminds it, because it sometimes forgot end_call.
+  if (isGoodbye(text)) h.push({ role: 'system', content: 'The caller just said goodbye. Unless they also asked for something, say a short warm goodbye and call end_call.' });
   // A call about one money packet: the words are checked in code on every line, whatever the model makes of it.
   const auto = await autoOpen(call).catch(() => null);
   if (auto) {
@@ -161,6 +176,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
         let args: any = {};
         try { args = JSON.parse(tc.function.arguments || '{}'); } catch {}
         if (SLOW_TOOLS.has(tc.function.name)) o.onSlowTool?.(tc.function.name);
+        if (TOOL_SAY[tc.function.name]) o.onToolStart?.(TOOL_SAY[tc.function.name]);
         const name = tc.function.name, desk = deskOfTool(call, name);
         let out: unknown;
         if (name === 'end_call') { o.onEndCall?.(); clearPending(call.id); call.endedAt = Date.now(); out = { ok: true, note: 'The line hangs up after you finish speaking.' }; }

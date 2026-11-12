@@ -198,7 +198,7 @@ async function onCallEvent(c: any) {
     line.ackSoon();
     try {
       let hangUp = false;
-      await reply(call.id, text, { signal, timing, onSentence: (s) => line.say(s), onSlowTool: () => line.filler('draw'), onEndCall: () => (hangUp = true) });
+      await reply(call.id, text, { signal, timing, onSentence: (s) => line.say(s), onSlowTool: () => line.filler('draw'), onToolStart: (say) => line.toolStart(say), onEndCall: () => (hangUp = true) });
       await line.end(`wa ${call.id}`);
       if (hangUp) { // the AI called end_call: let the goodbye finish playing, then hang up
         while (audio.busy()) await new Promise((r) => setTimeout(r, 100));

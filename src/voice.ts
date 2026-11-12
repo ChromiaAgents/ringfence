@@ -56,6 +56,7 @@ export function attachVoice(server: Server) {
       signal, timing,
       onSentence: (s: string) => { ws.send(JSON.stringify({ type: 'agent', text: s })); line.say(s); },
       onSlowTool: (name: string) => line.filler(name === 'photo' ? 'photo' : 'draw'),
+      onToolStart: (say: string) => line.toolStart(say),
     });
     ws.send(JSON.stringify({ type: 'agent', text: greeting })); // text first: the call works even if TTS is still loading
     warmUp().then(() => line.say(greeting)).catch(console.error);
