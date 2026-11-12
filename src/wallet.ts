@@ -76,7 +76,7 @@ export function checkPin(b: Binding, said: string, now = Date.now()): { ok: true
 
 /** A code is for one action and one account: "bind to alice.near" or "give ownership to alice.near". */
 export type CodePurpose = 'bind' | 'claim';
-const codes = new Map<string, { hash: string; until: number; tries: number; purpose: CodePurpose; target: string }>();
+const codes: Map<string, { hash: string; until: number; tries: number; purpose: CodePurpose; target: string }> = ((globalThis as any).__rfCodes ??= new Map()); // shared across bundles
 export function newCode(phone: string, purpose: CodePurpose, target: string) {
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
   codes.set(digits(phone), { hash: createHash('sha256').update(code).digest('hex'), until: Date.now() + 10 * 60_000, tries: 0, purpose, target });
@@ -99,7 +99,8 @@ const ownerReason = () => (env.network === 'mainnet' ? 'Mainnet accounts only (n
  *  account, phone = the family member's (the code went to their phone and they read it out). */
 /** A link sent during a WhatsApp call from this number proves the caller holds it: the bind page needs no code then.
  *  One use, 30 minutes, in memory. */
-const proofs = new Map<string, { phone: string; until: number }>();
+// On globalThis: the API routes and the call server are bundled apart, and must share one map (like db).
+const proofs: Map<string, { phone: string; until: number }> = ((globalThis as any).__ringfenceProofs ??= new Map());
 export function callProof(phone: string): string {
   const t = randomBytes(16).toString('hex');
   proofs.set(t, { phone: digits(phone), until: Date.now() + 30 * 60_000 });

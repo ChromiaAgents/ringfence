@@ -12,8 +12,8 @@ type Panel = { code: string; callId: string; phone: string; endedAt?: number; li
 const AFTER_MS = 10 * 60_000;
 // A code never outlives this, even if the call never ended cleanly (no terminate webhook, a crash mid-setup).
 const MAX_LIFE_MS = 2 * 60 * 60_000;
-const byCode = new Map<string, Panel>();
-const byCall = new Map<string, Panel>();
+const byCode: Map<string, Panel> = ((globalThis as any).__rfLiveByCode ??= new Map()); // shared across bundles
+const byCall: Map<string, Panel> = ((globalThis as any).__rfLiveByCall ??= new Map()); // shared across bundles
 
 const gone = (p: Panel, now: number) => (p.endedAt != null && now > p.endedAt + AFTER_MS) || now > p.startedAt + MAX_LIFE_MS;
 function drop(p: Panel) { byCode.delete(p.code); if (byCall.get(p.callId) === p) byCall.delete(p.callId); }

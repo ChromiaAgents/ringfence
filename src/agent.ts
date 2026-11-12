@@ -79,7 +79,7 @@ const sys = system;
 let chatFn: typeof chat = chat;
 export const setChatForTest = (f: typeof chat | null) => (chatFn = f ?? chat);
 
-const histories = new Map<string, Msg[]>();
+const histories: Map<string, Msg[]> = ((globalThis as any).__rfHistories ??= new Map()); // shared across bundles
 
 /** desk only labels the call up front. */
 export function startCall(channel: Call['channel'], from?: string, desk?: Desk, packetId?: string, payTo?: string): { call: Call; greeting: string } {
