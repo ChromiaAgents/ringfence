@@ -20,12 +20,12 @@ function Proof() {
   useEffect(() => load(), []);
   return (
     <>
-    <main className="app canvas" style={{ maxWidth: 760, margin: '0 auto', padding: '24px 16px' }}>
-      <div className="brandrow" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}><Wordmark /><Makers /></div>
+    <main className="app pg">
+      <div className="brandrow"><Wordmark /><Makers /></div>
       <h1>Proof the AI runs privately</h1>
       <p className="muted">Our app server and Cartesia (speech) aren’t attested.</p>
       <div className="proof-sum">
-        <h2>{atts ? `${atts.filter(passed).length} of ${atts.length} models checked live, just now` : err || 'Checking the models live…'}</h2>
+        <h2>{atts ? `${atts.filter(passed).length} of ${atts.length} models verified` : err || 'Checking the models live…'}</h2>
         {atts && <p>{atts.map((a) => `${ROLE[a.model] ?? 'Model'}: ${passed(a) ? 'verified' : 'not verified'}`).join(' · ')}</p>}
       </div>
       <p>The chat, speech-to-text and image models Ringfence uses run on NEAR AI Cloud inside an Intel TDX confidential VM with NVIDIA confidential-computing GPUs. The spoken voice comes from Cartesia and is not attested. For each model this server fetches the attestation report with a fresh random nonce and checks three things.</p>

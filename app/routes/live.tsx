@@ -52,8 +52,10 @@ function Live() {
 
   return (
     <>
-    <main className="app canvas live" style={{ maxWidth: 520, margin: '0 auto', padding: '24px 16px' }}>
-      <div className="brandrow" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}><Wordmark /><Makers /></div>
+    <main className="app pg live">
+      <div className="brandrow"><Wordmark /><Makers /></div>
+      <div className="pg-two">
+      <div>
       <h1>Live panel</h1>
       {!open ? (
         <form onSubmit={(e) => { e.preventDefault(); if (/^\d{6}$/.test(code)) { setErr(''); setNote(''); setOpen(code); } }}>
@@ -86,6 +88,17 @@ function Live() {
         </>
       )}
       {err && <p className="live-err" role="alert">{err}</p>}
+      </div>
+      <aside className="pg-side" aria-labelledby="live-how">
+        <h2 id="live-how">How it works</h2>
+        <ol>
+          <li>Call Ringfence on WhatsApp. Our test line <b>+1 555-144-4220</b> answers <a href="/whatsapp">numbers we have added</a>.</li>
+          <li>When a link or the Approve card can’t reach you as a WhatsApp message, the agent says a 6-digit code.</li>
+          <li>Enter it here. Your links and the Approve card show up while the call is on.</li>
+        </ol>
+        <p className="muted" style={{ marginTop: 16 }}>The PIN is never shown here, and the code stops working 10 minutes after the call. No WhatsApp? <a href="/#call">Try the browser call</a>.</p>
+      </aside>
+      </div>
     </main>
     <SiteFooter />
     </>
