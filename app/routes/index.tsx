@@ -31,6 +31,7 @@ const FEATS: { name: string; what: string; tag: string; href: string }[] = [
   { name: 'Top up from any chain', what: 'USDT on Solana in, USDC out, via NEAR Intents', tag: 'Mainnet', href: CODE_URL + '#mainnet-evidence' },
   { name: 'Launch a coin', what: 'By voice, signed in your wallet, on JustHoot', tag: 'Mainnet', href: 'https://nearblocks.io/address/fence.v2-launchpad.justhoot.near' },
   { name: 'Private AI', what: 'NEAR AI Cloud in a TEE, attested live', tag: '3/3 verified', href: '/proof' },
+  { name: 'Free money packet', what: 'Call and ask: is there a free money packet?', tag: 'Live', href: '/packet/demo' },
   { name: 'WhatsApp calls', what: 'Your number is the wallet, named like mum.ringfence-wallet.near', tag: 'Test line', href: '/whatsapp' },
 ];
 
