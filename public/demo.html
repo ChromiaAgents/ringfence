@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ringfence demos</title>
+<meta name="description" content="Screen recordings of every Ringfence flow on NEAR mainnet: gifts, money packets, top up through NEAR Intents, coin launch on JustHoot, private AI proof.">
+<meta property="og:image" content="https://ringfence.evalengine.ai/og.png">
+<link rel="icon" href="/brand/near-mark-light.svg">
+<style>
+@font-face { font-family: Battlefin; src: url(/fonts/battlefin-black.woff2); font-display: swap; }
+@font-face { font-family: Geist; src: url(/fonts/geist-latin.woff2); font-weight: 100 900; font-display: swap; }
+:root { --bg: #0c0a08; --surface: #181512; --fg: #f4f3f1; --muted: #b8b2a8; --accent: #00ec97; }
+* { margin: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 400 17px/1.5 Geist, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: var(--fg); text-underline-offset: 3px; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 32px 16px 80px; }
+.top { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 56px; }
+.top b { font: 400 28px/1 Battlefin; margin-right: auto; }
+.top a { font-size: 15px; }
+h1 { font: 400 clamp(40px, 6vw, 84px)/1 Battlefin; max-width: 18ch; }
+h1 span { color: var(--muted); }
+.lead { margin: 20px 0 48px; max-width: 62ch; color: var(--muted); font-size: 19px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.wide { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 16px; margin-top: 16px; }
+figure { background: var(--surface); display: flex; flex-direction: column; }
+figure video { width: 100%; display: block; background: #000; }
+.ph video { aspect-ratio: 860 / 1864; object-fit: cover; }
+figcaption { padding: 14px 16px 18px; display: grid; gap: 6px; }
+figcaption b { font: 400 22px/1.1 Battlefin; }
+figcaption span { color: var(--muted); font-size: 15px; }
+figcaption a { font-size: 15px; color: var(--accent); }
+.tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; background: var(--accent); color: var(--bg); width: fit-content; }
+.tag.no { background: #3b3733; color: #d9d2c6; }
+.foot { margin-top: 56px; color: var(--muted); font-size: 15px; display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
+.foot img { height: 18px; vertical-align: -3px; margin-right: 6px; }
+</style>
+<div class="wrap">
+  <nav class="top" aria-label="Ringfence"><b>Ringfence</b><a href="/room/liho00.near">Live room</a><a href="/">Try a call</a><a href="/deck.html">Deck</a><a href="/proof">Proof</a><a href="https://github.com/ChromiaAgents/ringfence">Code</a></nav>
+  <h1>Every flow, recorded live. <span>Real NEAR, mainnet.</span></h1>
+  <p class="lead">Recorded on 12 November 2026 in Chrome, on this site, with the demo wallet and demo PIN 4821. The voice is the live agent; the caller's lines were typed or played from a recording. Every link opens the same page so you can do it yourself.</p>
+
+  <div class="grid">
+    <figure class="ph"><video src="/demo/gift.mp4" poster="/demo/gift.jpg" controls muted playsinline preload="none"></video>
+      <figcaption><span class="tag">mainnet</span><b>Gift by phone call</b><span>Tap a heart. A short call opens, the host asks for the PIN, sends 0.01 NEAR and says it went through.</span><a href="/room/liho00.near">Open the live room →</a></figcaption></figure>
+    <figure class="ph"><video src="/demo/packet.mp4" poster="/demo/packet.jpg" controls muted playsinline preload="none"></video>
+      <figcaption><span class="tag">mainnet</span><b>Money packet</b><span>Say the words, "trick or treat". The packets contract pays a lucky share: 0.002 NEAR to liho.ringfence-wallet.near.</span><a href="/room/liho00.near">Grab a share →</a></figcaption></figure>
+    <figure class="ph"><video src="/demo/topup.mp4" poster="/demo/topup.jpg" controls muted playsinline preload="none"></video>
+      <figcaption><span class="tag">live quote</span><b>Top up from any chain</b><span>"Top up one dollar of USDT on Solana." A live NEAR Intents quote and the top-up page, by voice.</span><a href="https://explorer.near-intents.org/transactions/6sea7mLtDou7VopLaqdXbSuhGRKntp6GrEK64doCwcai">A finished one on the Intents explorer →</a></figcaption></figure>
+    <figure class="ph"><video src="/demo/launch.mp4" poster="/demo/launch.jpg" controls muted playsinline preload="none"></video>
+      <figcaption><span class="tag no">you sign</span><b>Launch a coin on JustHoot</b><span>Name, ticker and logo by voice. The agent makes the launch page; you sign it in your own wallet.</span><a href="https://justhoot.fun/p/fence.v2-launchpad.justhoot.near">$FENCE, launched this way →</a></figcaption></figure>
+  </div>
+
+  <div class="wide">
+    <figure><video src="/demo/fence.mp4" poster="/demo/fence.jpg" controls muted playsinline preload="none"></video>
+      <figcaption><b>$FENCE trading on JustHoot</b><span>The coin launched by voice from a Ringfence call, live on RHEA.</span><a href="https://justhoot.fun/p/fence.v2-launchpad.justhoot.near">Open on JustHoot →</a></figcaption></figure>
+    <figure><video src="/demo/intents.mp4" poster="/demo/intents.jpg" controls muted playsinline preload="none"></video>
+      <figcaption><b>The top up, on NEAR Intents</b><span>1 USDT on Solana became 0.9996 USDC in a phone wallet (evidence row 16).</span><a href="https://explorer.near-intents.org/transactions/6sea7mLtDou7VopLaqdXbSuhGRKntp6GrEK64doCwcai">Open the explorer →</a></figcaption></figure>
+    <figure><video src="/demo/proof.mp4" poster="/demo/proof.jpg" controls muted playsinline preload="none"></video>
+      <figcaption><b>Private AI, checked live</b><span>Chat, speech-to-text and logo models attested inside TEEs with a fresh nonce.</span><a href="/proof">Re-check it →</a></figcaption></figure>
+    <figure><video src="/demo/overlay.mp4" poster="/demo/overlay.jpg" controls muted playsinline preload="none"></video>
+      <figcaption><b>Overlay for streamers</b><span>Add /stream/&lt;account&gt; to OBS: gifts, top gifters and the packet on Twitch or YouTube.</span><a href="/stream/liho00.near">Open the overlay →</a></figcaption></figure>
+  </div>
+
+  <p class="foot">Built with <span><img src="/brand/near-mark-light.svg" alt="">NEAR</span><span>NEAR AI Cloud</span><span>NEAR Intents</span><a href="https://justhoot.fun"><img src="/brand/justhoot.png" alt="">JustHoot</a><a href="https://nearon.dev"><img src="/brand/nearon.svg" alt="">NEARON</a></p>
+</div>
