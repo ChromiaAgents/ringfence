@@ -1,3 +1,4 @@
+import { db, save } from './src/store.ts';
 // One process, one port: TanStack Start (pages + /api routes) and the voice/WhatsApp handlers.
 //   npm run dev  -> Vite in middleware mode (HMR, SSR from source)
 //   npm start    -> the built Start handler from dist/ (run `npm run build` first)
@@ -99,3 +100,15 @@ server.listen(env.port, () => {
   if (!env.mockLlm) for (const m of [env.llmModel, env.sttModel]) attest(m).then(() => console.log('attested', m), (e) => console.error('attest', m, e.message));
   else console.log('MOCK_LLM=1: scripted chat + STT, real TTS');
 });
+
+// A deploy restarts the service: wait (up to 80s, under systemd's 90s stop timeout) for calls in progress to finish,
+// so a restart never cuts someone off mid-sentence.
+process.on('SIGTERM', async () => {
+  const live = () => db.calls.filter((c) => !c.endedAt && Date.now() - c.startedAt < 30 * 60_000).length;
+  const until = Date.now() + 80_000;
+  while (live() > 0 && Date.now() < until) { console.log(`restart: waiting for ${live()} call(s) to end`); await new Promise((r) => setTimeout(r, 2000)); }
+  process.exit(0);
+});
+// Calls left open by a crash or a forced restart are over: close them so they don't hold up the next restart.
+for (const c of db.calls) if (!c.endedAt) c.endedAt = Date.now();
+save();
