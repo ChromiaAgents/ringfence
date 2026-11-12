@@ -29,7 +29,7 @@ export function sentenceSplitter(filter?: (s: string) => { text: string; hit?: s
     let m: RegExpExecArray | null, from = 0;
     while ((m = re.exec(head))) {
       const end = m.index + m[0].length;
-      if (end - from < (m[0][0] !== ',' ? 7 : first ? 25 : 45)) continue; // "Mr." alone or a short clause: keep going
+      if (end - from < (m[0][0] !== ',' ? 7 : first ? 16 : 45)) continue; // "Mr." alone or a short clause: keep going
       first = false;
       out.push(head.slice(from, end)); from = end;
     }

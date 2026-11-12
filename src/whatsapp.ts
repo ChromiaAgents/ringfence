@@ -252,8 +252,8 @@ function callAudio(out: MediaStreamTrack, pt: number) {
       if (!loud) floor = floor * 0.98 + rms * 0.02;
       if (loud) { voiced++; silent = 0; buf.push(f); }
       else if (voiced) { silent++; buf.push(f); }
-      if (voiced && silent > 45) { // ~900 ms of silence ends the utterance
-        console.log(`wa utterance: ${voiced} voiced frames, floor ${floor.toFixed(3)}`); // ~700 ms of silence ends the utterance
+      if (voiced && silent > Number(process.env.WA_END_SILENCE_FRAMES ?? 30)) { // 30 x 20 ms = ~600 ms of silence ends the utterance
+        console.log(`wa utterance: ${voiced} voiced frames, floor ${floor.toFixed(3)}`);
         const frames = buf; const enough = voiced > 15;
         buf = []; voiced = 0; silent = 0;
         if (enough && self.onUtterance) {

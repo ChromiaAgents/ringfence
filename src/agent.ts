@@ -91,7 +91,7 @@ export function startCall(channel: Call['channel'], from?: string, desk?: Desk, 
   const greeting = back
     ? `Hey, welcome back! Want to pick up ${back.ticker ?? back.name}, or start something new?`
     : packetId ? `Hi, this is Ringfence. ${packetDesk.greeting()}`
-    : isKnown(call) ? 'Hey, good to hear from you again. How can I help?' : GREETING;
+    : isKnown(call) ? GREETING.replace('Hey, Ringfence here', 'Hey, welcome back, Ringfence here') : GREETING; // same greeting on every channel
   call.turns.push({ at: Date.now(), who: 'agent', text: greeting });
   histories.set(call.id, [{ role: 'system', content: '' }, { role: 'assistant', content: greeting }]);
   save();

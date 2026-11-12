@@ -72,7 +72,7 @@ export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string, payTo
         if (!loud) floor = floor * 0.97 + rms * 0.03;
         if (loud) { voiced++; silent = 0; frames.push(f); setState('Listening…'); }
         else if (voiced) { silent++; frames.push(f); }
-        if (voiced && silent > 11) { // ~700 ms pause = end of sentence
+        if (voiced && silent > 9) { // ~580 ms pause = end of sentence
           const all = new Float32Array(frames.reduce((n, x) => n + x.length, 0)); let i = 0;
           for (const x of frames) { all.set(x, i); i += x.length; }
           const ok = voiced > 4; frames = []; voiced = 0; silent = 0;
