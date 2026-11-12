@@ -4,12 +4,14 @@
 import { env } from '../config.ts';
 import { log, type Call } from '../store.ts';
 import { bindingOf } from '../wallet.ts';
-import { findPacket, openPacket, publicPacket, packetUrl } from '../packets.ts';
+import { findPacket, openPacket, publicPacket, packetUrl, demoPacket } from '../packets.ts';
+import { yoctoToNear } from '../near.ts';
 import { parseRecipient } from './wallet.ts';
 import type { DeskDef } from './types.ts';
 
 const tools = [
   { type: 'function', function: { name: 'open_packet', description: 'Open the caller\'s share of a money packet. The tool itself checks whether the caller said the words; you never pass the words. Call it again after they say the words or give an account.', parameters: { type: 'object', properties: { packet_id: { type: 'string', description: 'the id from the packet link, e.g. 3fa9c2d1, as the caller gave it (spelled out or a pasted link is fine). Leave empty if they have not given one: the tool says how to guide them.' }, account: { type: 'string', description: 'browser calls only: the NEAR account to pay, e.g. alice.near' } } } } },
+  { type: 'function', function: { name: 'free_packet', description: 'The public free money packet anyone can try ("is there a free packet?", "I want to try a red packet"). Picks today\'s open one and says its public words; then they say the words to open a share.', parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'get_packet', description: 'A money packet\'s status: who sent it, how many shares are left, when it expires.', parameters: { type: 'object', properties: { packet_id: { type: 'string' } }, required: ['packet_id'] } } },
 ];
 
@@ -46,7 +48,7 @@ export async function autoOpen(call: Call): Promise<unknown | null> {
 }
 
 /** How to name a packet when the call did not start from its page: said back to the caller, step by step. */
-const GUIDE = 'I need to know which packet. Guide them: open the packet link the sender gave you, and tap Call on that page (easiest, it knows the packet). Or read me the 8 characters at the end of the link, after "packet slash", letter by letter, like "8 b b 9 7 7 8 d". On WhatsApp you can also type it on the live panel. Never guess an id, and never look a packet up by its words.';
+const GUIDE = 'I need to know which packet. If they just want to try one, offer the public free packet (free_packet). Guide them: open the packet link the sender gave you, and tap Call on that page (easiest, it knows the packet). Or read me the 8 characters at the end of the link, after "packet slash", letter by letter, like "8 b b 9 7 7 8 d". On WhatsApp you can also type it on the live panel. Never guess an id, and never look a packet up by its words.';
 const HEXWORD: Record<string, string> = { zero: '0', oh: '0', one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', bee: 'b', be: 'b', see: 'c', sea: 'c', dee: 'd', ee: 'e', eff: 'f', ef: 'f', ay: 'a', eh: 'a' };
 /** An id as given: "8bb9778d", a pasted link, or spelled out ("8 b b 9 7 7 8 d", "eight bee bee nine..."). */
 function packetIdFrom(x: unknown): string {
@@ -63,6 +65,13 @@ const spokenId = (call: Call) => {
 };
 
 async function run(call: Call, name: string, a: any): Promise<unknown> {
+  if (name === 'free_packet') {
+    const d = await demoPacket();
+    if (!d) return { ok: false, reason: "Today's free packets are all opened. Say they can come back tomorrow, or make their own packet." };
+    call.packetId = d.id; // from here on this call is about the free packet
+    return { ok: true, packet_id: d.id, words: d.hint, shares_left: d.count - d.claims.length, total_near: yoctoToNear(d.yocto),
+      next: `Tell them: it's a public free packet of ${yoctoToNear(d.yocto)} NEAR with ${d.count - d.claims.length} lucky shares left, and the words are "${d.hint}". Ask them to say the words to open their share.` };
+  }
   const id = packetIdFrom(a.packet_id) || call.packetId || spokenId(call) || '';
   const p = findPacket(id);
   if (p && !call.packetId) call.packetId = p.id; // from here on, this call is about that packet
