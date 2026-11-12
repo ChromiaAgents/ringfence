@@ -19,7 +19,9 @@ function Overlay() {
   const [packet, setPacket] = useState<Packet | null>(null);
   const [total, setTotal] = useState(0);
   const since = useRef(Date.now() - 60_000);
-  const pid = typeof window === 'undefined' ? '' : new URLSearchParams(location.search).get('packet') ?? '';
+  const qs = typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(location.search);
+  const pid = qs.get('packet') ?? '';
+  const words = qs.get('words'); // the streamer shows their packet's words on screen (?words=merry christmas)
 
   useEffect(() => {
     document.documentElement.style.background = 'transparent';
@@ -56,7 +58,7 @@ function Overlay() {
       {packet && (
         <div className="ov-packet">
           <p className="ov-k">Money packet · {packet.near} NEAR · {packet.expired ? 'closed' : `${left} of ${packet.count} left`}</p>
-          <p className="ov-words">Call Ringfence and say <b>“{packet.hint ?? 'the words'}”</b></p>
+          <p className="ov-words">Call Ringfence and say <b>“{words || packet.hint || 'the words'}”</b></p>
           <p className="ov-how">ringfence.evalengine.ai/packet/{packet.id} · tap Call</p>
           <ul>{packet.claims.slice(-3).reverse().map((c) => <li key={c.at + c.to}>🧧 {c.to} got {c.near.toFixed(4)} NEAR</li>)}</ul>
         </div>
