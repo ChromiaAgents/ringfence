@@ -401,6 +401,7 @@ What the tests do not show:
 - **A TEE-held agent key,** so the operator cannot spend inside the limits.
 - **A DAO-owned wallet on mainnet,** using the steps above.
 - **A live NEAR Intents top up,** once a wallet is registered on the USDC contract.
+- **An ordinary phone number,** so anyone can dial in without WhatsApp. It needs speech-to-text that stays inside NEAR AI Cloud, not a telephony provider's.
 
 The business model and the staking design are in [docs/BUSINESS.md](docs/BUSINESS.md). They are plans, not part of what can be checked here.
 
