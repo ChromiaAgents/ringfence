@@ -1334,7 +1334,8 @@ await t('live panel: a failed Approve card shows on the panel; a tap there runs 
     await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.3', asset: 'near' });
     const r: any = await walletDesk.run(c, 'confirm_transfer', { pin: '4321' });
     assert.equal(r.ok, true); assert.equal(r.livePanel, true);
-    assert.equal(r.live_code_say, `I can't text you right now. Open ringfence dot evalengine dot ai slash live and enter code ${code.split('').join(', ')}.`);
+    const d = code.split('').join(', ');
+    assert.equal(r.live_code_say, `I can't text you right now. Open ringfence dot evalengine dot ai slash live and enter code ${d}. Again, the code is ${d}.`);
     const g = await liveReq(`/api/live/${code}`);
     assert.equal(g.status, 200); assert.equal(g.json.state, 'live');
     assert.match(g.json.approval.body, /Approve this transfer\?\n0.3 NEAR to bob.testnet/);
