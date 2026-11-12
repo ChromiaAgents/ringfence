@@ -36,6 +36,13 @@ function Room() {
   const [now, setNow] = useState(Date.now());
   const seen = useRef(new Set<string>());
   const call = useCall('auto');
+  // The red packet, opened inside the room: a packet call to that packet, paying the account typed here.
+  const [env, setEnv] = useState<'closed' | 'envelope' | 'opening' | 'result'>('closed');
+  const [acct, setAcct] = useState(() => { try { return localStorage.getItem('rf-acct') ?? ''; } catch { return ''; } });
+  const pcall = useCall('auto', packet?.id || undefined, acct || undefined);
+  const saidWords = useRef(false);
+  const got = [...pcall.lines].reverse().find((l) => l.who === 'agent' && /\d+(\.\d+)?\s*NEAR/.test(l.text) && /(got|opened|yours|share)/i.test(l.text))?.text;
+  const gotNear = got?.match(/(\d+\.\d+|\d+)\s*NEAR/)?.[1];
   const liveRef = useRef(false);
   useEffect(() => { liveRef.current = call.live; if (call.live) lastTalk.current = Date.now(); }, [call.live]); // on a call the agent talks, the host only moves its lips
   const queued = useRef<string | null>(null);
@@ -86,6 +93,10 @@ function Room() {
   }, [account, pid]);
 
   // A tapped gift waits for the call to connect, then is said for the caller.
+  useEffect(() => {
+    if (env === 'opening' && pcall.live && !saidWords.current) { saidWords.current = true; setTimeout(() => pcall.say(words || packet?.hint || ''), 900); }
+  }, [env, pcall.live]);
+  useEffect(() => { if (env === 'opening' && gotNear) { setEnv('result'); setTimeout(() => pcall.stop(), 4000); } }, [gotNear, env]);
   useEffect(() => { if (call.live && queued.current) { call.say(queued.current); queued.current = null; } }, [call.live]);
   useEffect(() => {
     const last = [...call.lines].reverse().find((l) => l.who === 'agent')?.text ?? '';
@@ -130,9 +141,9 @@ function Room() {
             <a className="lr-chip right" href="/whatsapp"><WaIcon size={15} /> Call on WhatsApp ›</a>
           </div>
           {packet && !packet.expired && left > 0 && (
-            <a className="lr-event" href={`/packet/${packet.id}`} target="_blank" rel="noreferrer">
+            <a className="lr-event" href={`/packet/${packet.id}`} onClick={(e) => { e.preventDefault(); setEnv('envelope'); }}>
               <div><small>Money packet</small><b>{packet.claims.length}/{packet.count}</b></div><span>🧧</span>
-              <p>Say “{words || packet.hint || 'the words'}” · tap to grab</p>
+              <p>Tap to open a share</p>
             </a>
           )}
           {!sound && <button type="button" className="lr-sound" onClick={() => { host.current?.unlock(); setSound(true); soundRef.current = true; lastTalk.current = 0; }}>🔊 Tap to hear the host</button>}
@@ -175,6 +186,26 @@ function Room() {
             <button type="button" className="ico share" onClick={() => { const u = location.href; (navigator as any).share ? (navigator as any).share({ title: `${account} is live`, url: u }).catch(() => {}) : navigator.clipboard?.writeText(u); }} aria-label="Share">↗</button>
           </form>
         </div>
+        {env !== 'closed' && packet && (
+          <div className="rp-wrap" role="dialog" aria-label="Money packet">
+            <div className={`rp ${env}`}>
+              <button type="button" className="rp-x" aria-label="Close" onClick={() => { setEnv('closed'); pcall.stop(); saidWords.current = false; }}>✕</button>
+              <span className="rp-ava">{account[0]?.toUpperCase()}</span>
+              <p className="rp-from">@{account.replace(/\.near$/, '')}'s money packet</p>
+              {env === 'result' ? (<>
+                <p className="rp-amt">{gotNear}<small> NEAR</small></p>
+                <p className="rp-sub">Sent to {acct} on NEAR mainnet</p>
+                <ul className="rp-list">{[...packet.claims].reverse().slice(0, 5).map((c) => <li key={c.at + c.to}><span>{c.to}</span><b>{c.near.toFixed(4)} NEAR</b></li>)}</ul>
+              </>) : (<>
+                <p className="rp-title">{packet.near} NEAR · {left} of {packet.count} left</p>
+                <p className="rp-sub">Words: “{words || packet.hint || '…'}”</p>
+                <label className="rp-acct">Your NEAR account<input value={acct} onChange={(e) => setAcct(e.target.value.trim().toLowerCase())} placeholder="you.near" autoComplete="off" /></label>
+                <button type="button" className="rp-open" disabled={env === 'opening' || !/^[a-z0-9_.-]+\.near$|^[0-9a-f]{64}$/.test(acct)} onClick={() => { try { localStorage.setItem('rf-acct', acct); } catch {} saidWords.current = false; setEnv('opening'); pcall.start(); }}>{env === 'opening' ? '…' : 'Open'}</button>
+                <p className="rp-note">{env === 'opening' ? (pcall.live ? 'Saying the words for you…' : 'Connecting…') : 'A short call says the words and pays your share on chain.'}</p>
+              </>)}
+            </div>
+          </div>
+        )}
         {sheet && <button type="button" className="lr-backdrop" aria-label="Close gifts" onClick={() => setSheet(false)} />}
         {sheet && (
           <div className="lr-sheet" role="dialog" aria-label="Gifts">

@@ -1,6 +1,6 @@
 import { giftsTo, topGifters, totalTo, watch, hostLine, postChat, chatsOf } from './src/stream.ts';
 import { ipOf } from './src/live.ts';
-import { findPacket, publicPacket } from './src/packets.ts';
+import { findPacket, publicPacket, demoPacket } from './src/packets.ts';
 import { db, save } from './src/store.ts';
 // One process, one port: TanStack Start (pages + /api routes) and the voice/WhatsApp handlers.
 //   npm run dev  -> Vite in middleware mode (HMR, SSR from source)
@@ -106,7 +106,8 @@ server.on('request', async (req, res) => {
     if (sm) {
       const q = new URLSearchParams(sm[2] ?? ''), pid = (q.get('packet') ?? '').slice(0, 40);
       watch(sm[1]);
-      const p = pid ? findPacket(pid) : undefined;
+      // No packet named: the room shows today's free public packet, so every room has one to grab.
+      const p = pid ? findPacket(pid) : await demoPacket().catch(() => null) ?? undefined;
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store', 'access-control-allow-origin': '*' })
         .end(JSON.stringify({ gifts: giftsTo(sm[1], Number(q.get('since')) || 0), top: topGifters(sm[1]), total: totalTo(sm[1]), chat: chatsOf(sm[1]), packet: p ? { ...publicPacket(p), hint: p.hint ?? null, claims: p.claims.slice(-8).map((c: any) => ({ to: String(c.to).replace(/^(.{6}).*(\..*)$/, '$1…$2'), near: Number(BigInt(c.yocto)) / 1e24, at: c.at })) } : null }));
       return;
