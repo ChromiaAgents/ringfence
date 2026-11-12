@@ -5,7 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { RTCPeerConnection, RtpHeader, RtpPacket, useOPUS, MediaStreamTrack } from 'werift';
 import OpusScript from 'opusscript';
 import { env } from './config.ts';
-import { isFiller, startCall, reply, endCall, setOnLink, photo } from './agent.ts';
+import { isFiller, startCall, reply, endCall, setOnLink, photo, noteToModel } from './agent.ts';
 import { transcribe } from './ai.ts';
 import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
@@ -45,7 +45,7 @@ export function deliverLink(call: Call, link: { url: string; label: string }) {
     const say = panel ?? "I can't text you on this line, so open ringfence dot evalengine dot ai to finish.";
     if (!say) return;
     // Into the transcript too, so the model knows the text failed and what it told the caller (it denied it before).
-    call.turns.push({ at: Date.now(), who: 'tool', text: `link_message → failed: WhatsApp would not deliver the text. The agent already said: "${say}"` });
+    noteToModel(call.id, `The link text did NOT reach the caller: WhatsApp refused it. You already said to them: "${say}". If they ask for the code or the link, repeat exactly that (digits one by one, slowly). Never say the link is on their WhatsApp.`);
     for (const l of live.values()) if (l.callId === call.id) l.say?.(say);
   });
 }

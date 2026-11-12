@@ -126,6 +126,14 @@ export const isGoodbye = (t: string) => {
 
 export const isFiller = (t: string) => /^[\s,.!?…-]*((u+h*m+|u+h+|h+m+|e+r+m*|a+h+|o+h+|mm+)[\s,.!?…-]*)+$/i.test(t);
 
+/** Something the channel did on its own (e.g. a link text WhatsApp refused, and the code it read out instead): the model
+ *  must know, or it denies it later. Goes into both the transcript and the model's history. */
+export function noteToModel(callId: string, note: string) {
+  const call = db.calls.find((c) => c.id === callId);
+  call?.turns.push({ at: Date.now(), who: 'tool', text: note });
+  histories.get(callId)?.push({ role: 'system', content: note });
+}
+
 export async function reply(callId: string, text: string, o: ReplyOpts = {}): Promise<string> {
   const call = db.calls.find((c) => c.id === callId);
   const h = histories.get(callId);
