@@ -642,3 +642,8 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 /* Header: links never wrap; below 1240px the makers drop to their own row under the wordmark. */
 .topbar a { white-space: nowrap; }
 @media (max-width: 1240px) { .topbar { flex-wrap: wrap; row-gap: 12px; } .topbar .makers { order: 3; flex-basis: 100%; } }
+/* Content under the full-width bar is centred on every secondary page: two-column blocks at 1120px, single columns at 720px. */
+.pg > :not(.topbar), .stp > :not(.topbar), .pk > :not(.topbar) { margin-left: auto; margin-right: auto; }
+.pg > .pg-two, .stp > :not(.topbar), .pk > :not(.topbar) { max-width: 1120px; }
+.app.pg > :not(.brandrow):not(.topbar) { margin-left: auto; margin-right: auto; }
+.app.pg > .pg-two:not(.topbar) { max-width: 1120px; }
