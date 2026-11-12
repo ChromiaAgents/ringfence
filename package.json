@@ -19,7 +19,8 @@
     "attack": "tsx scripts/attack.ts",
     "import:packet": "tsx --env-file-if-exists=.env scripts/import-packet.ts",
     "dao:wallet": "tsx scripts/dao-wallet.ts",
-    "topup:quote": "tsx scripts/topup-quote.ts"
+    "topup:quote": "tsx scripts/topup-quote.ts",
+    "asr:eval": "tsx --env-file=.env scripts/asr-eval.ts"
   },
   "keywords": [],
   "author": "",

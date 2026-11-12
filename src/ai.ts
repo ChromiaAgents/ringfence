@@ -2,6 +2,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { verifyMessage } from 'ethers';
 import { env } from './config.ts';
+import { correct } from './terms.ts';
 
 const BASE = 'https://cloud-api.near.ai/v1';
 const sha256 = (b: Uint8Array | string) => createHash('sha256').update(b).digest('hex');
@@ -330,9 +331,15 @@ async function verifyLater(p: Proof, pre: Attested | null) {
 export async function transcribe(audio: Uint8Array, mime = 'audio/wav'): Promise<string> {
   if (env.mockLlm) { await new Promise((ok) => setTimeout(ok, Number(process.env.MOCK_STT_MS ?? 350))); return 'I want to launch a memecoin about sleepy otters.'; }
   // English and Chinese only: auto-detect, and if Whisper hears any other language (English heard as Malay, 'bye' as Korean), retry as English.
-  const { text, lang } = await stt(audio, mime);
+  const { text, lang } = await stt(audio, mime).then((r) => ({ ...r, text: fixTerms(r.text) }));
   const ok = (!lang || /^(en|english|zh|chinese)$/i.test(lang)) && /^[\p{Script=Latin}\p{Script=Han}\p{N}\p{P}\p{Zs}\p{S}]*$/u.test(text);
-  return ok ? text : (await stt(audio, mime, 'en')).text;
+  return ok ? text : fixTerms((await stt(audio, mime, 'en')).text);
+}
+
+/** Crypto names misheard by speech-to-text, fixed from a glossary (src/terms.ts) only where the sentence is about money,
+ *  so ordinary speech ("pass the salt", "Neo is a film") is left alone. */
+export function fixTerms(t: string): string {
+  return correct(t);
 }
 
 async function stt(audio: Uint8Array, mime: string, language?: string): Promise<{ text: string; lang?: string }> {
@@ -340,7 +347,9 @@ async function stt(audio: Uint8Array, mime: string, language?: string): Promise<
   fd.set('model', env.sttModel);
   if (language) fd.set('language', language);
   fd.set('response_format', 'verbose_json'); // adds the detected language
-  fd.set('prompt', 'A phone call about sending NEAR or launching a coin on JustHoot. 发送 NEAR。'); // vocabulary hint, both languages
+  // Vocabulary hint, both languages: Whisper spells crypto names right when it has seen them in the prompt.
+  // Whisper reads only the last ~224 tokens of the prompt; this one is about 150. Spellings here are how we want them back.
+  fd.set('prompt', 'Ringfence call on NEAR. Send 0.1 NEAR, 1 NEAR, half a NEAR to liho00.near, mum.near, stranger.near or ringfence-family.sputnik-dao.near. Top up 2 dollars of SOL, ETH, BTC, USDC, USDT, wNEAR, stNEAR, DOGE, ADA, AVAX, LINK, UNI, SUI, PEPE, SHIB, TRUMP, ZEC, DAI, XRP, ARB, AURORA, SWEAT. NEAR Intents, NEAR AI, Sputnik DAO, JustHoot, MyNearWallet, HOT wallet, rhea finance. Money packet, lucky split, PIN. 发送NEAR，USDC充值，红包，余额，退款地址。');
   fd.set('file', new Blob([audio as BlobPart], { type: mime }), mime.includes('webm') ? 'a.webm' : mime.includes('ogg') ? 'a.ogg' : 'a.wav');
   const r = await again(undefined, () => fetch(`${BASE}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${env.nearAiKey}` }, body: fd }));
   if (!r.ok) throw new Error(`stt ${r.status}: ${(await r.text()).slice(0, 200)}`);

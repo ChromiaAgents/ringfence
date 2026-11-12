@@ -999,4 +999,89 @@ await t('top up from any chain: picks the home-chain coin, refuses an unregister
     assert.match(((await runTopup({ id: 'x', channel: 'whatsapp', from: '15559990000', startedAt: 0, turns: [] } as any, { usd: 10, token: 'SOL' })) as any).reason, /no wallet/);
   } finally { globalThis.fetch = real; }
 });
+await t('crypto words: misheard names are fixed after speech-to-text, and the top up picks the right token', async () => {
+  const { fixTerms } = await import('../src/ai.ts');
+  const { pickToken } = await import('../src/fund.ts');
+  assert.equal(fixTerms('Can you top up my wallet with $2 of WNEO?'), 'Can you top up my wallet with $2 of wNEAR?');
+  assert.equal(fixTerms('top up with w near please'), 'top up with wNEAR please');
+  assert.equal(fixTerms('Can you help me top up my wallet with $2 of salt?'), 'Can you help me top up my wallet with $2 of SOL?');
+  assert.equal(fixTerms('send 0.1 neo to liho00.near'), 'send 0.1 NEAR to liho00.near');
+  assert.equal(fixTerms('send 5 u s d c'), 'send 5 USDC');
+  // Ordinary speech is left alone.
+  assert.equal(fixTerms('pass the salt and call my soul sister'), 'pass the salt and call my soul sister');
+  assert.equal(fixTerms('Neo is a film'), 'Neo is a film');
+  const list = [
+    { assetId: 'nep141:wrap.near', blockchain: 'near', symbol: 'wNEAR', decimals: 24, price: 3.6 },
+    { assetId: 'nep141:sol.omft.near', blockchain: 'sol', symbol: 'SOL', decimals: 9, price: 160 },
+    { assetId: 'nep141:eth.omft.near', blockchain: 'eth', symbol: 'ETH', decimals: 18, price: 3000 },
+  ];
+  assert.equal(pickToken(list as any, 'WNEO')?.assetId, 'nep141:wrap.near');
+  assert.equal(pickToken(list as any, 'wnear')?.assetId, 'nep141:wrap.near');
+  assert.equal(pickToken(list as any, 'salt')?.symbol, 'SOL');
+  assert.equal(pickToken(list as any, 'Solana')?.symbol, 'SOL');
+  assert.equal(pickToken(list as any, 'ethereum')?.symbol, 'ETH');
+  assert.equal(pickToken(list as any, 'doge'), null);
+});
+await t('speech glossary: misheard crypto names from the ASR eval come out right, ordinary speech stays the same', async () => {
+  const { fixTerms } = await import('../src/ai.ts');
+  const { pickToken, suggestToken } = await import('../src/fund.ts');
+  const fixed: [string, string][] = [
+    ['sent 0.1 near to my mom.', 'sent 0.1 NEAR to my mom.'],
+    ['Send 0.1 nir to my mum.', 'Send 0.1 NEAR to my mum.'],
+    ['Can I top up with WNIR instead?', 'Can I top up with wNEAR instead?'],
+    ['Top up $2 of Seoul.', 'Top up $2 of SOL.'],
+    ['Swap my Aurora tokens into Nier.', 'Swap my AURORA tokens into NEAR.'],
+    ['Can I top up with Doge?', 'Can I top up with DOGE?'],
+    ['Send 10x RP worth of Nier to stranger.nier.', 'Send 10 XRP worth of NEAR to stranger.near.'],
+    ['Top up with Ada from Cardano.', 'Top up with ADA from Cardano.'],
+    ['I have avix on avalanche.', 'I have AVAX on avalanche.'],
+    ['Use my Chainlink link tokens to top up.', 'Use my Chainlink LINK tokens to top up.'],
+    ['I want to top up with uni.', 'I want to top up with UNI.'],
+    ['Top up $3 of arm.', 'Top up $3 of ARB.'],
+    ['Send one suey worth to mum.ner.', 'Send one SUI worth to mum.near.'],
+    ['I hold pipay, can I top up with it?', 'I hold PEPE, can I top up with it?'],
+    ['Top up with shame.', 'Top up with SHIB.'],
+    ['Use my trump coins to top up.', 'Use my TRUMP coins to top up.'],
+    ['Pay with Zach, the private one.', 'Pay with ZEC, the private one.'],
+    ['Can I pay with dye?', 'Can I pay with DAI?'],
+    ['Use my sweat tokens.', 'Use my SWEAT tokens.'],
+    ['I staked into STNIR, can I use it?', 'I staked into stNEAR, can I use it?'],
+    ['Is this using near intents for the swap?', 'Is this using NEAR Intents for the swap?'],
+    ['Is the model running on near AI?', 'Is the model running on NEAR AI?'],
+    ['Send it to our Sputnik day herb.', 'Send it to our Sputnik DAO.'],
+    ['Book a ride on Just Hoot.', 'Book a ride on JustHoot.'],
+    ['My account is in my near wallet.', 'My account is in MyNearWallet.'],
+    ['Send 1.5 NIR to leho00.nir.', 'Send 1.5 NEAR to liho00.near.'],
+    ['Hey stranger.near1near.', 'Hey stranger.near 1 NEAR.'],
+    ["What's the balance of LIHO00.NEAR?", "What's the balance of liho00.near?"],
+    ['Propose a transfer from ringfans-family.sputnik-deo.near.', 'Propose a transfer from ringfence-family.sputnik-dao.near.'],
+    ['Ask the ringfants-family.sputnik-deo.neodeo to approve.', 'Ask the ringfence-family.sputnik-dao.near DAO to approve.'],
+    ['Send half an ear to stranger.near.', 'Send half a NEAR to stranger.near.'],
+    ['Send a quarter of an ear.', 'Send a quarter of a NEAR.'],
+    ['Make a money packet with one nair and a lucky split.', 'Make a money packet with 1 NEAR and a lucky split.'],
+    ['Send to near to mom.near.', 'Send 2 NEAR to mum.near.'],
+    ['send liho zero zero dot near 1 near', 'send liho00.near 1 NEAR'],
+    ['帮我发一个红包,一个女儿。', '帮我发一个红包,一个NEAR。'],
+    ['最宽地是什么?我用OSDC和NR。', '最宽地是什么?我用USDC和NEAR。'],
+    ['我想用 LXDC 充值。', '我想用 USDC充值。'],
+  ];
+  for (const [heard, want] of fixed) assert.equal(fixTerms(heard), want, heard);
+  const same = [
+    'pass the salt and call my soul sister', 'Neo is a film', 'I live near the station', 'The one near the door is mine',
+    'Can you pay with cash?', 'Season it with salt and pepper', 'I will link you the page', 'Zach is my brother', 'I live near the park, pay me back later.', 'Aurora paid 4 dollars for lunch.', 'Send 5 dollars to Rhea for the cake.', 'He paid 20 dollars for the soul concert.', 'I paid 5 dollars for a hot coffee.',
+    'We went to Seoul last year', 'Lend me half an ear', 'Give me a quarter of an hour', 'Trump was on the news',
+    'It is a hot day', 'Send my love to mum', '我有多少女儿？', 'Send two to my mum',
+  ];
+  for (const x of same) assert.equal(fixTerms(x), x, x);
+  for (const x of fixed.map(([, w]) => w)) assert.equal(fixTerms(x), x, `idempotent: ${x}`);
+  const list = ['SOL', 'ZEC', 'SHIB', 'DAI', 'wNEAR'].map((symbol) => ({ assetId: `nep141:${symbol}`, blockchain: 'near', symbol, decimals: 18, price: 1 }));
+  assert.equal(pickToken(list as any, 'Zach')?.symbol, 'ZEC');
+  assert.equal(pickToken(list as any, 'Seoul')?.symbol, 'SOL');
+  assert.equal(pickToken(list as any, 'dye')?.symbol, 'DAI');
+  assert.equal(pickToken(list as any, 'SHIBB')?.symbol, 'SHIB');
+  assert.equal(pickToken(list as any, 'WNIR')?.symbol, 'wNEAR');
+  assert.equal(pickToken(list as any, 'ZECC')?.symbol, 'ZEC');
+  assert.equal(pickToken(list as any, 'pizza'), null);
+  assert.equal(suggestToken(list as any, 'SHUB'), 'SHIB');
+});
 process.once("beforeExit", () => console.log(`${n} passed`));

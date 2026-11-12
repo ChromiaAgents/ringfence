@@ -1,6 +1,7 @@
 // Launch funding through NEAR Intents 1Click (mainnet only): the creator pays any supported token on any chain
 // and exactly the launch cost lands in their own NEAR account as wNEAR. Nobody in the middle holds the funds.
 import { env } from './config.ts';
+import { closest, lev, setLiveSymbols } from './terms.ts';
 
 const API = 'https://1click.chaindefuser.com/v0';
 
@@ -12,6 +13,7 @@ export async function listTokens(): Promise<Token[]> {
   const r = await fetch(`${API}/tokens`, { signal: AbortSignal.timeout(8_000) });
   if (!r.ok) throw new Error(`tokens ${r.status}`);
   tokens = { at: Date.now(), list: (await r.json()) as Token[] };
+  setLiveSymbols(tokens.list.map((t) => t.symbol));
   return tokens.list;
 }
 
@@ -82,10 +84,28 @@ export const topupLive = () => process.env.TOPUP_LIVE === '1';
 export function pickToken(list: Token[], what: string): Token | null {
   const w = String(what ?? '').trim();
   if (w.includes(':')) return list.find((t) => t.assetId === w) ?? null;
-  const hits = list.filter((t) => t.symbol.toUpperCase() === w.toUpperCase());
-  const home: Record<string, string> = { SOL: 'sol', ETH: 'eth', BTC: 'btc', NEAR: 'near', USDC: 'eth', USDT: 'eth' };
-  const rank = (t: Token & { contractAddress?: string }) => (t.blockchain === home[w.toUpperCase()] ? 0 : 2) + (t.contractAddress ? 1 : 0) + (t.blockchain === 'near' ? 4 : 0);
+  // Spoken or misheard names: "WNEO" is wNEAR, "salt" or "Seoul" is SOL, "Zach" is ZEC: the shared glossary in terms.ts.
+  const key = w.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const has = (s: string) => list.some((t) => t.symbol.toUpperCase() === s.toUpperCase());
+  const g = has(key) ? null : closest(w);
+  let sym = (g && has(g.sym) ? g.sym : key).toUpperCase();
+  if (!has(sym) && key.length >= 3) { // one letter off a listed symbol ("AVEX", "SHIBB")
+    const near = [...new Set(list.map((t) => t.symbol.toUpperCase()).filter((s) => s.length >= 3 && lev(s, key) === 1))];
+    if (near.length === 1) sym = near[0];
+  }
+  const hits = list.filter((t) => t.symbol.toUpperCase() === sym);
+  const home: Record<string, string> = { SOL: 'sol', ETH: 'eth', BTC: 'btc', NEAR: 'near', WNEAR: 'near', USDC: 'eth', USDT: 'eth' };
+  const rank = (t: Token & { contractAddress?: string }) => (t.blockchain === home[sym] ? 0 : 2) + (t.contractAddress ? 1 : 0) + (t.blockchain === 'near' ? 4 : 0);
   return hits.sort((a, b) => rank(a) - rank(b))[0] ?? null;
+}
+
+/** When pickToken finds nothing: the listed symbol closest to what was said, to offer back ("did you mean ZEC?"). */
+export function suggestToken(list: Token[], what: string): string | null {
+  const key = String(what ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!key) return null;
+  let best: string | null = null, d = Infinity;
+  for (const s of new Set(list.map((t) => t.symbol))) { const x = lev(s.toUpperCase(), key); if (x < d) { d = x; best = s; } }
+  return d <= Math.max(1, Math.floor(key.length / 2)) ? best : null;
 }
 
 /** USDC storage registration of an account on NEAR mainnet. A transfer to an unregistered account fails. */
@@ -100,8 +120,9 @@ export type TopupQuote = { ok: true; dry: boolean; send: string; symbol: string;
 export async function quoteTopup(opts: { usd: number; origin: string; recipient: string; refundTo?: string; live?: boolean; skipStorageCheck?: boolean }): Promise<TopupQuote> {
   const usd = Number(opts.usd);
   if (!(usd >= 1 && usd <= 10_000)) return { ok: false, reason: 'Pick an amount between 1 and 10,000 dollars.' };
-  const tok = pickToken(await listTokens(), opts.origin);
-  if (!tok) return { ok: false, reason: `NEAR Intents does not list ${opts.origin}.` };
+  const list = await listTokens();
+  const tok = pickToken(list, opts.origin);
+  if (!tok) { const s = suggestToken(list, opts.origin); return { ok: false, reason: `NEAR Intents does not list ${opts.origin}.${s ? ` The closest listed token is ${s}: ask if they meant that.` : ''}` }; }
   if (tok.assetId === USDC_ASSET) return { ok: false, reason: 'That is already USDC on NEAR: send it straight to the wallet.' };
   if (!opts.skipStorageCheck && !(await usdcRegistered(opts.recipient)))
     return { ok: false, reason: `The wallet ${opts.recipient} is not registered with the USDC contract yet, so USDC sent to it would fail. The owner registers it once (about 0.00125 NEAR). No quote made.` };

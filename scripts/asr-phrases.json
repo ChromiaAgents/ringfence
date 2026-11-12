@@ -1,0 +1,743 @@
+[
+ {
+  "id": "p01",
+  "lang": "en",
+  "text": "Send 0.1 NEAR to my mum.",
+  "terms": [
+   "0.1 NEAR"
+  ]
+ },
+ {
+  "id": "p02",
+  "lang": "en",
+  "text": "Can I top up with wNEAR instead?",
+  "terms": [
+   "wNEAR",
+   "top up"
+  ],
+  "say": "Can I top up with double-u NEAR instead?"
+ },
+ {
+  "id": "p03",
+  "lang": "en",
+  "text": "Top up 5 USDC please.",
+  "terms": [
+   "USDC",
+   "top up"
+  ],
+  "say": "Top up five U S D C please."
+ },
+ {
+  "id": "p04",
+  "lang": "en",
+  "text": "I have some USDT on Tron, can I use that?",
+  "terms": [
+   "USDT"
+  ],
+  "say": "I have some U S D T on Tron, can I use that?"
+ },
+ {
+  "id": "p05",
+  "lang": "en",
+  "text": "Top up 2 dollars of SOL.",
+  "terms": [
+   "SOL",
+   "top up"
+  ],
+  "say": "Top up two dollars of soll."
+ },
+ {
+  "id": "p06",
+  "lang": "en",
+  "text": "Use ETH from my Base wallet.",
+  "terms": [
+   "ETH"
+  ],
+  "say": "Use E T H from my Base wallet."
+ },
+ {
+  "id": "p07",
+  "lang": "en",
+  "text": "I want to pay in BTC.",
+  "terms": [
+   "BTC"
+  ],
+  "say": "I want to pay in B T C."
+ },
+ {
+  "id": "p08",
+  "lang": "en",
+  "text": "Swap my AURORA tokens into NEAR.",
+  "terms": [
+   "AURORA",
+   "NEAR"
+  ]
+ },
+ {
+  "id": "p09",
+  "lang": "en",
+  "text": "Can I top up with DOGE?",
+  "terms": [
+   "DOGE",
+   "top up"
+  ],
+  "say": "Can I top up with doge?"
+ },
+ {
+  "id": "p10",
+  "lang": "en",
+  "text": "Send 10 XRP worth of NEAR to stranger.near.",
+  "terms": [
+   "XRP",
+   "NEAR",
+   "stranger.near"
+  ],
+  "say": "Send ten X R P worth of NEAR to stranger dot near."
+ },
+ {
+  "id": "p11",
+  "lang": "en",
+  "text": "Top up with ADA from Cardano.",
+  "terms": [
+   "ADA",
+   "top up"
+  ],
+  "say": "Top up with ada from Cardano."
+ },
+ {
+  "id": "p12",
+  "lang": "en",
+  "text": "I have AVAX on Avalanche.",
+  "terms": [
+   "AVAX"
+  ],
+  "say": "I have avax on Avalanche."
+ },
+ {
+  "id": "p13",
+  "lang": "en",
+  "text": "Pay with BNB please.",
+  "terms": [
+   "BNB"
+  ],
+  "say": "Pay with B N B please."
+ },
+ {
+  "id": "p14",
+  "lang": "en",
+  "text": "Use my LINK tokens to top up.",
+  "terms": [
+   "LINK",
+   "top up"
+  ],
+  "say": "Use my chainlink link tokens to top up."
+ },
+ {
+  "id": "p15",
+  "lang": "en",
+  "text": "I want to top up with UNI.",
+  "terms": [
+   "UNI",
+   "top up"
+  ],
+  "say": "I want to top up with uni."
+ },
+ {
+  "id": "p16",
+  "lang": "en",
+  "text": "Top up 3 dollars of ARB.",
+  "terms": [
+   "ARB",
+   "top up"
+  ],
+  "say": "Top up three dollars of arb."
+ },
+ {
+  "id": "p17",
+  "lang": "en",
+  "text": "Can I use OP from Optimism?",
+  "terms": [
+   "OP"
+  ],
+  "say": "Can I use O P from Optimism?"
+ },
+ {
+  "id": "p18",
+  "lang": "en",
+  "text": "Send 1 SUI worth to mum.near.",
+  "terms": [
+   "SUI",
+   "mum.near"
+  ],
+  "say": "Send one sui worth to mum dot near."
+ },
+ {
+  "id": "p19",
+  "lang": "en",
+  "text": "I hold PEPE, can I top up with it?",
+  "terms": [
+   "PEPE",
+   "top up"
+  ],
+  "say": "I hold pepe, can I top up with it?"
+ },
+ {
+  "id": "p20",
+  "lang": "en",
+  "text": "Top up with SHIB.",
+  "terms": [
+   "SHIB",
+   "top up"
+  ],
+  "say": "Top up with shib."
+ },
+ {
+  "id": "p21",
+  "lang": "en",
+  "text": "Use my TRUMP coins to top up.",
+  "terms": [
+   "TRUMP",
+   "top up"
+  ],
+  "say": "Use my trump coins to top up."
+ },
+ {
+  "id": "p22",
+  "lang": "en",
+  "text": "Pay with ZEC, the private one.",
+  "terms": [
+   "ZEC"
+  ],
+  "say": "Pay with zec, the private one."
+ },
+ {
+  "id": "p23",
+  "lang": "en",
+  "text": "Top up 20 TRX from Tron.",
+  "terms": [
+   "TRX",
+   "top up"
+  ],
+  "say": "Top up twenty T R X from Tron."
+ },
+ {
+  "id": "p24",
+  "lang": "en",
+  "text": "Can I pay with DAI?",
+  "terms": [
+   "DAI"
+  ],
+  "say": "Can I pay with dai?"
+ },
+ {
+  "id": "p25",
+  "lang": "en",
+  "text": "Top up using APT on Aptos.",
+  "terms": [
+   "APT",
+   "top up"
+  ],
+  "say": "Top up using A P T on Aptos."
+ },
+ {
+  "id": "p26",
+  "lang": "en",
+  "text": "Use my SWEAT tokens.",
+  "terms": [
+   "SWEAT"
+  ],
+  "say": "Use my sweat tokens."
+ },
+ {
+  "id": "p27",
+  "lang": "en",
+  "text": "I staked into stNEAR, can I use it?",
+  "terms": [
+   "stNEAR"
+  ],
+  "say": "I staked into S T NEAR, can I use it?"
+ },
+ {
+  "id": "p28",
+  "lang": "en",
+  "text": "Top up with LTC from Litecoin.",
+  "terms": [
+   "LTC",
+   "top up"
+  ],
+  "say": "Top up with L T C from Litecoin."
+ },
+ {
+  "id": "p29",
+  "lang": "en",
+  "text": "Top up with half USDC half USDT.",
+  "terms": [
+   "USDC",
+   "USDT"
+  ],
+  "say": "Top up with half U S D C half U S D T."
+ },
+ {
+  "id": "p30",
+  "lang": "en",
+  "text": "Is this using NEAR Intents for the swap?",
+  "terms": [
+   "NEAR Intents"
+  ]
+ },
+ {
+  "id": "p31",
+  "lang": "en",
+  "text": "Send it to our Sputnik DAO.",
+  "terms": [
+   "Sputnik DAO"
+  ]
+ },
+ {
+  "id": "p32",
+  "lang": "en",
+  "text": "Book a ride on JustHoot.",
+  "terms": [
+   "JustHoot"
+  ],
+  "say": "Book a ride on Just Hoot."
+ },
+ {
+  "id": "p33",
+  "lang": "en",
+  "text": "I use the meteor wallet on my phone.",
+  "terms": [
+   "meteor wallet"
+  ],
+  "say": "I use the Meteor wallet on my phone."
+ },
+ {
+  "id": "p34",
+  "lang": "en",
+  "text": "My account is in MyNearWallet.",
+  "terms": [
+   "MyNearWallet"
+  ],
+  "say": "My account is in My Near Wallet."
+ },
+ {
+  "id": "p35",
+  "lang": "en",
+  "text": "Can I connect my HOT wallet?",
+  "terms": [
+   "HOT wallet"
+  ],
+  "say": "Can I connect my hot wallet?"
+ },
+ {
+  "id": "p36",
+  "lang": "en",
+  "text": "Put the rest into rhea finance.",
+  "terms": [
+   "rhea"
+  ],
+  "say": "Put the rest into rhea finance."
+ },
+ {
+  "id": "p37",
+  "lang": "en",
+  "text": "Bridge it over to aurora.",
+  "terms": [
+   "aurora"
+  ]
+ },
+ {
+  "id": "p38",
+  "lang": "en",
+  "text": "Does it use chain signatures to sign on Bitcoin?",
+  "terms": [
+   "chain signatures"
+  ],
+  "say": "Does it use chain signatures to sign on Bitcoin?"
+ },
+ {
+  "id": "p39",
+  "lang": "en",
+  "text": "Is the model running on NEAR AI?",
+  "terms": [
+   "NEAR AI"
+  ],
+  "say": "Is the model running on NEAR A I?"
+ },
+ {
+  "id": "p40",
+  "lang": "en",
+  "text": "Is the agent inside a TEE?",
+  "terms": [
+   "TEE"
+  ],
+  "say": "Is the agent inside a T E E?"
+ },
+ {
+  "id": "p41",
+  "lang": "en",
+  "text": "Prove it runs in a TEE on NEAR AI Cloud.",
+  "terms": [
+   "TEE",
+   "NEAR AI"
+  ],
+  "say": "Prove it runs in a T E E on NEAR A I Cloud."
+ },
+ {
+  "id": "p42",
+  "lang": "en",
+  "text": "Swap through NEAR Intents and send to the Sputnik DAO.",
+  "terms": [
+   "NEAR Intents",
+   "Sputnik DAO"
+  ]
+ },
+ {
+  "id": "p43",
+  "lang": "en",
+  "text": "Send 0.1 NEAR to liho00.near.",
+  "terms": [
+   "0.1 NEAR",
+   "liho00.near"
+  ],
+  "say": "Send zero point one NEAR to liho zero zero dot near."
+ },
+ {
+  "id": "p44",
+  "lang": "en",
+  "text": "Pay stranger.near 1 NEAR.",
+  "terms": [
+   "stranger.near",
+   "1 NEAR"
+  ],
+  "say": "Pay stranger dot near one NEAR."
+ },
+ {
+  "id": "p45",
+  "lang": "en",
+  "text": "Send 2 NEAR to mum.near.",
+  "terms": [
+   "2 NEAR",
+   "mum.near"
+  ],
+  "say": "Send two NEAR to mum dot near."
+ },
+ {
+  "id": "p46",
+  "lang": "en",
+  "text": "Propose a transfer from ringfence-family.sputnik-dao.near.",
+  "terms": [
+   "ringfence-family.sputnik-dao.near"
+  ],
+  "say": "Propose a transfer from ringfence dash family dot sputnik dash dao dot near."
+ },
+ {
+  "id": "p47",
+  "lang": "en",
+  "text": "What's the balance of liho00.near?",
+  "terms": [
+   "liho00.near"
+  ],
+  "say": "What's the balance of liho zero zero dot near?"
+ },
+ {
+  "id": "p48",
+  "lang": "en",
+  "text": "Refund to mum.near if it fails.",
+  "terms": [
+   "mum.near",
+   "refund"
+  ],
+  "say": "Refund to mum dot near if it fails."
+ },
+ {
+  "id": "p49",
+  "lang": "en",
+  "text": "Add stranger.near to my contacts.",
+  "terms": [
+   "stranger.near"
+  ],
+  "say": "Add stranger dot near to my contacts."
+ },
+ {
+  "id": "p50",
+  "lang": "en",
+  "text": "Send USDC to liho00.near.",
+  "terms": [
+   "USDC",
+   "liho00.near"
+  ],
+  "say": "Send U S D C to liho zero zero dot near."
+ },
+ {
+  "id": "p51",
+  "lang": "en",
+  "text": "Ask the ringfence-family.sputnik-dao.near DAO to approve.",
+  "terms": [
+   "ringfence-family.sputnik-dao.near"
+  ],
+  "say": "Ask the ringfence dash family dot sputnik dash dao dot near DAO to approve."
+ },
+ {
+  "id": "p52",
+  "lang": "en",
+  "text": "Send half a NEAR to stranger.near.",
+  "terms": [
+   "half a NEAR",
+   "stranger.near"
+  ],
+  "say": "Send half a NEAR to stranger dot near."
+ },
+ {
+  "id": "p53",
+  "lang": "en",
+  "text": "Top up 2 dollars of SOL.",
+  "terms": [
+   "2 dollars of SOL"
+  ],
+  "say": "Top up two dollars of SOL."
+ },
+ {
+  "id": "p54",
+  "lang": "en",
+  "text": "Send 0.5 NEAR.",
+  "terms": [
+   "0.5 NEAR"
+  ],
+  "say": "Send zero point five NEAR."
+ },
+ {
+  "id": "p55",
+  "lang": "en",
+  "text": "Send 3 NEAR to mum.near.",
+  "terms": [
+   "3 NEAR",
+   "mum.near"
+  ],
+  "say": "Send three NEAR to mum dot near."
+ },
+ {
+  "id": "p56",
+  "lang": "en",
+  "text": "Give 0.25 NEAR to each person.",
+  "terms": [
+   "0.25 NEAR"
+  ],
+  "say": "Give zero point two five NEAR to each person."
+ },
+ {
+  "id": "p57",
+  "lang": "en",
+  "text": "Top up 10 dollars of USDC.",
+  "terms": [
+   "10 dollars of USDC"
+  ],
+  "say": "Top up ten dollars of U S D C."
+ },
+ {
+  "id": "p58",
+  "lang": "en",
+  "text": "Send 1.5 NEAR to liho00.near.",
+  "terms": [
+   "1.5 NEAR",
+   "liho00.near"
+  ],
+  "say": "Send one point five NEAR to liho zero zero dot near."
+ },
+ {
+  "id": "p59",
+  "lang": "en",
+  "text": "Send a quarter of a NEAR.",
+  "terms": [
+   "quarter of a NEAR"
+  ]
+ },
+ {
+  "id": "p60",
+  "lang": "en",
+  "text": "Make a money packet for my family.",
+  "terms": [
+   "money packet"
+  ]
+ },
+ {
+  "id": "p61",
+  "lang": "en",
+  "text": "My PIN is 4821.",
+  "terms": [
+   "pin",
+   "4821"
+  ],
+  "say": "My pin is four eight two one."
+ },
+ {
+  "id": "p62",
+  "lang": "en",
+  "text": "I want to top up my wallet.",
+  "terms": [
+   "top up"
+  ]
+ },
+ {
+  "id": "p63",
+  "lang": "en",
+  "text": "What's my refund address?",
+  "terms": [
+   "refund address"
+  ]
+ },
+ {
+  "id": "p64",
+  "lang": "en",
+  "text": "Use a lucky split for the packet.",
+  "terms": [
+   "lucky split"
+  ]
+ },
+ {
+  "id": "p65",
+  "lang": "en",
+  "text": "Make a money packet with 1 NEAR and a lucky split.",
+  "terms": [
+   "money packet",
+   "1 NEAR",
+   "lucky split"
+  ],
+  "say": "Make a money packet with one NEAR and a lucky split."
+ },
+ {
+  "id": "p66",
+  "lang": "en",
+  "text": "Set the refund address to liho00.near.",
+  "terms": [
+   "refund address",
+   "liho00.near"
+  ],
+  "say": "Set the refund address to liho zero zero dot near."
+ },
+ {
+  "id": "p67",
+  "lang": "en",
+  "text": "Change my PIN please.",
+  "terms": [
+   "pin"
+  ],
+  "say": "Change my pin please."
+ },
+ {
+  "id": "p68",
+  "lang": "en",
+  "text": "Top up with wNEAR and confirm with my PIN.",
+  "terms": [
+   "wNEAR",
+   "pin"
+  ],
+  "say": "Top up with W NEAR and confirm with my pin."
+ },
+ {
+  "id": "p69",
+  "lang": "en",
+  "text": "Split the money packet evenly, not a lucky split.",
+  "terms": [
+   "money packet",
+   "lucky split"
+  ]
+ },
+ {
+  "id": "p70",
+  "lang": "en",
+  "text": "Claim the money packet, the words are happy new year.",
+  "terms": [
+   "money packet",
+   "happy new year"
+  ]
+ },
+ {
+  "id": "p71",
+  "lang": "en",
+  "text": "Top up 5 USDC and send 0.1 NEAR to mum.near.",
+  "terms": [
+   "USDC",
+   "0.1 NEAR",
+   "mum.near"
+  ],
+  "say": "Top up five U S D C and send zero point one NEAR to mum dot near."
+ },
+ {
+  "id": "p72",
+  "lang": "zh",
+  "text": "发送0.1个NEAR给妈妈。",
+  "terms": [
+   "0.1",
+   "NEAR"
+  ],
+  "say": "发送零点一个NEAR给妈妈。"
+ },
+ {
+  "id": "p73",
+  "lang": "zh",
+  "text": "我想用USDC充值。",
+  "terms": [
+   "USDC",
+   "充值"
+  ],
+  "say": "我想用U S D C充值。"
+ },
+ {
+  "id": "p74",
+  "lang": "zh",
+  "text": "帮我发一个红包，一个NEAR。",
+  "terms": [
+   "红包",
+   "NEAR"
+  ]
+ },
+ {
+  "id": "p75",
+  "lang": "zh",
+  "text": "我的余额有多少NEAR？",
+  "terms": [
+   "NEAR",
+   "余额"
+  ]
+ },
+ {
+  "id": "p76",
+  "lang": "zh",
+  "text": "用五块钱的USDC充值。",
+  "terms": [
+   "USDC",
+   "充值"
+  ],
+  "say": "用五块钱的U S D C充值。"
+ },
+ {
+  "id": "p77",
+  "lang": "zh",
+  "text": "把NEAR转到liho00.near。",
+  "terms": [
+   "NEAR",
+   "liho00.near"
+  ],
+  "say": "把NEAR转到 liho zero zero dot near。"
+ },
+ {
+  "id": "p78",
+  "lang": "zh",
+  "text": "我的密码是四八二一。",
+  "terms": [
+   "密码"
+  ]
+ },
+ {
+  "id": "p79",
+  "lang": "zh",
+  "text": "退款地址是什么？我有USDC和NEAR。",
+  "terms": [
+   "退款地址",
+   "USDC",
+   "NEAR"
+  ],
+  "say": "退款地址是什么？我有U S D C和NEAR。"
+ }
+]
