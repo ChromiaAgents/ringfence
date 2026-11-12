@@ -115,6 +115,7 @@ export function TopBar({ children, onTry }: { children?: ReactNode; onTry?: (e: 
       <Makers />
       {children}
       <span className="sp" />
+      <a className="code" href="/live">Live panel</a>
       <a className="code" href="/wallet/bind">Bind wallet</a>
       <a className="code" href="/deck.html">Deck</a>
       <a className="code" href="/stats">Stats</a>
