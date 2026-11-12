@@ -8,5 +8,5 @@ checks them. Rebuild with `contracts/build.sh`, re-run the sandbox tests against
 | File | Bytes | What |
 | --- | --- | --- |
 | `phone_wallet.wasm` | 172,369 | one per phone, published once as a global contract (same file as `public/phone_wallet.wasm`) |
-| `wallet_factory.wasm` | 134,286 | creates a wallet per phone number |
+| `wallet_factory.wasm` | 138,830 | creates a wallet per phone number, with optional names (copied from `contracts/factory/target/near/` on 12 Nov 2026; its hash matches the code on `ringfence-wallet.near`) |
 | `red_packets.wasm` | 158,585 | money packets: fund, lucky or equal split, open, refund |

@@ -22,8 +22,8 @@
     "topup:quote": "tsx scripts/topup-quote.ts",
     "asr:eval": "tsx --env-file=.env scripts/asr-eval.ts"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["near", "near-protocol", "near-hackathon", "near-hackathon-2026", "near-intents", "near-ai-cloud", "voice-wallet", "red-packet", "money-packet", "social-money", "real-world-money", "ai-agent", "whatsapp", "tee", "justhoot", "nearon"],
+  "author": "Chromia and evalengine",
   "license": "MIT",
   "type": "module",
   "dependencies": {

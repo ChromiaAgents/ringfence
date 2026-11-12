@@ -1,26 +1,59 @@
 # Ringfence
 
-Ringfence is a phone line for NEAR. You call it in a browser or on WhatsApp (public number pending Meta's verification, see below), say what you want, and one AI agent acts from a NEAR wallet contract tied to your phone number. The agent can send NEAR, quote a top up from another chain, and make a money packet: NEAR locked in a contract and split between people who each say the agreed words on a call. The agent never holds the money. Each phone number has its own wallet contract, and that contract caps what the agent may spend: a limit per transfer, a limit per day, and a list of saved recipients.
+Built at NEAR HACKATHON 2026 · #NEARHackathon · tracks: Social Money, Real-World Money
 
-[Live demo](https://ringfence.evalengine.ai) | [Demo packet](https://ringfence.evalengine.ai/packet/demo) | [Film, 64 s](https://ringfence.evalengine.ai/ringfence-film.mp4) | [Demos](https://ringfence.evalengine.ai/demo.html) | [Deck](https://ringfence.evalengine.ai/deck.html) | [Commands for an AI reader: AGENTS.md](AGENTS.md)
+## A phone call is your wallet: send money and red packets by voice, on NEAR.
 
-Made by Chromia and evalengine. Built on NEAR, at NEAR HACKATHON.
+You call Ringfence in a browser or on WhatsApp and say what you want: "send 0.1 NEAR to liho dot near", or "make a money packet for 3 people, the words are good morning". An AI agent prepares it, and you confirm with a spoken PIN. It is safe because the AI never decides how much can leave. Each phone number has its own NEAR Protocol contract, and that contract caps what the AI may spend: a limit per transfer, a limit per day, and a list of saved recipients. The AI only asks. The contract refuses anything over its limits.
 
-| What it does | Status | See it |
+[Live demo](https://ringfence.evalengine.ai) | [Demos page](https://ringfence.evalengine.ai/demo.html) | [Film, 64 s](https://ringfence.evalengine.ai/ringfence-film.mp4) | [Deck](https://ringfence.evalengine.ai/deck.html) | [Proof (TEE attestation)](https://ringfence.evalengine.ai/proof) | [Commands for an AI reader: AGENTS.md](AGENTS.md)
+
+Made by Chromia and evalengine. Status: live on NEAR mainnet since 10 November 2026, with small amounts. The contracts are AI-reviewed, not audited.
+
+## Try it in 60 seconds
+
+No install, no wallet, no phone. Everything runs on one shared demo wallet, so real but tiny amounts of NEAR move on mainnet. You can type every line instead of saying it.
+
+1. Open https://ringfence.evalengine.ai and press **Try a call**.
+   See: a call panel with "Demo PIN **4821**" and lines you can tap.
+2. Say "Send 0.01 NEAR to liho00.near", then say the PIN 4821.
+   See: the agent confirms and puts a NEAR explorer link on your screen.
+3. Say "Send 5 NEAR to stranger.near."
+   See: a refusal. 5 NEAR is over the 1 NEAR per-transfer limit, and nothing is sent.
+4. Say "Is there a free money packet?", or open https://ringfence.evalengine.ai/packet/demo.
+   See: a gift card with an amount, the words to say, and how many shares are left. Type your NEAR account, call, and say the words on the page. Your share is paid on mainnet and your account appears on "Who got what".
+5. Open the live room https://ringfence.evalengine.ai/room/liho00.near.
+   See: a stream-style room with an AI host. Tap a gift, use demo PIN 4821, and the host thanks the gift aloud. Gifts are real NEAR.
+
+If the agent says the demo wallet is low, or the packet page shows no packet, the demo budget is used up for now. The longer walk-through is in [Try it, step by step](#try-it-step-by-step).
+
+## What runs, and how to check it
+
+| Feature | Status | How to check |
 |---|---|---|
-| **Money packets**: split a gift, each share opened by saying the words | Mainnet | [demo packet](https://ringfence.evalengine.ai/packet/demo), evidence rows 9 to 11 |
-| **Limits in a contract**: the AI only asks, the NEAR contract refuses | Mainnet | [refusal tx](https://nearblocks.io/txns/GmPzx6UgxX9jJsDpHEZRodEhSmABZ3uRqFr2WzANCUd8), row 8 |
-| **Family DAO**: a Sputnik DAO funded a packet by vote, a share opened by voice | Mainnet | [family packet](https://ringfence.evalengine.ai/packet/family-1), rows 12 to 15 |
-| **Top up from any chain**: SOL, ETH, BTC in, USDC out, through NEAR Intents 1Click | Mainnet, row 16 | say "top up my wallet with 1 dollar of USDT on Solana" |
-| **Live room**: a TikTok-style room where viewers gift real NEAR by phone call; an AI host (open-source 3D character) thanks each gift aloud; packets to grab; gifts from any wallet show too | Live | [/room/liho00.near](https://ringfence.evalengine.ai/room/liho00.near), OBS overlay at `/stream/<account>` |
-| **Launch a coin by voice** on JustHoot, signed in your own wallet | Mainnet | [$FENCE](https://nearblocks.io/address/fence.v2-launchpad.justhoot.near) |
-| **Your number is a named wallet**: `liho.ringfence-wallet.near`, sends held 60 s for new recipients | Mainnet | rows 17 and 18 |
-| **Free money packet**: call and ask "is there a free money packet?" | Live | [/packet/demo](https://ringfence.evalengine.ai/packet/demo) |
-| **Private AI**: chat, speech-to-text and images on NEAR AI Cloud in a TEE | 3/3 attested | [/proof](https://ringfence.evalengine.ai/proof), `npm run attest` |
-| **Scam calls refused**: bank and police scams get a plain no | Live | `npm run live:check` |
-| **Tap to answer**: when unsure, the agent shows buttons instead of guessing | Live | say "can I use eth?" |
-| **WhatsApp calls**: same agent; links and the Approve card on the live panel until Meta verifies texts | Test line | [/whatsapp](https://ringfence.evalengine.ai/whatsapp) to get added |
-| **Stake while it waits**: packets that earn staking yield | Next, not built | [Next, not built](#next-not-built) |
+| **Send NEAR by voice** with a spoken PIN | Mainnet | Evidence row 7; `npm run verify:evidence` |
+| **Limits in a contract**: the AI asks, the contract refuses | Mainnet | Row 8, [refusal tx](https://nearblocks.io/txns/GmPzx6UgxX9jJsDpHEZRodEhSmABZ3uRqFr2WzANCUd8); `npm run attack` |
+| **Money packets (red packets)**: split a gift, each share opened by saying the words | Mainnet | Rows 9 to 11; [/packet/demo](https://ringfence.evalengine.ai/packet/demo) |
+| **Family DAO packet**: a Sputnik DAO funded a packet by vote, a share opened by voice | Mainnet | Rows 12 to 15; [/packet/family-1](https://ringfence.evalengine.ai/packet/family-1) |
+| **Your number is a named, user-owned wallet**: `liho.ringfence-wallet.near`, sends to new recipients held 60 s | Mainnet | Rows 17 and 18; owner set at [/wallet/bind](https://ringfence.evalengine.ai/wallet/bind) |
+| **Top up from any chain** through NEAR Intents 1Click: SOL, ETH, BTC in, USDC out | Mainnet (one real swap) and live quote | Row 16; `npm run topup:quote -- 10 SOL` |
+| **Private AI** on NEAR AI Cloud: chat, speech-to-text and images in a TEE | Live, 3/3 attested | `npm run attest`; [/proof](https://ringfence.evalengine.ai/proof) |
+| **Scam calls refused** | Live | `npm run live:check` (real model, wording varies) |
+| **Coin launch by voice** on JustHoot | Mainnet ($FENCE exists), but you sign the launch in your own wallet | [`fence.v2-launchpad.justhoot.near`](https://nearblocks.io/address/fence.v2-launchpad.justhoot.near) |
+| **WhatsApp calls and texts** | Test number only: Meta's test line answers only approved numbers; the public number waits on Meta | Ask to be added at [/whatsapp](https://ringfence.evalengine.ai/whatsapp) |
+| **DAO-owned phone wallet** | Not on mainnet | `npm run dao:wallet` prints the proposals |
+| **USDC sends** | Sandbox tests only | `cargo test` in `contracts/phone-wallet` |
+| **Packets that earn staking yield** | Not built | [Next, not built](#next-not-built) |
+
+Partial things, said plainly: the contracts are unaudited; the browser demo uses one shared, custodial demo wallet whose PIN is public; WhatsApp runs on Meta's test number; a coin launch needs your own wallet's signature.
+
+## Also in Ringfence
+
+- **Top up from any chain (NEAR Intents).** Say "top up my wallet with 1 dollar of USDT on Solana". The agent gets a 1Click quote; the money goes from you straight to 1Click, never through the server.
+- **Coin launch on JustHoot.** Say "launch a coin about a sleepy otter, ticker ZZOTR". The agent prepares a `launch_meme` call and you sign it in your own NEAR wallet.
+- **Live room and OBS overlay.** Viewers gift real NEAR by phone call, an AI host thanks each gift aloud, and streamers add `/stream/<account>` to OBS.
+- **Private AI with proof.** The models run in NEAR AI Cloud TEEs; the server checks the Intel TDX and NVIDIA attestation, shown on [/proof](https://ringfence.evalengine.ai/proof).
+- **NEARON.** AI calls can run on a NEARON key, so staking rewards pay for the AI, with NEAR AI Cloud as fallback.
 
 ## Built with
 
@@ -31,8 +64,6 @@ Made by Chromia and evalengine. Built on NEAR, at NEAR HACKATHON.
 | <img src="public/brand/near-mark-light.svg" width="28" alt="NEAR"> | [NEAR AI Cloud](https://cloud.near.ai) | Chat, speech-to-text and logo models in TEEs, attested live on [/proof](https://ringfence.evalengine.ai/proof) |
 | | [NEAR Intents](https://near-intents.org) | Top up from any chain (1Click): row 16 |
 
-Status: live on NEAR mainnet since 10 November 2026, with small amounts. The contracts are AI-reviewed, not audited.
-
 ## The problem
 
 - Many people can make a phone call but will never install a wallet app. Today they cannot send or receive crypto.
@@ -40,11 +71,11 @@ Status: live on NEAR mainnet since 10 November 2026, with small amounts. The con
 
 Ringfence puts the decision in a NEAR contract. The AI only asks. The contract refuses anything over its limits, whatever the AI or the server says.
 
-## Try it
+## Try it, step by step
 
-> **WhatsApp:** built and supported (wallet by text, calls, the Approve card, money packets). The public number **+60 11-7512 3486** is waiting on Meta's business verification; once Meta approves it, anyone can message or call it, and we will update this page. Until then it runs on Meta's test number **+1 555-144-4220**, which only answers numbers Meta approved. To try it, leave your number at [/whatsapp](https://ringfence.evalengine.ai/whatsapp) and we add it; during a WhatsApp call, links and the Approve card that WhatsApp cannot deliver appear at [/live](https://ringfence.evalengine.ai/live). The browser call does the same things on the shared demo wallet.
+> **WhatsApp:** built and supported (wallet by text, calls, the Approve card, money packets). The public number **+60 11-7512 3486** is waiting on Meta's business verification. Until then it runs on Meta's test number **+1 555-144-4220**, which only answers numbers Meta approved. To try it, leave your number at [/whatsapp](https://ringfence.evalengine.ai/whatsapp) and we add it; during a WhatsApp call, links and the Approve card that WhatsApp cannot deliver appear at [/live](https://ringfence.evalengine.ai/live). The browser call does the same things on the shared demo wallet.
 >
-> **Live panel:** while Meta blocks our WhatsApp messages, a WhatsApp call says a 6-digit code; at [/live](https://ringfence.evalengine.ai/live) that code shows the call's links and Approve card (memory only, gone 10 minutes after the call).
+> **Live panel:** a WhatsApp call says a 6-digit code; at [/live](https://ringfence.evalengine.ai/live) that code shows the call's links and Approve card (memory only, gone 10 minutes after the call).
 
 Each step says what to do and what you should see.
 
@@ -55,7 +86,7 @@ Node 22 or newer. A fresh clone has no `.env`, so every send is a labelled dry r
 | # | Do | See (last line) | Network | Time |
 | --- | --- | --- | --- | --- |
 | 1 | `npm ci` | `added <n> packages` and npm's audit summary | yes | 15 s |
-| 2 | `npm test` | `<n> passed` (57 on 12 Nov 2026) | no | 15 s |
+| 2 | `npm test` | `<n> passed` (75 on 12 Nov 2026) | no | 15 s |
 | 3 | `npm run demo:check` | 19 lines that start with `PASS`, then `all steps passed` | no | 15 s |
 | 4 | `npm run attack` | `5 of 5 attacks blocked` | no | 2 s |
 | 5 | `npm run verify:contracts` | 3 blocks that start with `ok` | yes | 10 s |
@@ -139,7 +170,7 @@ The demo wallet is `f18d3a55399e.ringfence-wallet.near`. Its PIN is public on pu
 - **Bound wallet.** At [/wallet/bind](https://ringfence.evalengine.ai/wallet/bind) you connect a NEAR wallet, prove the phone number with a 6-digit WhatsApp code, choose a PIN and sign one `create_wallet` call on the factory. Your NEAR account is the owner. You set the limits, and one transaction (`revoke_agent` or `freeze`) stops the AI.
 - **Phone-only wallet.** Text "create a wallet" on WhatsApp and choose a PIN. The wallet starts custodial: the owner is `ringfence-custody.near`, an account Ringfence holds. You can claim it to your own NEAR account at `/wallet/claim` after a 24-hour wait. Until then the custody account can freeze the wallet, remove the agent, save or remove recipients and cancel a waiting payment. The contract does not let it withdraw, change the limits, change the wait or change the agent.
 - **DAO-owned wallet.** A Sputnik DAO can create a phone wallet it owns, with no contract change: `create_wallet` only asks that the caller is the owner, and a DAO is the caller when a passed proposal runs. Ringfence's custody key then has no power over the wallet. Every owner action (`set_limits`, `allow`, `allow_chain`, `revoke_agent`, `freeze`, `withdraw`) needs a DAO vote. `npm run dao:wallet` prints the proposals. **Not on mainnet yet.** On a call, a new recipient or an over-limit send on a DAO-owned wallet gets a DAO proposal (from `daoStep` in `src/dao.ts`) instead of a "sign this" link. Steps: [docs/dao-wallet.md](docs/dao-wallet.md).
-- **The demo wallet is custodial.** There is no bound or DAO-owned wallet in the evidence table yet.
+- **The demo wallet is custodial.** `liho.ringfence-wallet.near` (rows 17 and 18) is a bound wallet whose owner is a user's own NEAR account. No DAO-owned wallet is on mainnet yet.
 
 ### How a send is confirmed
 
@@ -172,7 +203,7 @@ The demo wallet is `f18d3a55399e.ringfence-wallet.near`. Its PIN is public on pu
 - A caller can ask to top up from another chain. The agent asks NEAR Intents 1Click for a quote: send SOL, ETH, BTC or another listed token, and about the same dollar amount arrives in the phone wallet as USDC on NEAR. The money goes from the caller straight to 1Click; the server never holds it.
 - **Quotes are dry by default** (no deposit address). A real deposit address is given when the server sets `TOPUP_LIVE=1` (the live site does) and the caller gives a refund address on the sending chain. The address goes on the caller's screen, never read aloud. On the shared demo wallet the agent first says the USDC goes to the shared demo wallet, not theirs.
 - **USDC registration:** the wallet must be registered on the USDC contract first (about 0.00125 NEAR, once). If it is not, the agent says so and gives no quote. The demo wallet was registered on 12 Nov 2026 (tx `1FBt3s8B...`).
-- **Not on mainnet yet.** No top up has been done. Dry quotes for $10 of SOL, ETH and BTC ran on 12 Nov 2026.
+- **On mainnet:** one real top up landed (row 16, into `0ffc41d0982d.ringfence-wallet.near`). Dry quotes for $10 of SOL, ETH and BTC also ran on 12 Nov 2026.
 
 ### Where the code is
 
@@ -200,7 +231,7 @@ Environment variables: [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md). Production se
 | --- | --- | --- |
 | [`ringfence-wallet.near`](https://nearblocks.io/address/ringfence-wallet.near) | Wallet factory, `contracts/factory`. Its contract owner is `ringfence-custody.near` | One full-access key |
 | `<id>.ringfence-wallet.near` | One phone wallet per phone number, `contracts/phone-wallet`, running the global contract by code hash | See the demo wallet |
-| [`f18d3a55399e.ringfence-wallet.near`](https://nearblocks.io/address/f18d3a55399e.ringfence-wallet.near) | The website's demo wallet, and the only phone wallet on mainnet so far. Owner `ringfence-custody.near`, custodial | None |
+| [`f18d3a55399e.ringfence-wallet.near`](https://nearblocks.io/address/f18d3a55399e.ringfence-wallet.near) | The website's demo wallet. Owner `ringfence-custody.near`, custodial. Other phone wallets on mainnet include `liho.ringfence-wallet.near` (user-owned, rows 17 and 18) and `0ffc41d0982d.ringfence-wallet.near` (row 16) | None |
 | [`packets.ringfence-wallet.near`](https://nearblocks.io/address/packets.ringfence-wallet.near) | Money packets, `contracts/packets`. Its contract owner is `ringfence-custody.near`. Fee settings: 5% and 0.013 NEAR per share on campaign packets | One full-access key |
 | `ringfence-agent.near` | The account the server signs with for sends and packets. It is the `agent` in each wallet and in the packets contract. Holds about 0.4 NEAR for gas | One full-access key |
 | `ringfence-custody.near` | Owner of custodial wallets, of the factory and of the packets contract. The server signs with it to create and manage phone-only wallets | One full-access key |
@@ -285,11 +316,11 @@ It hashes each file in `contracts/release/` and compares it with the code hash o
 
 | Contract | Code hash on chain (base58 sha256) |
 | --- | --- |
-| Factory, `ringfence-wallet.near` | `5e2KYRa4t7efpHJ7Rpp5usb9FJo4Ao3cvzrWDmwwYrVe` |
+| Factory, `ringfence-wallet.near` | `9rGY4EWAypASv9JQEQy7p8rrtuTUACKR74Lzt7vuoqri` |
 | Phone wallet (global code) | `23Fdy7fDqtuY1YEo6NsT1qoXiNS99K8gZffT7TDaLSLe` |
 | Packets v2, `packets.ringfence-wallet.near` | `9yNnSjH7rm9r5WanoZZgiVm4ZEDVdfriQ4Ce595jkFaS` |
 
-The builds are not byte-reproducible (they were made with `cargo near build non-reproducible-wasm`), so NEAR explorers will not show a "verified" badge. The release files are the files the sandbox tests ran on: see [contracts/release/README.md](contracts/release/README.md).
+The builds are not byte-reproducible (they were made with `cargo near build non-reproducible-wasm`), so NEAR explorers will not show a "verified" badge. The factory was redeployed with named wallets (commit `b9d1568`); on 12 Nov 2026 its release file was replaced with the build that matches the chain. The release files are the files the sandbox tests ran on: see [contracts/release/README.md](contracts/release/README.md).
 
 ### TEE attestation
 
@@ -348,7 +379,7 @@ Checked and fine: owner and agent checks, the daily limit across days and callba
 
 ## Tracks, and what backs each
 
-The entry lists five tracks. They are not ranked. Each row gives one piece of evidence you can check.
+The entry lists five tracks. Social Money and Real-World Money come first; the others are backups. Each row gives one piece of evidence you can check.
 
 | Track | What in the repo fits | Evidence |
 | --- | --- | --- |
@@ -384,7 +415,7 @@ Meta transactions are not used. NEAR Intents 1Click gives the top-up quotes abov
 
 | Suite | Count on 12 Nov 2026 | Command |
 | --- | --- | --- |
-| App checks | 57 | `npm test` |
+| App checks | 75 | `npm test` |
 | Scripted call walk | 19 steps | `npm run demo:check` |
 | Attack replay | 5 attacks and 1 control | `npm run attack` |
 | Contract unit tests | 64 (phone wallet 38, factory 10, packets 16); 12 more EVM tests run with `--features evm` | `cargo test` in each contract folder |
@@ -395,7 +426,7 @@ What the tests do not show:
 
 - `npm run demo:check` and `npm run attack` use a scripted model. They prove the tools, rules and pages, not the real model's choices. The real model is checked by `npm run live:check` and by hand, in English and Chinese.
 - The low-balance message on the demo wallet has no test, because it needs live contract state.
-- WhatsApp runs on Meta's test number, which only answers 5 approved numbers, so the public cannot try it. A real number is waiting on Meta's business verification. The browser call does sends and money packets from the shared demo wallet. Making your own phone-only wallet by text needs WhatsApp. Outbound calls are not built.
+- WhatsApp runs on Meta's test number, which only answers approved numbers. Anyone can ask to be added at [/whatsapp](https://ringfence.evalengine.ai/whatsapp). A real number is waiting on Meta's business verification. The browser call does sends and money packets from the shared demo wallet. Making your own phone-only wallet by text needs WhatsApp. Outbound calls are not built.
 
 ## Limits
 
@@ -405,7 +436,7 @@ What the tests do not show:
 - Storage is one JSON file.
 - NEAR Intents top up: one real swap so far (row 16). The caller pastes a refund address on the top-up page and sends from their own wallet; the server never holds funds.
 - A DAO-owned wallet must be set up through the API or `npm run dao:wallet`; the bind page only takes a connected wallet as owner. Whether 200 Tgas is enough for `create_wallet` through a proposal is untested on chain.
-- Also in the code, not part of the main demo: coin launches on JustHoot. "Launch a coin about a sleepy otter, ticker ZZOTR" prepares a `launch_meme` call that you sign in your own wallet. Tickers and names that impersonate an asset, a brand or a trending coin are refused in code. No launch has been signed on mainnet. Code: `src/desks/launch.ts`, `src/justhoot.ts`.
+- Coin launches on JustHoot are a side feature, not the main demo. "Launch a coin about a sleepy otter, ticker ZZOTR" prepares a `launch_meme` call that you sign in your own wallet. Tickers and names that impersonate an asset, a brand or a trending coin are refused in code. $FENCE (`fence.v2-launchpad.justhoot.near`) exists on mainnet; the launch is signed in the launcher's own wallet, never by Ringfence. Code: `src/desks/launch.ts`, `src/justhoot.ts`.
 
 ## Next, not built
 
