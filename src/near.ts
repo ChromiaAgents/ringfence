@@ -3,8 +3,9 @@
 import { env } from './config.ts';
 
 export const NET = {
-  mainnet: { rpc: 'https://rpc.mainnet.near.org', explorer: (h: string) => `https://nearblocks.io/txns/${h}` },
-  testnet: { rpc: 'https://rpc.testnet.near.org', explorer: (h: string) => `https://testnet.nearblocks.io/txns/${h}` },
+  // rpc.*.near.org answers in about 3 s per call now; FastNEAR in about 0.1 s. NEAR_RPC / NEAR_TESTNET_RPC override.
+  mainnet: { rpc: process.env.NEAR_RPC || 'https://free.rpc.fastnear.com', explorer: (h: string) => `https://nearblocks.io/txns/${h}` },
+  testnet: { rpc: process.env.NEAR_TESTNET_RPC || 'https://test.rpc.fastnear.com', explorer: (h: string) => `https://testnet.nearblocks.io/txns/${h}` },
 } as const;
 export const net = (n = env.network) => NET[n];
 

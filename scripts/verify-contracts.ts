@@ -4,7 +4,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
-const RPC = 'https://rpc.mainnet.near.org';
+const RPC = process.env.NEAR_RPC || 'https://free.rpc.fastnear.com';
 const rpc = async (params: object) => {
   const r: any = await (await fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'query', params: { finality: 'final', ...params } }) })).json();
   if (r.error) throw new Error(JSON.stringify(r.error));

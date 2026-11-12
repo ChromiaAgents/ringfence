@@ -231,11 +231,13 @@ function callAudio(out: MediaStreamTrack, pt: number) {
   let voiced = 0, silent = 0, floor = 0.01, loudRun = 0;
   let seq = Math.floor(Math.random() * 65535), ts = Math.floor(Math.random() * 2 ** 31);
   let queue: Buffer[] = [];
+  let closed = false; // after hang-up the encoder is freed: a late reply must not touch it (it crashed opus)
   const self = {
     onUtterance: undefined as undefined | ((pcm16k: Float32Array) => Promise<void>),
     onBarge: undefined as undefined | (() => void),
     lastRms: 0,
     hear(payload: Buffer) {
+      if (closed) return;
       const pcm = new Int16Array(new Uint8Array(dec.decode(payload)).buffer);
       const f = Float32Array.from(pcm, (x) => x / 32768);
       const rms = Math.sqrt(f.reduce((a, x) => a + x * x, 0) / f.length);
@@ -262,6 +264,7 @@ function callAudio(out: MediaStreamTrack, pt: number) {
     },
     /** 24 kHz mono PCM -> 20 ms Opus frames on the send queue. */
     play(pcm: Float32Array) {
+      if (closed) return;
       const up = up2(pcm); // 48 kHz
       for (let i = 0; i + 960 <= up.length; i += 960) {
         const s16 = Int16Array.from(up.subarray(i, i + 960), (x) => Math.max(-32768, Math.min(32767, x * 32767)));
@@ -269,7 +272,7 @@ function callAudio(out: MediaStreamTrack, pt: number) {
       }
     },
     busy: () => queue.length > 0,
-    close() { clearInterval(timer); dec.delete(); enc.delete(); },
+    close() { if (closed) return; closed = true; queue = []; clearInterval(timer); dec.delete(); enc.delete(); },
   };
   const timer = setInterval(() => {
     const p = queue.shift();
