@@ -112,7 +112,7 @@ Other views: `get_config` on `ringfence-wallet.near` (custody account, agent acc
 - The demo wallet is custodial: its owner is `ringfence-custody.near`. A wallet is owned by the user only after the user binds their own NEAR account at `/wallet/bind`. There is no mainnet transaction for that path in the evidence table.
 - USDC sends are covered by contract tests (`contracts/mock-ft`). There is no USDC transaction in the evidence table.
 - Trezu is not used. A Sputnik DAO can own a phone wallet (`docs/dao-wallet.md`) and fund a money packet (`docs/dao-packet.md`). The DAO-funded packet is on mainnet (README evidence rows 12 to 15). The DAO-owned wallet is not on mainnet yet. On a call, a DAO-owned wallet gets a DAO proposal instead of a signing link.
-- NEAR Intents top up (`src/desks/topup.ts`): dry quotes only. A real deposit address needs `TOPUP_LIVE=1` and a wallet registered on the USDC contract; the demo wallet is not registered. Not on mainnet yet.
+- NEAR Intents top up (`src/desks/topup.ts`): a real deposit address when the server sets `TOPUP_LIVE=1` (it does) and the caller gives a refund address; otherwise a dry quote. The demo wallet is registered on the USDC contract. On the shared demo wallet the agent says the funds go to the demo, not the caller. No swap is on mainnet yet.
 - Staking for packets is not built.
 - Spoken languages are English and Chinese.
 - The contracts are AI-reviewed, not audited.

@@ -49,6 +49,6 @@ Status: on NEAR mainnet since 10 November 2026, small amounts. The contracts are
 - The spoken voice is made by Cartesia and is not attested. Chat, speech-to-text and image models run on NEAR AI Cloud in a TEE.
 - The demo wallet is custodial. A wallet is owned by the user only after they bind their own NEAR account at /wallet/bind.
 - Trezu is not used. A Sputnik DAO can own a phone wallet and fund a money packet (docs/dao-wallet.md, docs/dao-packet.md). The DAO-funded packet is on mainnet (README evidence rows 12 to 15). The DAO-owned wallet is not on mainnet yet.
-- Top up from any chain through NEAR Intents 1Click: dry quotes only, the demo wallet is not registered on the USDC contract. Not on mainnet yet.
+- Top up from any chain through NEAR Intents 1Click: live deposit addresses when the caller gives a refund address (the server has TOPUP_LIVE=1), dry quotes otherwise. No swap is on mainnet yet.
 - Staking for packets is not built.
 - Spoken languages: English and Chinese.

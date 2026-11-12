@@ -137,7 +137,7 @@ The demo wallet is `f18d3a55399e.ringfence-wallet.near`. Its PIN is public on pu
 ### Top up from any chain (NEAR Intents)
 
 - A caller can ask to top up from another chain. The agent asks NEAR Intents 1Click for a quote: send SOL, ETH, BTC or another listed token, and about the same dollar amount arrives in the phone wallet as USDC on NEAR. The money goes from the caller straight to 1Click; the server never holds it.
-- **Quotes are dry by default** (no deposit address). A real deposit address is asked for only when the owner sets `TOPUP_LIVE=1`, the caller gives a refund address on the sending chain, and the wallet is not the shared demo wallet.
+- **Quotes are dry by default** (no deposit address). A real deposit address is given when the server sets `TOPUP_LIVE=1` (the live site does) and the caller gives a refund address on the sending chain. The address goes on the caller's screen, never read aloud. On the shared demo wallet the agent first says the USDC goes to the shared demo wallet, not theirs.
 - **USDC registration:** the wallet must be registered on the USDC contract first (about 0.00125 NEAR, once). If it is not, the agent says so and gives no quote. The demo wallet is not registered, so the live agent refuses to quote for it.
 - **Not on mainnet yet.** No top up has been done. Dry quotes for $10 of SOL, ETH and BTC ran on 12 Nov 2026.
 
@@ -369,7 +369,7 @@ What the tests do not show:
 - Packets are NEAR only. Sends are NEAR on mainnet; USDC sends are tested in the sandbox only.
 - English and Chinese are the only spoken languages. Other languages get an English reply.
 - Storage is one JSON file.
-- NEAR Intents top up: dry quotes only. A real top up needs the wallet registered on the USDC contract and `TOPUP_LIVE=1`; the demo wallet is not registered.
+- NEAR Intents top up: no swap is on mainnet yet. The live server gives a real deposit address when the caller gives a refund address.
 - A DAO-owned wallet must be set up through the API or `npm run dao:wallet`; the bind page only takes a connected wallet as owner. Whether 200 Tgas is enough for `create_wallet` through a proposal is untested on chain.
 - Also in the code, not part of the main demo: coin launches on JustHoot. "Launch a coin about a sleepy otter, ticker ZZOTR" prepares a `launch_meme` call that you sign in your own wallet. Tickers and names that impersonate an asset, a brand or a trending coin are refused in code. No launch has been signed on mainnet. Code: `src/desks/launch.ts`, `src/justhoot.ts`.
 

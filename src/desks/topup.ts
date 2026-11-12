@@ -1,11 +1,13 @@
 // Top up from any chain through NEAR Intents 1Click: the caller pays a token on any chain and USDC lands in their
-// phone wallet on NEAR. Dry quotes unless TOPUP_LIVE=1; the shared demo wallet only ever gets dry quotes.
+// phone wallet on NEAR. Dry quotes unless TOPUP_LIVE=1 and the caller gives a refund address. On the shared demo
+// wallet the agent first says plainly that the funds top up the shared demo wallet, not theirs.
 // The caller sends the funds themselves to the 1Click deposit address: this server never holds them.
 import type { DeskDef } from './types.ts';
 import type { Call } from '../store.ts';
 import { env } from '../config.ts';
 import { bindingOf } from '../wallet.ts';
 import { quoteTopup, topupLive } from '../fund.ts';
+import { setWalletLink } from './wallet.ts';
 
 const TOOL = { type: 'function', function: { name: 'topup_quote', description: 'Quote a top up of the caller\'s phone wallet: they pay a token on another chain (SOL, ETH, BTC and more) and USDC arrives in their wallet on NEAR through NEAR Intents.', parameters: { type: 'object', properties: {
   usd: { type: 'number', description: 'Dollars to top up' }, token: { type: 'string', description: 'What they pay with, for example SOL, ETH, BTC' },
@@ -22,18 +24,24 @@ function target(call: Call) {
 export async function runTopup(call: Call, args: any) {
   const t = target(call);
   if (!t) return { ok: false, reason: 'This call has no wallet to top up yet.' };
-  const live = topupLive() && !t.demo;
-  const q = await quoteTopup({ usd: Number(args?.usd), origin: String(args?.token ?? ''), recipient: t.account, refundTo: args?.refund_address, live });
+  const refund = String(args?.refund_address ?? '').trim() || undefined;
+  const live = topupLive() && !!refund;
+  const q = await quoteTopup({ usd: Number(args?.usd), origin: String(args?.token ?? ''), recipient: t.account, refundTo: refund, live });
   if (!q.ok) return q;
   const mins = Math.max(1, Math.round((Date.parse(q.deadline) - Date.now()) / 60_000));
-  const to = q.depositAddress ? `to ${q.depositAddress}${q.depositMemo ? ` with memo ${q.depositMemo}` : ''}` : 'dry run, no address';
-  return { ...q, say: `Send ${q.send} ${q.symbol} on ${q.chain}, ${to}. About ${q.receive} USDC lands in your wallet. ${q.dry ? 'A live top up needs a refund address of yours on that chain.' : `Refunds go to ${q.refund}.`} The quote holds for ${mins} minutes.` };
+  const whose = t.demo ? 'the shared demo wallet (not yours: anything sent is a gift to the demo)' : 'your wallet';
+  if (q.depositAddress) {
+    // A 64-character address is useless spoken: it goes on the caller's screen (or WhatsApp), with the 1Click status link.
+    setWalletLink(call.id, { url: `https://1click.chaindefuser.com/v0/status?depositAddress=${encodeURIComponent(q.depositAddress)}`, label: `Send exactly ${q.send} ${q.symbol} on ${q.chain} to ${q.depositAddress}${q.depositMemo ? ` memo ${q.depositMemo}` : ''} (tap to check the swap)` });
+    return { ...q, linkSent: true, say: `Live quote: send exactly ${q.send} ${q.symbol} on ${q.chain} to the address on your screen, and about ${q.receive} USDC lands in ${whose}. Refunds go to ${q.refund}. It holds for ${mins} minutes. Only send from your own wallet.` };
+  }
+  return { ...q, say: `Send ${q.send} ${q.symbol} on ${q.chain} and about ${q.receive} USDC lands in ${whose}. This is a dry run, nothing moved. ${topupLive() ? 'For a live top up, give me a refund address of yours on that chain.' : 'Live top ups are off on this server.'} The quote holds for ${mins} minutes.` };
 }
 
 export const topupDesk: DeskDef = {
   id: 'wallet', // a wallet action; the Desk type has no separate id for it
   greeting: () => '',
-  system: () => 'To top up their wallet from another chain ("top up 10 dollars of SOL"), call topup_quote and say its say field, briefly. Without a deposit address it is a dry run: say so, and that nothing moved.',
+  system: () => 'To top up their wallet from another chain ("top up 10 dollars of SOL"), call topup_quote and say its say field, briefly. Without a deposit address it is a dry run: say so, and that nothing moved. If they give a refund address, call topup_quote again with it for a live quote; never read the deposit address aloud, it is on their screen. On the shared demo wallet say plainly the funds go to the demo wallet, not theirs.',
   tools: [TOOL],
   run: (call, _name, args) => runTopup(call, args),
 };

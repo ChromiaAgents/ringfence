@@ -47,6 +47,8 @@ export function takePin(callId: string, text: string): boolean {
 const AMOUNT = /^\d+(\.\d{1,18})?$/;
 const toYocto = (amount: string) => parseUnits(amount, 24);
 const links = new Map<string, { url: string; label: string }>();
+/** Lets another wallet tool (top up) put a line on the caller's screen. */
+export const setWalletLink = (callId: string, l: { url: string; label: string }) => links.set(callId, l);
 const chainOf = (a: Asset) => (a === 'near' ? undefined : chainById(Number(a.slice(4))));
 const suffix = () => (env.network === 'mainnet' ? 'near' : 'testnet');
 const chainList = () => CHAINS.filter((c) => !!c.testnet === (env.network === 'testnet')).map((c) => c.name).join(', ');
