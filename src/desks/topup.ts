@@ -1,3 +1,4 @@
+import { callProof } from '../wallet.ts';
 import { webDemo } from './wallet.ts';
 // Top up from any chain through NEAR Intents 1Click: the caller pays a token on any chain and USDC lands in their
 // phone wallet on NEAR. Dry quotes unless TOPUP_LIVE=1 and the caller gives a refund address. On the shared demo
@@ -47,7 +48,7 @@ export async function runTopup(call: Call, args: any) {
   // A WhatsApp number with no wallet of its own: bind first (same link-or-live-code path as a launch), unless they
   // choose the shared demo wallet.
   if (call.channel === 'whatsapp' && call.from && !bindingOf(call.from) && args?.use_demo !== true) {
-    setWalletLink(call.id, { url: `${env.publicUrl}/wallet/bind${call.from ? `?phone=${call.from}` : ''}`, label: 'Bind your own NEAR wallet to this number, then top up' });
+    setWalletLink(call.id, { url: `${env.publicUrl}/wallet/bind${call.from ? `?phone=${call.from}&proof=${callProof(call.from)}` : ''}`, label: 'Bind your own NEAR wallet to this number, then top up' });
     return { ok: false, linkSent: true, reason: 'This number has no wallet yet. The bind page is on its way (or the code you read). Tell them to bind their NEAR wallet there, then ask again. Or, if they just want to try it, offer the shared demo wallet (call again with use_demo true).' };
   }
   const t = target(call, args?.use_demo === true);

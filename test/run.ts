@@ -435,7 +435,7 @@ await t('wallet: refusals (unbound number, bad input, nothing to confirm) and th
   const unbound = startCall('whatsapp', '15550000009', 'wallet').call;
   const r0: any = await walletDesk.run(unbound, 'prepare_transfer', { to: 'bob.testnet', amount: '1', asset: 'near' });
   assert.equal(r0.ok, false); assert.match(r0.reason, /no wallet yet/); assert.match(r0.reason, /create a wallet/);
-  assert.match(walletDesk.link!(unbound)!.url, /\/wallet\/bind\?phone=\d+$/);
+  assert.match(walletDesk.link!(unbound)!.url, /\/wallet\/bind\?phone=\d+&proof=[0-9a-f]{32}$/);
   db.wallets.push({ phone: '15550000010', owner: 'alice.testnet', contract: 'phone.alice.testnet', ...hashPin('1234'), fails: 0, createdAt: Date.now() });
   const c = startCall('whatsapp', '+1 555 000 0010', 'wallet').call;
   assert.equal(((await walletDesk.run(c, 'confirm_transfer', { pin: '1234' })) as any).ok, false, 'nothing prepared');

@@ -29,6 +29,8 @@ function Bind() {
   // A link from a call carries the caller's number (?phone=), so they don't type it.
   const [phone, setPhone] = useState(() => (typeof window === 'undefined' ? '' : (new URLSearchParams(location.search).get('phone') ?? '').replace(/[^\d+]/g, '').replace(/^(?=\d)/, '+')));
   const [code, setCode] = useState('');
+  // ?proof= comes with a link sent on a WhatsApp call from this number: that call already proved the number, no code needed.
+  const [proof] = useState(() => (typeof window === 'undefined' ? '' : new URLSearchParams(location.search).get('proof') ?? ''));
   const [pin, setPin] = useState('');
   const [sent, setSent] = useState('');
   const [tx, setTx] = useState<Tx | null>(null);
@@ -86,6 +88,16 @@ function Bind() {
         <p className="muted small">No wallet? <a href="https://wallet.meteorwallet.app" target="_blank" rel="noreferrer">Create one in Meteor (1 min)</a>, then come back and connect it. No wallet at all? Text “create a wallet” to {cfg.waNumber ? <a href={`https://wa.me/${cfg.waNumber}?text=create%20a%20wallet`} target="_blank" rel="noreferrer">+{cfg.waNumber} on WhatsApp</a> : 'our WhatsApp number'} for a demo custodial wallet you can claim later.</p>
       </section>
 
+      {proof && !guardian ? (
+      <section className="card">
+        <h2>2. PIN for your calls</h2>
+        <p className="muted small">Number <b>{phone}</b>, confirmed by your call. No code needed.</p>
+        <label className="field-label" htmlFor="pn">4-digit PIN you will say on calls</label>
+        <input id="pn" className="control" type="password" value={pin} onChange={(e) => setPin(e.target.value)} inputMode="numeric" maxLength={4} />
+        <p className="muted small">We keep only a salted hash of the PIN. Three wrong tries lock the wallet for 15 minutes.</p>
+        <button className="btn ink small" disabled={!w.account || pin.length !== 4} onClick={async () => { const d = await post('/api/wallet/bind', { phone, proof, pin, owner: w.account }); if (d) setTx(d); }}>Bind</button>
+      </section>
+      ) : (<>
       <section className="card">
         <h2>2. {guardian ? 'Their WhatsApp number' : 'Your WhatsApp number'}</h2>
         <label className="field-label" htmlFor="ph">Number with country code</label>
@@ -104,6 +116,7 @@ function Bind() {
         <button className="btn ink small" disabled={!w.account || code.length !== 6 || pin.length !== 4} onClick={async () => { const d = await post('/api/wallet/bind', { phone, code, pin, owner: w.account }); if (d) setTx(d); }}>Bind</button>
       </section>
 
+      </>)}
       {tx && (
         <section className="card">
           <h2>4. Sign: create the phone wallet</h2>

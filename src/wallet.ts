@@ -97,9 +97,20 @@ function codeProblem(phone: string, code: string, purpose: CodePurpose, target: 
 const ownerReason = () => (env.network === 'mainnet' ? 'Mainnet accounts only (name.near or a 64-hex implicit account).' : 'Testnet accounts only (name.testnet or a 64-hex implicit account).');
 /** Binds a phone to a wallet the connected account will own. Guardian setup is the same call: owner = the guardian's
  *  account, phone = the family member's (the code went to their phone and they read it out). */
-export function bind(p: { phone: string; code: string; pin: string; owner: string }): { ok: true; binding: Binding } | { ok: false; reason: string } {
+/** A link sent during a WhatsApp call from this number proves the caller holds it: the bind page needs no code then.
+ *  One use, 30 minutes, in memory. */
+const proofs = new Map<string, { phone: string; until: number }>();
+export function callProof(phone: string): string {
+  const t = randomBytes(16).toString('hex');
+  proofs.set(t, { phone: digits(phone), until: Date.now() + 30 * 60_000 });
+  return t;
+}
+const proofOk = (t: unknown, phone: string) => { const x = proofs.get(String(t ?? '')); return !!x && x.phone === phone && x.until > Date.now(); };
+
+export function bind(p: { phone: string; code: string; pin: string; owner: string; proof?: string }): { ok: true; binding: Binding } | { ok: false; reason: string } {
   const phone = digits(p.phone);
-  const bad = codeProblem(phone, p.code, 'bind', p.owner);
+  const viaCall = proofOk(p.proof, phone);
+  const bad = viaCall ? null : codeProblem(phone, p.code, 'bind', p.owner);
   if (bad) return { ok: false, reason: bad };
   const old = bindingOf(phone);
   // Never overwrite a live wallet (custodial or someone else's): the factory refuses a second wallet anyway.
@@ -108,6 +119,7 @@ export function bind(p: { phone: string; code: string; pin: string; owner: strin
   if (!ownerOk(p.owner)) return { ok: false, reason: ownerReason() };
   if (p.owner === env.agentAccountId) return { ok: false, reason: "The agent can't be the owner." };
   codes.delete(phone);
+  if (viaCall) proofs.delete(String(p.proof));
   const binding: Binding = { phone, owner: p.owner, contract: old && !old.dryRun ? old.contract : walletFor(phone), ...hashPin(p.pin), fails: 0, createdAt: Date.now(), frozenUntil: old?.frozenUntil };
   db.wallets = db.wallets.filter((b) => b.phone !== phone).concat(binding);
   save();

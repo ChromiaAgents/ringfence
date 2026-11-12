@@ -1,3 +1,4 @@
+import { callProof } from '../wallet.ts';
 // The wallet desk: "send 0.1 NEAR to liho.testnet", read back, then confirmed by tier: up to SMALL_LIMIT NEAR to a saved
 // recipient by spoken 4-digit PIN; more (still within limits) by the PIN and then an Approve tap on WhatsApp; over a
 // limit or to a new recipient, a link to sign in their own wallet. The phone-wallet contract enforces the limits either
@@ -204,7 +205,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
     name = 'prepare_transfer';
   }
   if (name === 'bind_wallet') {
-    links.set(call.id, { url: `${env.publicUrl}/wallet/bind${call.from ? `?phone=${call.from}` : ''}`, label: 'Bind your own NEAR wallet to this number' });
+    links.set(call.id, { url: `${env.publicUrl}/wallet/bind${call.from ? `?phone=${call.from}&proof=${callProof(call.from)}` : ''}`, label: 'Bind your own NEAR wallet to this number' });
     return { ok: true, linkSent: true, next: 'Say the bind page is on its way (or the code you read). They connect their NEAR wallet there, then come back to finish.' };
   }
   const demo = webDemo(call);
@@ -214,7 +215,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
   if (name === 'prepare_transfer' && !env.evmEnabled && !['near', `ft:${env.usdcToken}`].includes(parseAsset(a.asset) ?? '')) return refuse(ONLY_NEAR);
   if (!b && call.channel === 'web') return browserDemo(call, name, a, packet);
   if (!b) {
-    links.set(call.id, { url: `${env.publicUrl}/wallet/bind${call.from ? `?phone=${call.from}` : ''}`, label: 'No wallet yet. Reply "create a wallet" for a demo custodial wallet, or bind your own NEAR wallet' });
+    links.set(call.id, { url: `${env.publicUrl}/wallet/bind${call.from ? `?phone=${call.from}&proof=${callProof(call.from)}` : ''}`, label: 'No wallet yet. Reply "create a wallet" for a demo custodial wallet, or bind your own NEAR wallet' });
     return refuse('This number has no wallet yet. Two ways in: text "create a wallet" to this number for a demo custodial wallet, or bind your own NEAR wallet: the link is on WhatsApp.', { linkSent: true });
   }
   const shared = isDemoWallet(b);

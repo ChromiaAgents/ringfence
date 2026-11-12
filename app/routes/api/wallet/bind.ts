@@ -9,7 +9,7 @@ export const Route = createFileRoute('/api/wallet/bind')({
       POST: async ({ request }) => {
         const { bind, bindTx } = await import('../../../../src/wallet.ts');
         const b = await request.json().catch(() => ({}));
-        const r = bind({ phone: b.phone, code: b.code, pin: b.pin, owner: String(b.owner ?? '') });
+        const r = bind({ phone: b.phone, code: b.code, pin: b.pin, owner: String(b.owner ?? ''), proof: b.proof });
         if (!r.ok) return json({ error: r.reason }, 400);
         return json(bindTx(r.binding));
       },
