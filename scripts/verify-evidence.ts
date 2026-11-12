@@ -7,6 +7,7 @@ export {}; // a module, so top-level await type-checks
 const RPCS = process.env.NEAR_ARCHIVAL_RPC ? [process.env.NEAR_ARCHIVAL_RPC] : ['https://archival-rpc.mainnet.fastnear.com', 'https://archival-rpc.mainnet.near.org'];
 
 const AGENT = 'ringfence-agent.near', CUSTODY = 'ringfence-custody.near', FACTORY = 'ringfence-wallet.near';
+const DAO = 'ringfence-family.sputnik-dao.near';
 const PACKETS = 'packets.ringfence-wallet.near', WALLET = 'f18d3a55399e.ringfence-wallet.near';
 // One row per hash in the README table, in the same order. result is 'success', or the panic text of a failed call.
 // args lists text that must be in the call's arguments.
@@ -23,6 +24,10 @@ const ROWS: Row[] = [
   { hash: '7HkYdRt4W8gqbZWHShHN22qfmUsJHw4CZXmqBWZ46xFT', what: 'money packet funded, 0.02 NEAR', signer: AGENT, receiver: WALLET, method: 'transfer_near', result: 'success', args: ['"to":"packets.ringfence-wallet.near"', '"amount":"20000000000000000000000"'] },
   { hash: '4noicreqHQgZmYz8iQpCmH8CV3fy3wYuC7ndHTYnsVa1', what: 'money packet recorded, 5 lucky shares', signer: AGENT, receiver: PACKETS, method: 'create_for', result: 'success', args: ['"count":5', '"lucky":true'] },
   { hash: '8EyQjwqWo5vJYqaSKVuo3586zqQQrs86JMvRzGBvZxH', what: 'a share opened', signer: AGENT, receiver: PACKETS, method: 'claim', result: 'success', args: ['"to":"liho00.near"'] },
+  { hash: 'Frt5nXX3E3BFQjfzyHriq1j3UtUnXUtWkEWwZSdA52ud', what: 'family DAO created on sputnik-dao.near', signer: 'liho00.near', receiver: 'sputnik-dao.near', method: 'create', result: 'success', args: ['"name":"ringfence-family"'] },
+  { hash: '4ufAXe2XFRaWQcYCYZNRHExmUTLpLL8RQ6vHTRVbhxv3', what: 'DAO proposal to fund a money packet', signer: 'liho00.near', receiver: DAO, method: 'add_proposal', result: 'success' },
+  { hash: 'EAL2uMt6dheQ6upUqstRu3UgoMbRixbbE4Nj1ntytgCW', what: 'DAO vote passes, the DAO funds the packet', signer: 'liho00.near', receiver: DAO, method: 'act_proposal', result: 'success', args: ['"action":"VoteApprove"'] },
+  { hash: '71C9Ve2z7arjaJxAeZMHH6dDxpUE5cpMxafP2yUAYPw3', what: 'a share of the DAO packet opened', signer: AGENT, receiver: PACKETS, method: 'claim', result: 'success', args: ['"id":"family-1"', '"to":"liho00.near"'] },
 ];
 
 async function tx(hash: string, sender: string): Promise<any> {

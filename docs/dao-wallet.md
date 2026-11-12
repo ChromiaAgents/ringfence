@@ -1,6 +1,6 @@
 # A phone wallet owned by a Sputnik DAO
 
-Status on 12 Nov 2026: **not on mainnet yet.** No DAO owns a phone wallet. The script and the proposal shapes were
+Status on 12 Nov 2026: **not on mainnet yet.** No DAO owns a phone wallet. (A DAO-funded packet is on mainnet: see docs/dao-packet.md.) The script and the proposal shapes were
 tested offline by `npm test` and a dry run. Nothing below happens until the owner does the steps.
 
 What this gives: the family's DAO council holds the owner powers of a phone wallet, instead of Ringfence's custody

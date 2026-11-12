@@ -1,7 +1,10 @@
 # A money packet funded by a Sputnik DAO
 
-Status on 11 Nov 2026: **nothing in this path is on mainnet.** No DAO has funded a packet. The import command below
-was tested read-only against a live packet, and by `npm test`. The rest happens only when the owner does steps 1 to 6.
+Status on 12 Nov 2026: **on mainnet.** README evidence rows 12 to 15. `liho00.near` created `ringfence-family.sputnik-dao.near`
+(factory default code, version [3,2], 0.3 NEAR) with a custom low-bond policy: the council is `liho00.near` only, the proposal bond is 0.01 NEAR,
+one vote passes, and only the council can propose. Proposal 0 called `create` with 0.05 NEAR for packet `family-1`
+(5 lucky shares, 10 days). After the vote the packet holds 0.04427 NEAR with the DAO as creator. The server imported it
+with `npm run import:packet`, and one share was opened on a live call. A DAO-owned wallet is still not on mainnet.
 
 What this gives: a DAO votes on a proposal, the proposal locks NEAR in a money packet, and each member opens one
 share by saying the words on a call.
@@ -33,7 +36,7 @@ The commands use near-cli `near call`, as the Sputnik docs do.
 
 - Use a DAO you already control, or create one on the factory `sputnik-dao.near`.
   See "Define the parameters of the new DAO" in https://github.com/near-daos/sputnik-dao-contract (README).
-- The Sputnik example attaches 10 NEAR to the factory's `create`. The least the mainnet factory accepts was not checked.
+- The Sputnik example attaches 10 NEAR to the factory's `create`. The Sputnik example attaches 10 NEAR to the factory's `create`. `ringfence-family.sputnik-dao.near` was created with 0.3 NEAR (README evidence row 12); the factory's own minimum is 0.01 NEAR.
 - The DAO must hold the packet amount plus gas on top of its own storage. Send it NEAR with a plain transfer.
 - A testnet DAO cannot call the mainnet packets contract.
 

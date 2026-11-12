@@ -29,7 +29,7 @@ Status: on NEAR mainnet since 10 November 2026, small amounts. The contracts are
 - npm run demo:check : about 15 s, last line "all steps passed"
 - npm run verify:contracts : about 10 s, 3 blocks starting with "ok" (code on mainnet equals contracts/release/)
 - npm run attest : about 10 s, "3/3 models fully verified"
-- npm run verify:evidence : about 5 s, last line "11 of 11 transactions match" (reads the README evidence transactions from an archival RPC)
+- npm run verify:evidence : about 5 s, last line "15 of 15 transactions match" (reads the README evidence transactions from an archival RPC)
 - npm run attack : about 2 s, last line "5 of 5 attacks blocked" (prompt-injection replay with a scripted model, in process)
 - npm run live:check : 30 to 90 s, last line "5 of 5 checks passed" (types 5 lines into the call socket above; no PIN, nothing paid; replies come from a real model, so wording varies between runs)
 - npm run topup:quote -- 10 SOL : about 5 s, a NEAR Intents 1Click dry quote (no deposit address) printed as JSON, last line "}"
@@ -48,7 +48,7 @@ Status: on NEAR mainnet since 10 November 2026, small amounts. The contracts are
 
 - The spoken voice is made by Cartesia and is not attested. Chat, speech-to-text and image models run on NEAR AI Cloud in a TEE.
 - The demo wallet is custodial. A wallet is owned by the user only after they bind their own NEAR account at /wallet/bind.
-- Trezu is not used. A Sputnik DAO can own a phone wallet and fund a money packet (docs/dao-wallet.md, docs/dao-packet.md). Not on mainnet yet.
+- Trezu is not used. A Sputnik DAO can own a phone wallet and fund a money packet (docs/dao-wallet.md, docs/dao-packet.md). The DAO-funded packet is on mainnet (README evidence rows 12 to 15). The DAO-owned wallet is not on mainnet yet.
 - Top up from any chain through NEAR Intents 1Click: dry quotes only, the demo wallet is not registered on the USDC contract. Not on mainnet yet.
 - Staking for packets is not built.
 - Spoken languages: English and Chinese.
