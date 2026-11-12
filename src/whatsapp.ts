@@ -12,6 +12,8 @@ import { voiceLine } from './turn.ts';
 import { onboard, bindingOf, NO_WALLET, devServer } from './wallet.ts';
 import { onButton, setApprovalSender, onCallNews } from './desks/wallet.ts';
 import { setNotifier } from './notify.ts';
+import type { Call } from './store.ts';
+import { startLive, endLive, liveLink } from './live.ts';
 
 const GRAPH = 'https://graph.facebook.com/v23.0';
 
@@ -30,17 +32,21 @@ export const sendText = (to: string, text: string) =>
   graph(`${env.waPhoneId}/messages`, { messaging_product: 'whatsapp', to, type: 'text', text: { body: text, preview_url: true } });
 
 // Links (launch page, wallet page) go out as a WhatsApp message to whoever is on the line, on any channel that knows their number.
-setOnLink((call, link) => {
+export function deliverLink(call: Call, link: { url: string; label: string }) {
   if (!call.from || !env.waToken) return;
   const text = call.desk === 'launch'
     ? `Your launch is ready to check and sign with your own NEAR wallet: ${link.url}\nNothing is launched until you sign. Memecoins are risky; most lose value.`
     : `${link.label}: ${link.url}`;
   sendText(call.from, text).catch((e) => {
     console.error('link message', String(e.message).slice(0, 160));
-    // Meta's test number only messages approved recipients (131030): say where to go instead.
-    for (const l of live.values()) if (l.callId === call.id) l.say?.("I can't text you on this line, so open ringfence dot evalengine dot ai to finish.");
+    // Meta refuses messages until business verification passes (131030, 131032): on a call the link goes to its
+    // live panel (/live) and the code is said once; with no panel, say where to go instead.
+    const panel = liveLink(call.id, link);
+    const say = panel ?? "I can't text you on this line, so open ringfence dot evalengine dot ai to finish.";
+    if (say) for (const l of live.values()) if (l.callId === call.id) l.say?.(say);
   });
-});
+}
+setOnLink(deliverLink);
 
 /** Approve / Reject for larger sends: a Graph API interactive "button" message to the wallet's bound phone. */
 export const sendButtons = (to: string, body: string, token: string) =>
@@ -145,6 +151,7 @@ async function onCallEvent(c: any) {
   await graph(`${env.waPhoneId}/calls`, { messaging_product: 'whatsapp', call_id: c.id, action: 'pre_accept', session: { sdp_type: 'answer', sdp } });
 
   const { call, greeting } = startCall('whatsapp', c.from);
+  if (c.from) startLive(call.id, String(c.from)); // the fallback screen when WhatsApp messages can't reach them
   const audio = callAudio(out, payloadType(c.session.sdp));
   const line = voiceLine((pcm) => audio.play(pcm));
   audio.onBarge = () => line.cancel();
@@ -156,6 +163,7 @@ async function onCallEvent(c: any) {
     audio.close();
     pc.close();
     endCall(call.id);
+    endLive(call.id);
     onCallNews(call.id, null);
     live.delete(c.id);
   };

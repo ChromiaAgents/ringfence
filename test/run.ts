@@ -1254,4 +1254,104 @@ await t('goodbye: if the model says bye but forgets end_call, the call still han
     assert.equal(ended2, false);
   } finally { setChatForTest(null); }
 });
+// ---- the live panel (/live): the fallback screen for WhatsApp calls while Meta refuses messages ----
+type FakeRes = { status: number; body: string; writeHead: (s: number, h?: object) => FakeRes; end: (b?: string) => FakeRes; headersSent: boolean };
+const fakeRes = (): FakeRes => { const r: FakeRes = { status: 0, body: '', headersSent: false, writeHead: (s) => { r.status = s; r.headersSent = true; return r; }, end: (b) => { r.body = b ?? ''; return r; } }; return r; };
+async function liveReq(url: string, o: { method?: string; ip?: string; origin?: string; body?: object } = {}, onTap: (f: string, id: string) => Promise<string> = async () => 'tapped') {
+  const { handleLive } = await import('../src/live.ts');
+  const chunks = o.body ? [Buffer.from(JSON.stringify(o.body))] : [];
+  const req: any = { url, method: o.method ?? 'GET', headers: o.origin ? { origin: o.origin } : {}, socket: { remoteAddress: o.ip ?? '203.0.113.1' }, [Symbol.asyncIterator]: async function* () { yield* chunks; } };
+  const res = fakeRes();
+  assert.equal(await handleLive(req, res as any, onTap), true);
+  return { status: res.status, json: res.body ? JSON.parse(res.body) : null };
+}
+await t('live panel: a 6-digit code per call, unique, kept for the call and 10 minutes after, then gone', async () => {
+  const { startLive, endLive, liveView, hasLive } = await import('../src/live.ts');
+  const codes = new Set(Array.from({ length: 200 }, (_, i) => startLive(`live-u-${i}`, '15550000100')));
+  assert.equal(codes.size, 200, 'unique among active codes');
+  for (const c of codes) assert.match(c, /^\d{6}$/);
+  const code = startLive('live-exp', '15550000101');
+  assert.equal(liveView(code)!.state, 'live');
+  const end = Date.now(); endLive('live-exp', end);
+  assert.equal(liveView(code, end + 9 * 60_000)!.state, 'ended', 'still there 9 minutes after the call');
+  assert.equal(liveView(code, end + 10 * 60_000 + 1), null, 'gone after 10 minutes');
+  assert.equal(hasLive('live-exp'), true);
+  for (let i = 0; i < 200; i++) endLive(`live-u-${i}`, 0); // old calls: pruned on the next start
+  startLive('live-prune', '1');
+  assert.equal(liveView([...codes][0]), null);
+});
+await t('live panel: a wrong code is a plain 404, 5 wrong codes a minute per IP then 429; a polling panel never hits the GET cap', async () => {
+  const { startLive, resetLiveLimitsForTest } = await import('../src/live.ts');
+  resetLiveLimitsForTest();
+  const code = startLive('live-rl', '15550000102');
+  for (let i = 0; i < 5; i++) { const r = await liveReq(`/api/live/${String((Number(code) + 1 + i) % 1e6).padStart(6, '0')}`); assert.equal(r.status, 404); assert.deepEqual(r.json, { error: 'Not found' }); }
+  assert.equal((await liveReq(`/api/live/${code}`)).status, 429, 'locked out even with the right code');
+  assert.equal((await liveReq(`/api/live/abc`, { ip: '203.0.113.2' })).status, 404, 'not a code: same 404');
+  assert.equal((await liveReq(`/api/live/${code}`, { ip: '203.0.113.3' })).status, 200, 'another IP is not locked');
+  // The panel's own poller (every 2 s, even a 1 s one for 2 minutes squeezed into one window) never gets a 429.
+  for (let i = 0; i < 120; i++) assert.equal((await liveReq(`/api/live/${code}`, { ip: '203.0.113.4' })).status, 200, `poll ${i + 1}`);
+  for (let i = 0; i < 60; i++) await liveReq(`/api/live/${code}`, { ip: '203.0.113.4' });
+  assert.equal((await liveReq(`/api/live/${code}`, { ip: '203.0.113.4' })).status, 429, 'a flood above 180 a minute is still capped');
+  resetLiveLimitsForTest();
+});
+await t('live panel: a WhatsApp link that fails to send lands on the call\'s panel, and the code is said once', async () => {
+  const { env } = await import('../src/config.ts');
+  const { startCall } = await import('../src/agent.ts');
+  const { startLive, liveView, liveLink } = await import('../src/live.ts');
+  const { deliverLink } = await import('../src/whatsapp.ts');
+  const real = globalThis.fetch, token = env.waToken;
+  env.waToken = 'test-token';
+  globalThis.fetch = (async () => new Response(JSON.stringify({ error: { code: 131032, message: 'Invalid Test Phone Number' } }), { status: 400 })) as any;
+  const err = console.error; console.error = () => {};
+  try {
+    const { call } = startCall('whatsapp', '15550000103');
+    const code = startLive(call.id, '15550000103');
+    deliverLink(call, { url: 'https://example.com/sign', label: 'Sign 2 NEAR to bob.near in your own wallet' });
+    await new Promise((r) => setTimeout(r, 20));
+    assert.deepEqual(liveView(code)!.links, [{ label: 'Sign 2 NEAR to bob.near in your own wallet', url: 'https://example.com/sign' }]);
+    assert.equal(liveLink(call.id, { url: 'https://example.com/b', label: 'b' }), '', 'the code is said once per call');
+    const other = startCall('whatsapp', '15550000104').call;
+    assert.equal(liveLink(other.id, { url: 'x', label: 'x' }), null, 'no panel: the old spoken fallback');
+  } finally { globalThis.fetch = real; env.waToken = token; console.error = err; }
+});
+await t('live panel: a failed Approve card shows on the panel; a tap there runs the WhatsApp tap handler; no token, PIN or phone in the JSON; other Origin refused', async () => {
+  const { env } = await import('../src/config.ts');
+  const { startCall } = await import('../src/agent.ts');
+  const { walletDesk, onButton, setApprovalSender, onCallNews } = await import('../src/desks/wallet.ts');
+  const { startLive, resetLiveLimitsForTest } = await import('../src/live.ts');
+  const { db } = await import('../src/store.ts');
+  const { hashPin } = await import('../src/wallet.ts');
+  const phone = '15550000105';
+  db.wallets = db.wallets.filter((w) => w.phone !== phone);
+  db.wallets.push({ phone, owner: 'dave.testnet', contract: 'd.ringfence-wallet.testnet', ...hashPin('4321'), fails: 0, createdAt: Date.now() });
+  let tokenSent = '';
+  setApprovalSender(async (_to, _b, tok) => { tokenSent = tok; throw new Error('graph 400: 131032 Invalid Test Phone Number'); });
+  const err = console.error; console.error = () => {};
+  resetLiveLimitsForTest();
+  try {
+    const c = startCall('whatsapp', phone, 'wallet').call;
+    const code = startLive(c.id, phone);
+    await walletDesk.run(c, 'prepare_transfer', { to: 'bob.testnet', amount: '0.3', asset: 'near' });
+    const r: any = await walletDesk.run(c, 'confirm_transfer', { pin: '4321' });
+    assert.equal(r.ok, true); assert.equal(r.livePanel, true);
+    assert.equal(r.live_code_say, `I can't text you right now. Open ringfence dot evalengine dot ai slash live and enter code ${code.split('').join(', ')}.`);
+    const g = await liveReq(`/api/live/${code}`);
+    assert.equal(g.status, 200); assert.equal(g.json.state, 'live');
+    assert.match(g.json.approval.body, /Approve this transfer\?\n0.3 NEAR to bob.testnet/);
+    const raw = JSON.stringify(g.json);
+    for (const secret of [tokenSent, '4321', phone]) assert.ok(!raw.includes(secret), `no ${secret === phone ? 'phone' : 'secret'} in the JSON`);
+    assert.notEqual(g.json.approval.id, tokenSent);
+    const id = g.json.approval.id, origin = new URL(env.publicUrl).origin;
+    assert.equal((await liveReq(`/api/live/${code}/tap`, { method: 'POST', origin: 'https://evil.example', body: { id, action: 'approve' } })).status, 403, 'another Origin');
+    assert.equal((await liveReq(`/api/live/${code}/tap`, { method: 'POST', body: { id, action: 'approve' } })).status, 403, 'no Origin');
+    const calls: string[] = [];
+    const heard: string[] = []; onCallNews(c.id, (s) => heard.push(s));
+    const p = await liveReq(`/api/live/${code}/tap`, { method: 'POST', origin, body: { id, action: 'approve' } }, async (from, bid) => { calls.push(`${from} ${bid}`); return onButton(from, bid); });
+    assert.equal(p.status, 200); assert.match(p.json.message, /dry run/i);
+    assert.deepEqual(calls, [`${phone} approve:${tokenSent}`], 'the same handler as a WhatsApp tap');
+    assert.match(heard[0], /Approved/);
+    assert.equal((await liveReq(`/api/live/${code}`)).json.approval, null, 'single use');
+    assert.equal((await liveReq(`/api/live/${code}/tap`, { method: 'POST', origin, body: { id, action: 'approve' } })).status, 409);
+  } finally { setApprovalSender(undefined); console.error = err; resetLiveLimitsForTest(); }
+});
 process.once("beforeExit", () => console.log(`${n} passed`));

@@ -10,6 +10,8 @@ import { env } from './src/config.ts';
 import { attachVoice, handleWebhook } from './src/voice.ts';
 import { warmUp, provider as ttsProvider } from './src/tts.ts';
 import { attest } from './src/ai.ts';
+import { handleLive } from './src/live.ts';
+import { onButton } from './src/desks/wallet.ts';
 
 const dev = process.argv.includes('--dev');
 const server = createServer();
@@ -62,6 +64,8 @@ function ownerOnly(req: IncomingMessage) {
 
 server.on('request', async (req, res) => {
   if (await handleWebhook(req, res)) return;
+  // The live panel for WhatsApp calls; a tap there runs the same handler as a WhatsApp button tap.
+  if ((req.url ?? '').startsWith('/api/live/') && await handleLive(req, res, onButton).catch((e) => { console.error('live', e.message); if (!res.headersSent) res.writeHead(500).end(); return true; })) return;
   const p = (req.url ?? '/').split('?')[0];
   if ((p === '/dashboard' || p === '/api/state') && !ownerOnly(req)) return res.writeHead(401, { 'www-authenticate': 'Basic realm="owner"' }).end();
   app(req, res);

@@ -231,7 +231,7 @@ function LiveCall({ network, demo }: { network: string; demo: { pin: string; to:
       {packet ? null : demo
         ? <p className="help">Real NEAR {network}. Demo PIN <b>{demo.pin}</b>. Tap a line below or just talk. The <a href={`https://nearblocks.io/address/${demo.wallet}`} target="_blank" rel="noreferrer">demo wallet</a> contract caps a send at 1 NEAR.</p>
         : !call.live && !call.lines.length && <p className="help">Press Call, then speak or type. NEAR {network}. The demo wallet’s contract caps every send.</p>}
-      {!packet && <p className="help"><b>WhatsApp</b> <a href="https://wa.me/601175123486">+60 11-7512 3486</a> opens once Meta approves us. Same agent.</p>}
+      {!packet && <p className="help"><b>WhatsApp</b> <a href="https://wa.me/601175123486">+60 11-7512 3486</a> opens once Meta approves us. Same agent. On a WhatsApp call: <a href="/live">Live panel</a>.</p>}
       {(call.live || call.lines.length > 0) && <>
       {call.choices.length > 0 && (
         <div className="tries pick" role="group" aria-label="Tap to answer">

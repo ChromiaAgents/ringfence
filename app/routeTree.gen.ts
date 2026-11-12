@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as LiveRouteImport } from './routes/live'
 import { Route as ProofRouteImport } from './routes/proof'
 import { Route as StatsRouteImport } from './routes/stats'
 import { Route as ApiProofRouteImport } from './routes/api/proof'
@@ -39,6 +40,11 @@ const IndexRoute = IndexRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveRoute = LiveRouteImport.update({
+  id: '/live',
+  path: '/live',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProofRoute = ProofRouteImport.update({
@@ -140,6 +146,7 @@ const ApiLaunchIdTxRoute = ApiLaunchIdTxRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/live': typeof LiveRoute
   '/proof': typeof ProofRoute
   '/stats': typeof StatsRoute
   '/api/proof': typeof ApiProofRoute
@@ -163,6 +170,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/live': typeof LiveRoute
   '/proof': typeof ProofRoute
   '/stats': typeof StatsRoute
   '/api/proof': typeof ApiProofRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/live': typeof LiveRoute
   '/proof': typeof ProofRoute
   '/stats': typeof StatsRoute
   '/api/proof': typeof ApiProofRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/live'
     | '/proof'
     | '/stats'
     | '/api/proof'
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
+    | '/live'
     | '/proof'
     | '/stats'
     | '/api/proof'
@@ -258,6 +269,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/live'
     | '/proof'
     | '/stats'
     | '/api/proof'
@@ -282,6 +294,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
+  LiveRoute: typeof LiveRoute
   ProofRoute: typeof ProofRoute
   StatsRoute: typeof StatsRoute
   ApiProofRoute: typeof ApiProofRoute
@@ -315,6 +328,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/live': {
+      id: '/live'
+      path: '/live'
+      fullPath: '/live'
+      preLoaderRoute: typeof LiveRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/proof': {
@@ -470,6 +490,7 @@ const ApiLaunchIdRouteWithChildren = ApiLaunchIdRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
+  LiveRoute: LiveRoute,
   ProofRoute: ProofRoute,
   StatsRoute: StatsRoute,
   ApiProofRoute: ApiProofRoute,

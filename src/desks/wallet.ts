@@ -14,6 +14,7 @@ import { createPacket, refundExpired, packetsTo, packetUrl, norm, MIN_SHARE } fr
 import { hold, cancelHeld, minutes } from '../held.ts';
 import { isDao, daoStep } from '../dao.ts';
 import type { DeskDef } from './types.ts';
+import { liveApproval } from '../live.ts';
 
 /** "near", or "evm:<chainId>" for an EVM chain's native coin. */
 export type Asset = 'near' | `evm:${number}` | `ft:${string}`;
@@ -298,6 +299,8 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
       const left = l ? fmt(t.asset, BigInt(l.per_day) - BigInt(state!.spent_today[t.asset] ?? 0) - t.base) : 'unknown (dry run)';
       const sent = await askApproval(b, call.id, t, left);
       if (sent === false) return { ok: false, approvalSent: false, read_back: readBack(t) + tag, reason: 'WhatsApp could not deliver the Approve button to this number (on the test number Meta only allows approved recipients). Tell them to sign it in their own wallet at ringfence dot evalengine dot ai slash wallet slash send, or send 0.2 NEAR or less by PIN.' };
+      if (typeof sent === 'object') return { ok: true, approvalSent: true, livePanel: true, read_back: readBack(t) + tag, ...(sent.live ? { live_code_say: sent.live } : {}),
+        next: sent.live ? 'PIN accepted. WhatsApp could not deliver the Approve card, so it is on the live panel. Say live_code_say exactly, word for word, then: tap Approve there within two minutes.' : 'PIN accepted. The Approve card is on the live panel they already opened: tap Approve there within two minutes.' };
       return { ok: true, approvalSent: true, whatsapp: sent, read_back: readBack(t) + tag, next: `PIN accepted. Tell them: an Approve card is on ${demo ? 'their screen (on a real wallet it would be WhatsApp)' : 'their WhatsApp'}, valid for two minutes.` };
     }
     const r = await execute(call.id, b, t);
@@ -402,6 +405,9 @@ async function askApproval(b: Binding, callId: string, t: Transfer, left: string
   }
   try { await buttons(b.phone, body, token); return true; } catch (e) {
     console.error('approval buttons', (e as Error).message.slice(0, 160));
+    // On a WhatsApp call the card goes to that call's live panel (/live) instead; the token stays valid there.
+    const say = liveApproval(callId, body, token);
+    if (say != null) return { live: say };
     approvals.delete(token);
     return false;
   }

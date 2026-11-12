@@ -17,7 +17,7 @@ Node 22 or newer. Nothing below needs a key, a `.env` file or a wallet. Nothing 
 | # | Command | Network | Rough time | Expected last line |
 | --- | --- | --- | --- | --- |
 | 1 | `npm ci` | yes | 15 s | `added <n> packages ...` and npm's audit summary |
-| 2 | `npm test` | no | 15 s | `<n> passed` (57 on 12 Nov 2026) |
+| 2 | `npm test` | no | 15 s | `<n> passed` (73 on 12 Nov 2026) |
 | 3 | `npm run demo:check` | no | 15 s | `all steps passed` (after 19 lines that start with `PASS`) |
 | 4 | `npm run verify:contracts` | yes | 10 s | 3 blocks, each starting with `ok`; exit code 0 |
 | 5 | `npm run attest` | yes | 10 s | `3/3 models fully verified`, then one line of links |
@@ -129,3 +129,4 @@ Other views: `get_config` on `ringfence-wallet.near` (custody account, agent acc
 ## WhatsApp status
 
 WhatsApp is built and supported. The public number +60 11-7512 3486 is waiting on Meta's business verification; once approved, anyone can message or call it. Until then it runs on Meta's test number +1 555-144-4220, which only answers numbers Meta approved. Judge through the browser call, which does the same on the shared demo wallet.
+While Meta refuses messages, each WhatsApp call gets a 6-digit code: links and Approve cards WhatsApp could not deliver show at `/live` (`src/live.ts`; `GET /api/live/:code`, `POST /api/live/:code/tap`; memory only, 10 minutes after the call).
