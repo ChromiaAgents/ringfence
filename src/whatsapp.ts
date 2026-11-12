@@ -199,10 +199,16 @@ async function onCallEvent(c: any) {
 
   audio.onUtterance = async (pcm16k) => {
     const { signal, timing } = line.begin();
-    const text = await transcribe(wav(pcm16k, 16000));
+    let text = '';
+    try { text = await transcribe(wav(pcm16k, 16000)); } catch (e: any) {
+      console.error('wa stt failed', e?.message ?? e);
+      line.say("Sorry, I didn't catch that. Say it again?");
+      await line.end(`wa ${call.id}`);
+      return;
+    }
     timing.sttMs = Date.now() - timing.start!;
     console.log(`wa heard (${timing.sttMs} ms): ${text.length} chars`); // never the words: they may be a PIN
-    if (!text || text.length < 2 || isFiller(text)) return;
+    if (!text || text.length < 2 || isFiller(text)) { await line.end(`wa ${call.id}`); return; }
     line.ackSoon();
     try {
       let hangUp = false;

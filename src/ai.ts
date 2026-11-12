@@ -353,7 +353,7 @@ async function stt(audio: Uint8Array, mime: string, language?: string): Promise<
   // Whisper reads only the last ~224 tokens of the prompt; this one is about 150. Spellings here are how we want them back.
   fd.set('prompt', 'Ringfence call on NEAR. Send 0.1 NEAR, 1 NEAR, half a NEAR to liho00.near, mum.near, stranger.near or ringfence-family.sputnik-dao.near. Top up 2 dollars of SOL, ETH, BTC, USDC, USDT, wNEAR, stNEAR, DOGE, ADA, AVAX, LINK, UNI, SUI, PEPE, SHIB, TRUMP, ZEC, DAI, XRP, ARB, POL, LTC, TON, AURORA, SWEAT, HOT, RHEA, LiNEAR, Meta Pool. TEE, Trezu. NEAR Intents, NEAR AI, Sputnik DAO, JustHoot, MyNearWallet, HOT wallet, rhea finance. Money packet, lucky split, PIN. 发送NEAR，USDC充值，红包，余额，退款地址。');
   fd.set('file', new Blob([audio as BlobPart], { type: mime }), mime.includes('webm') ? 'a.webm' : mime.includes('ogg') ? 'a.ogg' : 'a.wav');
-  const { r } = await withAiKey((key) => again(undefined, () => fetch(`${BASE}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${key}` }, body: fd })));
+  const { r } = await withAiKey((key) => again(undefined, () => fetch(`${BASE}/audio/transcriptions`, { method: 'POST', headers: { authorization: `Bearer ${key}` }, body: fd, signal: AbortSignal.timeout(12_000) })));
   if (!r.ok) throw new Error(`stt ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const j = (await r.json()) as any;
   return { text: j.text?.trim() ?? '', lang: j.language };

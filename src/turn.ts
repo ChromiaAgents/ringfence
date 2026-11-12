@@ -11,7 +11,9 @@ export function voiceLine(play: Play) {
   let ctl: AbortController | null = null;
   let timing: Timing | null = null;
   let lastSound = 0, nudges = 0, ticker: ReturnType<typeof setInterval> | undefined;
-  const KEEP_ALIVE_MS = Number(process.env.KEEP_ALIVE_MS ?? 7000);
+  const KEEP_ALIVE_MS = Number(process.env.KEEP_ALIVE_MS ?? 9000);
+  const NUDGES = ['One moment.', 'Still working on it.', 'Almost done.'];
+  let lastNudgeAt = 0, nudgeNo = 0;
   let turnNo = 0, lastAckTurn = -9;
 
   const self = {
@@ -20,12 +22,13 @@ export function voiceLine(play: Play) {
       ctl = new AbortController();
       timing = { start: Date.now() };
       turnNo++;
-      // Keep-alive: if the turn is still working and nothing has been heard for a while, say so (twice at most).
+      // Keep-alive: if the turn is still working and nothing has been heard for a while, say so once.
       lastSound = Date.now(); nudges = 0; clearInterval(ticker);
       const g0 = gen;
       ticker = setInterval(() => {
         if (g0 !== gen || !timing || timing.totalMs != null) return clearInterval(ticker);
-        if (nudges < 2 && Date.now() - lastSound > KEEP_ALIVE_MS) { nudges++; lastSound = Date.now(); self.say(nudges === 1 ? 'Still on it, one moment.' : 'Nearly there.'); }
+        // Once per turn at most, and not again within 30s across turns: repeated filler sounds broken.
+        if (nudges < 1 && Date.now() - lastSound > KEEP_ALIVE_MS && Date.now() - lastNudgeAt > 30_000) { nudges++; lastSound = lastNudgeAt = Date.now(); self.say(NUDGES[nudgeNo++ % NUDGES.length]); }
       }, 500);
       return { timing, signal: ctl.signal };
     },

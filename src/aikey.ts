@@ -5,6 +5,7 @@ import { env } from './config.ts';
 
 const BREAK_MS = 10 * 60_000; // ponytail: one global breaker; per-endpoint breakers if one model fails alone
 let primaryDownUntil = 0;
+let fallbackDead = false; // a fallback key that answered 401/403 is invalid: stop sending it
 
 export const hasAiKey = () => !!(env.nearAiKey || env.nearAiKeyFallback);
 
@@ -18,23 +19,30 @@ const retryable = (status: number) => status === 401 || status === 402 || status
 export async function withAiKey(f: (key: string) => Promise<Response>): Promise<{ r: Response; slot: KeySlot }> {
   const slots: KeySlot[] = [];
   if (env.nearAiKey && Date.now() >= primaryDownUntil) slots.push(0);
-  if (env.nearAiKeyFallback) slots.push(1);
+  if (env.nearAiKeyFallback && !fallbackDead) slots.push(1);
   if (!slots.length) slots.push(0); // only a primary, and it is in its break: try it anyway
   let last: unknown;
+  let primaryFailed = false;
   for (const [i, slot] of slots.entries()) {
     const more = i < slots.length - 1;
     try {
       const r = await f(keyOf(slot));
-      if (!more || !retryable(r.status)) return { r, slot };
+      if (slot === 1 && (r.status === 401 || r.status === 403)) { fallbackDead = true; console.log('[ai] fallback key rejected, not using it again'); }
+      if (!retryable(r.status)) {
+        // Skip the primary for a while only when the fallback really answered.
+        if (slot === 1 && primaryFailed) { primaryDownUntil = Date.now() + BREAK_MS; console.log('[ai] primary key failed, using the fallback for 10 minutes'); }
+        return { r, slot };
+      }
+      if (!more) return { r, slot };
       await r.body?.cancel().catch(() => {});
     } catch (e: any) {
-      if (e?.name === 'AbortError' || !more) throw e;
+      if (e?.name === 'AbortError' || !more) throw e; // a timeout is a TimeoutError: falls through to the next key
       last = e;
     }
-    if (slot === 0) { primaryDownUntil = Date.now() + BREAK_MS; console.log('[ai] primary key failed, using the fallback for 10 minutes'); }
+    if (slot === 0) primaryFailed = true;
   }
   throw last ?? new Error('no NEAR AI key answered');
 }
 
 /** For tests. */
-export const resetAiKeys = () => { primaryDownUntil = 0; };
+export const resetAiKeys = () => { primaryDownUntil = 0; fallbackDead = false; };

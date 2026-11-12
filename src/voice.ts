@@ -92,7 +92,7 @@ export function attachVoice(server: Server) {
         const { signal, timing } = line.begin();
         const text = isBinary ? await transcribe(new Uint8Array(data as Buffer)) : String(data);
         timing.sttMs = Date.now() - timing.start!;
-        if (!text || text.length < 2 || isFiller(text)) return;
+        if (!text || text.length < 2 || isFiller(text)) { timing.totalMs = Date.now() - timing.start!; return; } // stops the keep-alive
         ws.send(JSON.stringify({ type: 'caller', text }));
         line.ackSoon();
         let hangUp = false;
