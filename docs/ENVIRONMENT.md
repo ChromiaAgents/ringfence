@@ -12,7 +12,7 @@ A fresh clone needs none of these: without keys every send and packet is a label
 | `PACKETS_ACCOUNT_ID` | The packets contract. Without it packets are dry runs |
 | `PACKET_EXPIRY_SEC` | How long a packet stays open. Default 86400 (24 hours) |
 | `DEMO_WALLET_PHONE`, `DEMO_PIN`, `DEMO_RECIPIENT` | The website's shared demo wallet. Its PIN is shown on the page |
-| `DEMO_PACKET_NEAR`, `DEMO_PACKET_WORDS`, `DEMO_PACKETS_PER_DAY` | The demo packet on `/packet/demo`: its size (default 0.02), the words it takes in turn, and how many times it is remade in 24 hours (default 10) |
+| `DEMO_PACKET_NEAR` (default 0.2), `DEMO_PACKET_COUNT` (default 100 shares), `DEMO_PACKET_WORDS`, `DEMO_PACKETS_PER_DAY` | The demo packet on `/packet/demo`: its size (default 0.02), the words it takes in turn, and how many times it is remade in 24 hours (default 10) |
 | `DEMO_VISITOR_PACKET_NEAR`, `DEMO_VISITOR_PACKET_EXPIRY_SEC`, `DEMO_VISITOR_PACKETS_OPEN`, `DEMO_VISITOR_PACKETS_PER_DAY` | Caps on packets that visitors make from the demo wallet. Defaults: 0.02 NEAR, 3600 seconds, 3 open at once, 10 in 24 hours |
 | `WALLET_SECRET` | Key for the phone-number hashes on chain and the PIN pepper. Required on mainnet |
 | `WALLET_NEAR_PER_TX`, `WALLET_NEAR_PER_DAY`, `SMALL_LIMIT`, `SMALL_LIMIT_USDC`, `WALLET_DELAY_SEC` | Default limits, the PIN-only ceilings, and the wait for new recipients (default 600 seconds) |

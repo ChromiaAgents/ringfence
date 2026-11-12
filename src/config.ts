@@ -63,7 +63,9 @@ export const env = {
   // Red packets (contracts/packets). Empty = packets are labelled dry runs. Demo packets on the website are tiny.
   packetsAccountId: process.env.PACKETS_ACCOUNT_ID ?? '',
   packetExpirySec: Number(process.env.PACKET_EXPIRY_SEC ?? 86_400),
-  demoPacketNear: process.env.DEMO_PACKET_NEAR ?? '0.02',
+  demoPacketNear: process.env.DEMO_PACKET_NEAR ?? '0.2',
+  // Shares in the free demo packet: many small ones, so every judge and visitor can open one (contract minimum 0.001 NEAR each).
+  demoPacketCount: Number(process.env.DEMO_PACKET_COUNT ?? 100),
   // The demo packet's words, taken in turn (comma-separated).
   demoPacketWords: (process.env.DEMO_PACKET_WORDS ?? 'merry christmas,trick or treat,happy new year').split(',').map((w) => w.trim()).filter(Boolean),
   // USDC on NEAR (native Circle USDC on mainnet, 6 decimals). Above SMALL_LIMIT_USDC a send also needs the Approve tap.
