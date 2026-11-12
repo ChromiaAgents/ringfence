@@ -57,6 +57,7 @@ function Landing() {
               <a className="btn" href="/packet/demo">Open a money packet</a>
               <a href="#call" onClick={tryCall}>Send one by call</a>
               <a href={d.waUrl} target="_blank" rel="noopener"><WaIcon />Message on WhatsApp</a>
+              <a href="/ringfence-film.mp4">▶ Watch the film (64 s)</a>
             </div>
             <p className="note rise" style={i(4)}>No app needed: both buttons work in this browser. The contracts are unaudited, so amounts are tiny.</p>
             <ul className="feats rise" style={i(5)} aria-label="What it does">

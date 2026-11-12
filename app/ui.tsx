@@ -123,6 +123,7 @@ export function TopBar({ children, onTry }: { children?: ReactNode; onTry?: (e: 
       {children}
       <span className="sp" />
       <a className="code" href="/room/liho00.near">Live room</a>
+      <a className="code" href="/ringfence-film.mp4">Film</a>
       <a className="code" href="/demo.html">Demos</a>
       <a className="code" href="/live">Live panel</a>
       <a className="code" href="/wallet/bind">Bind wallet</a>
