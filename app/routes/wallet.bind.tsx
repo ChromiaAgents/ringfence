@@ -26,7 +26,8 @@ function Bind() {
   const w = useNearWallet(`Connect the NEAR ${cfg.network} account that will own the phone wallet.`, cfg.network);
   const [lim, setLim] = useState(cfg.defaults);
   const [guardian, setGuardian] = useState(false);
-  const [phone, setPhone] = useState('');
+  // A link from a call carries the caller's number (?phone=), so they don't type it.
+  const [phone, setPhone] = useState(() => (typeof window === 'undefined' ? '' : (new URLSearchParams(location.search).get('phone') ?? '').replace(/[^\d+]/g, '').replace(/^(?=\d)/, '+')));
   const [code, setCode] = useState('');
   const [pin, setPin] = useState('');
   const [sent, setSent] = useState('');
@@ -89,7 +90,7 @@ function Bind() {
         <h2>2. {guardian ? 'Their WhatsApp number' : 'Your WhatsApp number'}</h2>
         <label className="field-label" htmlFor="ph">Number with country code</label>
         <input id="ph" className="control" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+44 7700 900123" autoComplete="tel" />
-        <button className="btn white small" disabled={!phone || !w.account} onClick={async () => { const d = await post('/api/wallet/code', { phone, purpose: 'bind', owner: w.account }); if (d) setSent(d.sent ? `Code sent on WhatsApp to ${who}.` : d.note); }}>Send a code to {guardian ? 'their' : 'my'} WhatsApp</button>
+        <button className="btn white small" disabled={!phone || !w.account} onClick={async () => { const d = await post('/api/wallet/code', { phone, purpose: 'bind', owner: w.account }); if (d) setSent(d.panel ? d.note : d.sent ? `Code sent on WhatsApp to ${who}.` : d.note); }}>Send a code to {guardian ? 'their' : 'my'} WhatsApp</button>
         {sent && <p className="muted small">{sent}</p>}
       </section>
 

@@ -21,8 +21,19 @@ export const Route = createFileRoute('/api/wallet/code')({
         last.set(phone, Date.now());
         const code = newCode(phone, purpose, owner);
         if (!env.waToken) { console.log(`[wallet] dev server, no WhatsApp token: ${purpose} code for ${phone} is ${code}`); return json({ sent: false, note: 'WhatsApp is not configured on this server; the code is in the server log.' }); }
-        await sendText(phone, codeText(code, purpose, owner));
-        return json({ sent: true });
+        try { await sendText(phone, codeText(code, purpose, owner)); return json({ sent: true }); } catch (e: any) {
+          // Meta blocks texts until business verification: if this number is on a WhatsApp call right now, the code goes
+          // to that call's live panel (only someone on that call has the panel code) and the agent says it.
+          console.error('bind code text', String(e?.message ?? e).slice(0, 120));
+          const { db } = await import('../../../../src/store.ts');
+          const { liveLink } = await import('../../../../src/live.ts');
+          const { noteToModel } = await import('../../../../src/agent.ts');
+          const call = [...db.calls].reverse().find((c) => c.channel === 'whatsapp' && !c.endedAt && c.from === phone);
+          if (!call) { last.delete(phone); return json({ error: `WhatsApp can't text this number yet (Meta verification pending). Call ${env.publicUrl.includes('ringfence') ? '+1 555-144-4220' : 'our WhatsApp line'} from this number and say "bind my wallet": the code shows on your live panel.` }, 503); }
+          const say = liveLink(call.id, { label: `Your ${purpose} code: ${code}`, url: `${env.publicUrl}/wallet/${purpose}` });
+          noteToModel(call.id, `The ${purpose} code could not be texted, so it is on the caller's live panel${say ? ' (you just told them the panel code)' : ''}. If they ask, the code is ${code.split('').join(', ')}.`);
+          return json({ sent: true, panel: true, note: 'WhatsApp could not text you, so the code is on your live panel (/live).' });
+        }
       },
     },
   },
