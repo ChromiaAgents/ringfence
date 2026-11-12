@@ -77,14 +77,17 @@ export const Host = forwardRef<HostHandle, { className?: string; onTap?: () => v
         camera.position.z = camera.aspect < 0.75 ? 1.55 + (0.75 - camera.aspect) * 2.4 : 1.55; camera.position.y = camera.aspect < 0.75 ? 1.32 : 1.38; camera.updateProjectionMatrix(); };
       size(); const ro = new ResizeObserver(size); ro.observe(el);
       const clock = new THREE.Clock();
-      let nextBlink = 2, mouth = 0, acc = 0;
+      let nextBlink = 2, mouth = 0, acc = 0, onScreen = true;
+      const io = new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; }); io.observe(el);
       // 30 fps, and nothing at all while the tab is hidden: smooth on weak phones, cool laptops.
       const loop = () => {
         if (stop) return;
         raf = requestAnimationFrame(loop);
         if (document.hidden) { clock.getDelta(); return; }
         acc += clock.getDelta();
-        if (acc < 1 / 30) return;
+        // 30 fps while talking or just tapped, 15 when idle, none when off screen: keeps phones cool.
+        const busy = mouth > 0.02 || performance.now() - poke.current < 1500 || ((window as any).__rfVoiceLevel?.() ?? 0) > 0.02;
+        if (!onScreen || acc < 1 / (busy ? 30 : 15)) return;
         const dt = Math.min(acc, 0.1); acc = 0;
         const t = clock.elapsedTime;
         // Its own lines, or the call agent's voice when a call is on (one voice, one face).
@@ -103,7 +106,7 @@ export const Host = forwardRef<HostHandle, { className?: string; onTap?: () => v
         renderer.render(scene, camera);
       };
       loop();
-      cleanup = () => { ro.disconnect(); renderer.dispose(); renderer.domElement.remove(); };
+      cleanup = () => { io.disconnect(); ro.disconnect(); renderer.dispose(); renderer.domElement.remove(); };
     })().catch((e) => console.warn('host', e));
     return () => { stop = true; cancelAnimationFrame(raf); cleanup(); };
   }, []);

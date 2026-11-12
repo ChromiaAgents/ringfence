@@ -914,3 +914,4 @@ html:has(.ov) { color-scheme: normal !important; }
 .lr-card.link b { flex: none; padding: 7px 14px; border-radius: 99px; background: #00ec97; color: #0c0a08; }
 .lr-choices { display: flex; flex-wrap: wrap; gap: 6px; }
 .lr-choices button { padding: 8px 12px; border: 0; border-radius: 99px; background: rgba(255,255,255,.9); color: #111; font: inherit; font-size: 13px; cursor: pointer; }
+.lr-msg, .lr-sys, .lr-bar input, .lr-anchor, .room-host { backdrop-filter: none !important; }
