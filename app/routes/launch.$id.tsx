@@ -124,7 +124,7 @@ function LaunchPage() {
       <section className="card" aria-labelledby="terms">
         <h2 id="terms">What you agreed on the call</h2>
         <div className="rows">
-          <div className="row"><span>Launchpad</span><b>JustHoot: instant launch, trades on RHEA right away</b></div>
+          <div className="row"><span>Launchpad</span><b><a href="https://justhoot.fun" target="_blank" rel="noreferrer" className="jh"><img src="/brand/justhoot.png" alt="" width={20} height={20} />JustHoot</a>: instant launch, trades on RHEA right away</b></div>
           <div className="row"><span>Trading</span><b>RHEA pool against wNEAR (1% fee tier), opens with the launch</b></div>
           <div className="row"><span>Transfer tax, dev buy</span><b>None, all supply to the pool and you</b></div>
           <div className="row"><span>Links</span><b>{[p.socials?.twitter, p.socials?.telegram, p.socials?.website].filter(Boolean).join(' · ') || 'None'}</b></div>

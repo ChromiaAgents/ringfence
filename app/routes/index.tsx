@@ -92,7 +92,7 @@ function Landing() {
 
         <section className="proof" id="proof" aria-label="Proof">
           <div className="names rise">
-            <ul>{['NEAR', 'NEAR AI Cloud', 'Intel TDX', 'NVIDIA NRAS', 'JustHoot'].map((n) => <li key={n}>{n}</li>)}</ul>
+            <ul>{([['NEAR', 'https://near.org'], ['NEAR AI Cloud', 'https://cloud.near.ai'], ['Intel TDX', 'https://www.intel.com/content/www/us/en/developer/tools/trust-domain-extensions/overview.html'], ['NVIDIA NRAS', 'https://docs.nvidia.com/attestation/'], ['JustHoot', 'https://justhoot.fun']] as const).map(([n, href]) => <li key={n}><a href={href} target="_blank" rel="noreferrer">{n === 'JustHoot' && <img src="/brand/justhoot.png" alt="" width={28} height={28} />}{n}</a></li>)}</ul>
           </div>
           <Evidence />
         </section>

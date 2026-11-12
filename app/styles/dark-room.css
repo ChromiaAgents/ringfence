@@ -417,7 +417,7 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 .dr .bar .btn { white-space: nowrap; flex-shrink: 0; }
 .app .brandrow { flex-wrap: wrap; gap: 12px 16px; }
 .site-foot > * { min-width: 0; }
-@media (max-width: 860px) { .dr .bar { flex-wrap: wrap; row-gap: 12px; } .dr .bar .makers { order: 3; flex-basis: 100%; } }
+@media (max-width: 1240px) { .dr .bar { flex-wrap: wrap; row-gap: 12px; } .dr .bar .makers { order: 3; flex-basis: 100%; } }
 @media (max-width: 560px) {
   .app .brandrow { margin-bottom: 24px; }
   .app .brandrow .makers { margin-left: 0; order: 3; flex-basis: 100%; }
@@ -481,7 +481,7 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
    A gift card in the site's one accent: the amount, a dark strip with the words to say (where a gift card has its
    code), who it is from and a coin for every share. Beside it, the slip of who got what. Sizes inside the card
    follow the card's width (cqi), so it reads the same at 480px and on a phone. */
-.pk { --pk-paper: var(--fg); --pk-ink: var(--bg); margin: 0; padding: 32px 24px 96px; font-size: 17px; line-height: 1.5; }
+.pk { --pk-paper: var(--fg); --pk-ink: var(--bg); margin: 0; padding: 20px 24px 96px; font-size: 17px; line-height: 1.5; }
 .pk .brandrow { display: flex; align-items: center; margin-bottom: 56px; font-size: 16px; }
 .pk-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 72px; align-items: start; }
 
@@ -557,12 +557,12 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 }
 
 /* ---------- /stats: the line in numbers. Filled tiles, one step lighter than the ground; no outlines. ---------- */
-.stp { margin: 0; padding: 32px 24px 96px; font-size: 17px; line-height: 1.5; }
+.stp { margin: 0; padding: 20px 24px 96px; font-size: 17px; line-height: 1.5; }
 /* The shared frame for secondary pages (proof, live panel, WhatsApp access): the same width, gutters and header row
    as /stats and /packet, with the readable content held to one column under the wordmark. */
-.pg { margin: 0; padding: 32px 24px 96px; font-size: 17px; line-height: 1.5; }
+.pg { margin: 0; padding: 20px 24px 96px; font-size: 17px; line-height: 1.5; }
 .pg .brandrow { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 56px; font-size: 16px; }
-.pg > :not(.brandrow) { max-width: 720px; }
+.pg > :not(.brandrow):not(.topbar) { max-width: 720px; }
 .app.pg h1 { font-size: clamp(34px, 3.6vw, 52px); line-height: 1.02; margin: 0 0 20px; }
 /* Two columns on desktop: the task on the left, what a visitor needs to know on the right. */
 .pg .pg-two { max-width: none; display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; }
@@ -621,7 +621,7 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 
 /* One top bar on every page (home included): same row, same links, same gaps. */
 .topbar { display: flex; align-items: center; gap: 28px; font-size: 16px; }
-.topbar .wordmark { font-size: var(--step-lead, 1.4rem); text-decoration: none; }
+.topbar .wordmark { font-size: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem); text-decoration: none; }
 .topbar .sp { flex: 1; }
 .topbar a.code { color: var(--fg); text-underline-offset: 3px; }
 .topbar .btn { white-space: nowrap; flex-shrink: 0; }
@@ -629,9 +629,16 @@ h1, h2, h3, .wordmark, .dr .faq dt { font-family: var(--head); font-weight: 400;
 @media (max-width: 860px) { .topbar { flex-wrap: wrap; row-gap: 12px; } .topbar .makers { order: 3; flex-basis: 100%; } }
 @media (max-width: 700px) { .topbar { gap: 16px; } .topbar .code { display: none; } .topbar .btn { height: 44px; padding: 0 16px; } .app > .topbar { margin-bottom: 28px; } }
 /* Narrow-column pages (bind, claim, send, launch) keep the shared full-width bar; their content stays 600px. */
-.app.pay { max-width: none; margin: 0; padding: 32px 24px 96px; }
+.app.pay { max-width: none; margin: 0; padding: 20px 24px 96px; }
 .app.pay > :not(.topbar) { max-width: 600px; }
 @media (max-width: 700px) { .app.pay { padding: 24px 16px 72px; } }
 /* FAQ: one column under 900px so questions stay within two lines. */
 @media (max-width: 900px) { .dr .faq > h2, .dr .faq dt, .dr .faq dd { grid-column: 1 / -1; max-width: none; } }
 @media (max-width: 760px) { .dr .intro h1 { font-size: clamp(26px, 7vw, 44px); } }
+.dr .names a { color: var(--fg); text-decoration: none; display: inline-flex; align-items: center; gap: 10px; }
+.dr .names a:hover { text-decoration: underline; }
+.dr .names img, .jh img { border-radius: 6px; display: inline-block; }
+.jh { display: inline-flex; align-items: center; gap: 6px; vertical-align: -4px; }
+/* Header: links never wrap; below 1240px the makers drop to their own row under the wordmark. */
+.topbar a { white-space: nowrap; }
+@media (max-width: 1240px) { .topbar { flex-wrap: wrap; row-gap: 12px; } .topbar .makers { order: 3; flex-basis: 100%; } }

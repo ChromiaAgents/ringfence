@@ -67,6 +67,7 @@ server.on('request', async (req, res) => {
   if (await handleWebhook(req, res)) return;
   if ((req.url ?? '').startsWith('/api/whatsapp-access') && await handleAccess(req, res).catch(() => { if (!res.headersSent) res.writeHead(500).end(); return true; })) return;
   // The live panel for WhatsApp calls; a tap there runs the same handler as a WhatsApp button tap.
+  if (/^\/(llm|llms-full)\.txt$/.test(req.url ?? '')) { res.writeHead(301, { location: '/llms.txt' }).end(); return; }
   if ((req.url ?? '').startsWith('/api/live/') && await handleLive(req, res, onButton).catch((e) => { console.error('live', e.message); if (!res.headersSent) res.writeHead(500).end(); return true; })) return;
   const p = (req.url ?? '/').split('?')[0];
   if ((p === '/dashboard' || p === '/api/state') && !ownerOnly(req)) return res.writeHead(401, { 'www-authenticate': 'Basic realm="owner"' }).end();
