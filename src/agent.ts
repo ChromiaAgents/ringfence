@@ -15,7 +15,7 @@ import { topupDesk } from './desks/topup.ts';
 export const DESKS: Record<Desk, DeskDef> = { launch: launchDesk, wallet: walletDesk, market: marketDesk, packet: packetDesk };
 
 /** The only fixed line: said the moment the call picks up. Everything after it is the AI's. */
-export const GREETING = 'Hey, Ringfence here, on NEAR. I can send NEAR or dollars, make or open a money packet, launch a coin on JustHoot, top up from another chain, or check prices and news. What do you need?';
+export const GREETING = 'Hey, Ringfence here, on NEAR. Send money, a money packet, a top up, or launch a coin on JustHoot. What do you need?';
 
 /** The AI ends the call itself, after saying goodbye. The channel hangs up once the goodbye has played. */
 const END_CALL = { type: 'function', function: { name: 'end_call', description: 'Hang up. Call it only after you have said a short goodbye and the caller is done.', parameters: { type: 'object', properties: {} } } };
@@ -43,7 +43,7 @@ export const setOnLink = (f: LinkHook) => (onLink = f);
 
 // Qwen3: /no_think (plus enable_thinking:false in the request) skips the reasoning pass; any <think> left is stripped.
 const VOICE = `
-How you talk: you're on a live phone call, so sound like a relaxed, warm human, not an assistant. Use contractions and casual words ("yeah", "nice", "got it", "oh fun"), react to what they said before moving on, and vary how you start sentences. One or two short sentences, under 25 words. No lists, markdown, emojis, or "great question".
+How you talk: you're on a live phone call, so sound like a relaxed, warm human, not an assistant. Use contractions and casual words ("yeah", "nice", "got it", "oh fun"), react to what they said before moving on, and vary how you start sentences. One or two short sentences, under 20 words: every word is paid speech. Never read out what is already on their screen (links, addresses, receipts): say "it's on your screen". No lists, markdown, emojis, or "great question".
 Keep the conversation moving: remember everything they've said and never ask for something you already have. If they say "you decide", "anything", or "whatever", make the choice yourself, say what you picked, and move on. If you didn't catch something, say so once and guess. Never use emoji or symbols: everything you write is spoken aloud. When they say bye or they're done, say a short warm goodbye in a few words, then call end_call.`;
 
 /** One system prompt for the whole call: what Ringfence does, each part's rules, and the caller's memory. */
