@@ -26,6 +26,7 @@ function Proof() {
       <p className="pf-kick">Private AI, checked live</p>
       <h1 className="pf-score"><span>{atts ? n : '…'}</span>/{atts ? atts.length : 3}</h1>
       <p className="pf-lead">{atts ? (n === atts.length ? 'models verified inside a TEE. Right now, fresh nonce.' : 'models verified. Some checks failed, see below.') : err || 'Checking Intel and NVIDIA, a few seconds…'}</p>
+      {atts?.find((a: any) => a.host) && <p className="muted">Checked on {(atts.find((a: any) => a.host) as any).host}{(atts.find((a: any) => a.host) as any).host.includes('stg') ? ', the NEAR AI Cloud host our NEARON key runs on (staking rewards pay for the AI)' : ', NEAR AI Cloud production'}. <a href="https://nearon.dev">NEARON</a></p>}
       <div className="pf-grid">
         {(atts ?? []).map((a) => {
           const bad = 'error' in a;

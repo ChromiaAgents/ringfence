@@ -28,7 +28,7 @@ export type ToolCall = { id: string; type: 'function'; function: { name: string;
 export type IntelCheck = { verified: boolean; tcbStatus?: string; advisoryIds?: string[]; error?: string };
 export type GpuCheck = { verified: boolean; gpus?: number; arch?: string; nonceMatch?: boolean; error?: string };
 export type Attested = {
-  model: string; signingAddress: string; nonce: string; fetchedAt: number;
+  model: string; signingAddress: string; nonce: string; fetchedAt: number; host?: string;
   /** report_data binds signing address + our nonce (read from the verified quote when Intel's check passed). */
   quoteBindsKey: boolean;
   intel: IntelCheck;
@@ -97,11 +97,15 @@ export async function attest(model = env.llmModel, fresh = false): Promise<Attes
   const hit = attested.get(model);
   if (!fresh && hit && Date.now() - hit.fetchedAt < 10 * 60_000) return hit;
   const nonce = randomBytes(32).toString('hex');
-  const u = new URL(`${BASE}/attestation/report`);
-  for (const [k, v] of Object.entries({ model, provider: 'near', include_tls_fingerprint: 'false', signing_algo: 'ecdsa', nonce }))
-    u.searchParams.set(k, v);
-  const r = await fetch(u, { headers: { accept: 'application/json', 'x-no-aliasing': 'true' }, signal: AbortSignal.timeout(15_000) });
-  if (!r.ok) throw new Error(`attestation ${r.status}`);
+  // Attest the host our calls actually use (NEARON staging when set), production if that host has no report.
+  const get = (base: string) => {
+    const u = new URL(`${base}/attestation/report`);
+    for (const [k, v] of Object.entries({ model, provider: 'near', include_tls_fingerprint: 'false', signing_algo: 'ecdsa', nonce })) u.searchParams.set(k, v);
+    return fetch(u, { headers: { accept: 'application/json', 'x-no-aliasing': 'true' }, signal: AbortSignal.timeout(15_000) });
+  };
+  let base = baseOf(0), r = await get(base).catch(() => null);
+  if (!r?.ok && base !== BASE) { base = BASE; r = await get(base); }
+  if (!r?.ok) throw new Error(`attestation ${r?.status}`);
   const d: any = await r.json();
   const reports = (d.model_attestations ?? []).filter((m: any) => m.signing_algo === 'ecdsa' && m.request_nonce === nonce);
   if (reports.length === 0) throw new Error('no NEAR model attestation for ' + model);
@@ -119,6 +123,7 @@ export async function attest(model = env.llmModel, fresh = false): Promise<Attes
     gpu,
     reportDataHex: rd,
     fetchedAt: Date.now(),
+    host: new URL(base).host,
   };
   attested.set(model, a);
   return a;
