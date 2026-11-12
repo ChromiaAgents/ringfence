@@ -1231,4 +1231,12 @@ await t('goodbye: a plain goodbye is spotted (the model is reminded), a payment 
   for (const x of ['send 0.1 NEAR to bye.near', 'pay goodbye dot near', 'what is my balance', 'bye, wait, send a packet to mum']) assert.equal(isGoodbye(x), false, x);
   assert.ok(TOOL_SAY.web_search && TOOL_SAY.confirm_transfer && TOOL_SAY.get_balance);
 });
+await t('trend searches use the caller country from the phone code', async () => {
+  const { countryOf } = await import('../src/desks/market.ts');
+  assert.equal(countryOf('60123456789'), 'Malaysia');
+  assert.equal(countryOf('+65 9123 4567'), 'Singapore');
+  assert.equal(countryOf('85291234567'), 'Hong Kong');
+  assert.equal(countryOf('14155550123'), 'United States');
+  assert.equal(countryOf(undefined), null);
+});
 process.once("beforeExit", () => console.log(`${n} passed`));

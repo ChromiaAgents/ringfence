@@ -8,7 +8,7 @@ import { recap, resume, isKnown } from './memory.ts';
 import type { DeskDef } from './desks/types.ts';
 import { launchDesk } from './desks/launch.ts';
 import { walletDesk, takePin, clearPending, limitCheck, namesLimit } from './desks/wallet.ts';
-import { marketDesk, webSearch } from './desks/market.ts';
+import { marketDesk, webSearch, countryOf } from './desks/market.ts';
 import { packetDesk, autoOpen } from './desks/packet.ts';
 import { topupDesk } from './desks/topup.ts';
 
@@ -185,7 +185,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
           // The search model already writes a phone-ready answer: speak it as it arrives instead of paying for a second model pass.
           call.desk = desk.id;
           const before = said.length;
-          const r: any = await webSearch(args.question, (d) => { if (timing && timing.firstTokenMs == null) timing.firstTokenMs = Date.now() - t0; emit(split.push(d)); })
+          const r: any = await webSearch(args.question, (d) => { if (timing && timing.firstTokenMs == null) timing.firstTokenMs = Date.now() - t0; emit(split.push(d)); }, countryOf(call.from))
             .catch((e) => ({ ok: false, reason: `I can't reach live data right now (${String(e.message).slice(0, 60)}). Try again in a minute.` }));
           out = r;
           if (r.ok) {
