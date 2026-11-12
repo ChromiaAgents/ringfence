@@ -35,6 +35,7 @@ function Bind() {
   const [sent, setSent] = useState('');
   const [tx, setTx] = useState<Tx | null>(null);
   const [hash, setHash] = useState('');
+  const [funded, setFunded] = useState('');
   const [wallet, setWallet] = useState('');
   const [busy, setBusy] = useState(false);
   const post = async (url: string, body: object) => {
@@ -53,7 +54,7 @@ function Bind() {
       // The limits as edited here; the contract takes them at create and only the owner can change them later.
       const args = { ...tx.args, near_limit: { per_tx: y(lim.nearPerTx), per_day: y(lim.nearPerDay) }, new_recipient_delay_sec: Number(lim.delaySec) };
       const h = await w.send(tx.receiverId, (ac) => [ac.functionCall(tx.method, args, 100_000_000_000_000n, BigInt(tx.deposit))]);
-      if (h) { setHash(h); const wa = await walletOf(tx.args.phone_hash); setWallet(wa); fetch('/api/wallet/bound', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone, wallet: wa }) }).catch(() => {}); }
+      if (h) { setHash(h); setTimeout(() => document.getElementById('step-done')?.scrollIntoView({ behavior: 'smooth' }), 50); const wa = await walletOf(tx.args.phone_hash); setWallet(wa); fetch('/api/wallet/bound', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone, wallet: wa }) }).catch(() => {}); }
     } catch (e: any) { w.setErr(e?.message ?? String(e)); } finally { setBusy(false); }
   }
   // The address comes from the factory after signing, never from a guess shown before (a guess could be someone else's).
@@ -117,7 +118,20 @@ function Bind() {
       </section>
 
       </>)}
-      {tx && (
+      {hash && (
+        <section className="card bind-ok" id="step-done">
+          <h2>Your phone wallet is ready ✓</h2>
+          {wallet ? <p>Wallet <b className="mono">{wallet}</b> <button className="linkish" onClick={() => navigator.clipboard?.writeText(wallet)}>copy</button> · <a href={`${explorer}/txns/${hash}`} target="_blank" rel="noreferrer">transaction</a></p>
+            : <p>Created. <a href={`${explorer}/txns/${hash}`} target="_blank" rel="noreferrer">See the transaction</a> for the address before you fund it.</p>}
+          <h3>What's next</h3>
+          <ol className="bind-next">
+            <li><b>Fund it.</b> Send a little NEAR from {w.account}. 0.5 NEAR is plenty for the demo.
+              {wallet && <div style={{ marginTop: 10 }}><button className="btn green small" disabled={busy} onClick={async () => { setBusy(true); try { const { parseNearAmount } = await import('near-api-js'); const h2 = await w.send(wallet, (ac) => [ac.transfer(BigInt(parseNearAmount('0.5')!))]); if (h2) setFunded(h2); } catch (e: any) { w.setErr(e?.message ?? String(e)); } finally { setBusy(false); } }}>{funded ? 'Funded ✓' : busy ? 'Waiting for your wallet…' : 'Send 0.5 NEAR to it'}</button></div>}</li>
+            <li><b>Back on the call</b>, say <i>"what's my balance?"</i>, then <i>"send 0.1 NEAR to liho.{sfx}"</i> and your PIN. The agent already knows this wallet is yours.</li>
+          </ol>
+        </section>
+      )}
+      {tx && !hash && (
         <section className="card" id="step-sign">
           <h2>{proof && !guardian ? '3' : '4'}. Sign: create the phone wallet</h2>
           <div className="rows">
@@ -132,8 +146,7 @@ function Bind() {
             <div key={k}><label className="field-label" htmlFor={k}>{label}</label>
               <input id={k} className="control" inputMode="decimal" value={String(lim[k])} onChange={(e) => setLim({ ...lim, [k]: k === 'delaySec' ? Number(e.target.value) || 0 : e.target.value })} /></div>))}
           <p className="explain">One function call from your account: {tx.receiverId}.create_wallet. Works in any NEAR wallet, including Meteor and implicit accounts. Nothing runs until you sign. The new wallet's address appears here after.</p>
-          {hash ? <p className="bind-done">Done. <a href={`${explorer}/txns/${hash}`} target="_blank" rel="noreferrer">See the transaction</a>. {wallet ? <>Your wallet is <b className="mono">{wallet}</b>. Fund it, then call</> : 'The wallet address is not readable yet: check the transaction for it before you fund anything. Then call'} and say “send 0.1 NEAR to liho.{sfx}”.</p>
-            : <button className="btn green" onClick={sign} disabled={busy}>{busy ? 'Waiting for your wallet…' : 'Sign and create'}</button>}
+          <button className="btn green" onClick={sign} disabled={busy}>{busy ? 'Waiting for your wallet…' : 'Sign and create'}</button>
           <details className="txdetails"><summary>Call arguments</summary><pre>{JSON.stringify(tx.args, null, 1)}</pre></details>
         </section>
       )}
