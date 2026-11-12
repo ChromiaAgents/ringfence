@@ -8,7 +8,7 @@ import { recap, resume, isKnown } from './memory.ts';
 import type { DeskDef } from './desks/types.ts';
 import { launchDesk } from './desks/launch.ts';
 import { walletDesk, takePin, clearPending, limitCheck, namesLimit } from './desks/wallet.ts';
-import { marketDesk, webSearch, countryOf } from './desks/market.ts';
+import { marketDesk, webSearch, countryOf, localContext } from './desks/market.ts';
 import { packetDesk, autoOpen } from './desks/packet.ts';
 import { topupDesk } from './desks/topup.ts';
 
@@ -70,7 +70,7 @@ ${packetDesk.system(call)}
 
 Live data:
 ${marketDesk.system(call)}
-${topupDesk.system(call)}${recap(call)}
+${topupDesk.system(call)}${recap(call)}${localContext(call.from)}
 /no_think`;
 }
 const sys = system;

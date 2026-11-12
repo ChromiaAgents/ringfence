@@ -1238,5 +1238,8 @@ await t('trend searches use the caller country from the phone code', async () =>
   assert.equal(countryOf('85291234567'), 'Hong Kong');
   assert.equal(countryOf('14155550123'), 'United States');
   assert.equal(countryOf(undefined), null);
+  const { localContext } = await import('../src/desks/market.ts');
+  assert.match(localContext('60123456789'), /Malaysia.*MYR.*English.*USDC/s);
+  assert.equal(localContext(undefined), '');
 });
 process.once("beforeExit", () => console.log(`${n} passed`));

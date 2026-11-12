@@ -77,6 +77,22 @@ export async function trends() {
 // A separate model call with no money tools, so text from web pages can never call send/packet tools directly.
 const SEARCH_MODEL = process.env.SEARCH_MODEL ?? 'Qwen/Qwen3.8-27B';
 /** onText gets the answer as it is written, so the caller can start speaking before the search model has finished. */
+const LOCAL: Record<string, { cur: string; tz: string }> = {
+  Malaysia: { cur: 'myr', tz: 'Asia/Kuala_Lumpur' }, Singapore: { cur: 'sgd', tz: 'Asia/Singapore' }, Indonesia: { cur: 'idr', tz: 'Asia/Jakarta' },
+  Philippines: { cur: 'php', tz: 'Asia/Manila' }, Thailand: { cur: 'thb', tz: 'Asia/Bangkok' }, Vietnam: { cur: 'usd', tz: 'Asia/Ho_Chi_Minh' },
+  India: { cur: 'inr', tz: 'Asia/Kolkata' }, China: { cur: 'cny', tz: 'Asia/Shanghai' }, 'Hong Kong': { cur: 'hkd', tz: 'Asia/Hong_Kong' },
+  Taiwan: { cur: 'twd', tz: 'Asia/Taipei' }, Japan: { cur: 'jpy', tz: 'Asia/Tokyo' }, 'South Korea': { cur: 'krw', tz: 'Asia/Seoul' },
+  Australia: { cur: 'aud', tz: 'Australia/Sydney' }, 'United Kingdom': { cur: 'gbp', tz: 'Europe/London' }, Germany: { cur: 'eur', tz: 'Europe/Berlin' },
+  France: { cur: 'eur', tz: 'Europe/Paris' }, 'United Arab Emirates': { cur: 'usd', tz: 'Asia/Dubai' }, 'United States': { cur: 'usd', tz: 'America/New_York' },
+};
+/** One system-prompt line about where the caller is, or '' for a browser call (no phone number). */
+export function localContext(phone?: string): string {
+  const c = countryOf(phone); if (!c) return '';
+  const l = LOCAL[c] ?? { cur: 'usd', tz: 'UTC' };
+  const now = new Date().toLocaleString('en-GB', { timeZone: l.tz, weekday: 'long', hour: '2-digit', minute: '2-digit' });
+  return `\nThe caller's phone is from ${c} (local time ${now}). Use that for local context: say prices in US dollars and also in ${l.cur.toUpperCase()} when it helps (get_price with currency "${l.cur}"), and default news, weather and trends to ${c}. Still reply in English. "Dollars" for a send still means USDC.`;
+}
+
 /** The caller's country from the phone's calling code, for trend lists. Unknown (browser call): worldwide. */
 export function countryOf(phone?: string): string | null {
   const d = String(phone ?? '').replace(/\D/g, '');
