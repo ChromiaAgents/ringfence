@@ -91,7 +91,7 @@ function Live() {
               e.preventDefault(); const text = typed.trim(); if (!text) return;
               setTypeNote('Sending…');
               const r = await fetch(`/api/live/${open}/type`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) }).catch(() => null);
-              if (r?.ok) { setTyped(''); setTypeNote(`Sent: "${text}". Listen for the answer on the call.`); } else setTypeNote('The call is not on any more.');
+              if (r?.ok) { setTyped(''); setTypeNote(/^\s*\d{4}\s*$/.test(text) ? 'Sent (PIN hidden). Listen for the answer on the call.' : `Sent: "${text}". Listen for the answer on the call.`); } else setTypeNote('The call is not on any more.');
             }}>
               <label htmlFor="live-typed">Type instead of speaking</label>
               <div className="live-type-row">
