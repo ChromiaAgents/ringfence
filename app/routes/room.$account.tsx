@@ -100,12 +100,12 @@ function Room() {
   // The socket opens a moment after the call goes live: keep the request until it is really sent.
   useEffect(() => { if (call.live && queued.current && call.say(queued.current)) queued.current = null; }, [call.live, call.state]);
   // The agent's line streams in, so watch its text, not just the line count.
-  const lastAgent = [...call.lines].reverse().find((l) => l.who === 'agent')?.text ?? '';
+  const agentLast = [...call.lines].reverse().find((l) => l.who === 'agent')?.text ?? '';
   useEffect(() => {
-    if (!pendingPin.current || !/\bPIN\b/i.test(lastAgent)) return;
+    if (!pendingPin.current || !/\bPIN\b/i.test(agentLast)) return;
     const p = pendingPin.current; pendingPin.current = null;
     setTimeout(() => { if (!call.say(p)) pendingPin.current = p; }, 400);
-  }, [lastAgent, call.state]);
+  }, [agentLast, call.state]);
   function gift(near: number) {
     const line = `Send a ${near} NEAR gift to ${account}.`;
     if (call.live) call.say(line); else { queued.current = line; call.start(); }
