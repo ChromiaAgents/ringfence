@@ -9,7 +9,7 @@ import { useCall } from '../call';
 import { Host, type HostHandle } from '../host';
 
 export const Route = createFileRoute('/room/$account')({
-  head: () => ({ meta: [{ title: 'Live room · Ringfence' }] }),
+  head: ({ params }) => ({ meta: [{ title: `${params.account} live · Ringfence` }, { name: 'description', content: `Send ${params.account} real NEAR gifts by phone call, grab money packets live, and watch the AI host thank you.` }, { property: 'og:title', content: `${params.account} is live on Ringfence` }, { property: 'og:description', content: 'Gift real NEAR by phone call. Grab the money packet. On NEAR mainnet.' }] }),
   component: Room,
 });
 
@@ -43,6 +43,7 @@ function Room() {
   const [tab, setTab] = useState('Popular');
   const [pick, setPick] = useState('Heart');
   const [follow, setFollow] = useState(false);
+  const [confirm, setConfirm] = useState<(typeof GIFTS)[number] | null>(null);
   const [sound, setSound] = useState(false);
   const soundRef = useRef(false);
   const idleN = useRef(0), lastTalk = useRef(Date.now());
@@ -144,10 +145,17 @@ function Room() {
                 <button key={g.name} type="button" className={`lr-gift ${pick === g.name ? 'on' : ''}`} onClick={() => setPick(g.name)}>
                   {g.tag && <i>{g.tag}</i>}
                   <span>{g.icon}</span>
-                  {pick === g.name ? <><small>{g.near} NEAR</small><b className="lr-send" onClick={(e) => { e.stopPropagation(); gift(g.near); }}>Send</b></> : <><b>{g.name}</b><small>{g.near} NEAR</small></>}
+                  {pick === g.name ? <><small>{g.near} NEAR</small><b className="lr-send" onClick={(e) => { e.stopPropagation(); setConfirm(g); }}>Send</b></> : <><b>{g.name}</b><small>{g.near} NEAR</small></>}
                 </button>
               ))}
             </div>
+            {confirm && (
+              <div className="lr-confirm" role="alertdialog" aria-label="Confirm gift">
+                <span>{confirm.icon}</span>
+                <p>Send a <b>{confirm.name}</b>, <b>{confirm.near} NEAR</b>, to {account}?<small>{call.live ? 'Your PIN confirms it on this call.' : 'A short voice call starts and asks for your PIN (demo PIN 4821). Real NEAR on mainnet.'}</small></p>
+                <div><button type="button" onClick={() => setConfirm(null)}>Cancel</button><button type="button" className="go" onClick={() => { gift(confirm.near); setConfirm(null); }}>Send {confirm.near} NEAR</button></div>
+              </div>
+            )}
             <p className="lr-credit">Gifts go to {account}. Gifts from any NEAR wallet show too. Host: open VRM sample (© pixiv Inc., VRM Public License 1.0).</p>
           </div>
         )}

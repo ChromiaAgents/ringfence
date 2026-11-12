@@ -864,3 +864,8 @@ html:has(.ov) { color-scheme: normal !important; }
 @keyframes lr-up { from { transform: translateY(100%); } }
 @media (prefers-reduced-motion: reduce) { .lr-sheet { animation: none; } }
 .lr { width: 100%; overflow: hidden; } .lr-phone { max-width: min(480px, 100vw); } .lr-host, .lr-host canvas { max-width: 100%; }
+.lr-confirm { margin-top: 10px; padding: 12px; border-radius: 12px; background: #23232b; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; }
+.lr-confirm > span { font-size: 36px; } .lr-confirm p { margin: 0; font-size: 15px; } .lr-confirm small { display: block; margin-top: 4px; font-size: 12px; color: #9b9ba6; }
+.lr-confirm div { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; }
+.lr-confirm button { border: 0; padding: 10px 14px; border-radius: 8px; background: #34343f; color: #fff; font: inherit; cursor: pointer; }
+.lr-confirm button.go { background: #fe2c55; font-weight: 700; }
