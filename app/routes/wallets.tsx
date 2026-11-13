@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { Num, SiteFooter, TopBar, seo } from '../ui';
 
 type Data = { network: string; explorer: string; rows: Row[]; at: number };
-type Row = { role: string; account: string; near: number | null; usdc: number | null; note: string };
+type Row = { role: string; account: string; near: number | null; usdc: number | null; note: string; min?: number };
 
 const getWallets = createServerFn({ method: 'GET' }).handler(async (): Promise<Data> => {
   const { env } = await import('../../src/config.ts');
@@ -14,13 +14,13 @@ const getWallets = createServerFn({ method: 'GET' }).handler(async (): Promise<D
   const { bindingOf, ftBalance } = await import('../../src/wallet.ts');
   const demo = env.demoPhone ? bindingOf(env.demoPhone) : undefined;
   const list: Omit<Row, 'near' | 'usdc'>[] = [
-    demo?.contract && { role: 'Demo wallet', account: demo.contract, note: 'The shared phone wallet the site and room use (PIN 4821). Its contract holds the limits.' },
-    { role: 'Named phone wallet', account: 'liho.ringfence-wallet.near', note: 'A phone wallet with a readable name, used on the WhatsApp line.' },
+    demo?.contract && { role: 'Demo wallet', min: 0.5, account: demo.contract, note: 'The shared phone wallet the site and room use (PIN 4821). Its contract holds the limits.' },
+    { role: 'Named phone wallet', min: 0.1, account: 'liho.ringfence-wallet.near', note: 'A phone wallet with a readable name, used on the WhatsApp line.' },
     { role: 'Room host', account: 'liho00.near', note: 'Gifts in /room/liho00.near land here.' },
-    env.packetsAccountId && { role: 'Money packets contract', account: env.packetsAccountId, note: 'Holds the NEAR locked in open packets.' },
-    env.agentAccountId && { role: 'AI agent key', account: env.agentAccountId, note: 'Can only ask a wallet contract to send; pays gas.' },
-    { role: 'Wallet factory', account: env.factoryAccountId, note: 'Creates a wallet contract per phone number.' },
-    { role: 'Custody (phone-only wallets)', account: env.custodyAccountId, note: 'Owner of wallets made on WhatsApp until they are claimed.' },
+    env.packetsAccountId && { role: 'Money packets contract', min: 0.3, account: env.packetsAccountId, note: 'Holds the NEAR locked in open packets.' },
+    env.agentAccountId && { role: 'AI agent key', min: 0.2, account: env.agentAccountId, note: 'Can only ask a wallet contract to send; pays gas.' },
+    { role: 'Wallet factory', min: 0.5, account: env.factoryAccountId, note: 'Creates a wallet contract per phone number.' },
+    { role: 'Custody (phone-only wallets)', min: 0.2, account: env.custodyAccountId, note: 'Owner of wallets made on WhatsApp until they are claimed.' },
   ].filter(Boolean) as Omit<Row, 'near' | 'usdc'>[];
   const rows = await Promise.all(list.map(async (r) => {
     const near = await rpc('query', { request_type: 'view_account', finality: 'final', account_id: r.account })
@@ -45,12 +45,15 @@ function Wallets() {
       <main className="app stp">
         <TopBar />
         <h1>The wallets, live</h1>
-        <p className="st-lead">NEAR {s.network}. Balances read from the chain every 15 seconds. Tap an account to open it on NearBlocks.</p>
+        <p className="st-lead">NEAR {s.network}. Balances read from the chain every 15 seconds. Tap an account to open it on NearBlocks. Amber means below its line: top it up.</p>
         <div className="st-grid">
           {s.rows.map((r) => (
             <a className="st-tile wl-tile" key={r.account} href={`${s.explorer}/address/${r.account}`} target="_blank" rel="noreferrer">
               <p className="st-label">{r.role}</p>
               <p className="st-big wl-big"><Num value={r.near} /><small> NEAR</small></p>
+              {r.min != null && r.near != null && (r.near < r.min
+                ? <p className="wl-flag low">Low: top up (keep above {r.min} NEAR)</p>
+                : <p className="wl-flag ok">OK, above {r.min} NEAR</p>)}
               {r.usdc != null && <p className="wl-usdc"><Num value={r.usdc} digits={2} /> USDC</p>}
               <p className="st-note wl-acct" style={{ wordBreak: 'break-all' }}>{r.account} ↗</p>
               <p className="st-note">{r.note}</p>

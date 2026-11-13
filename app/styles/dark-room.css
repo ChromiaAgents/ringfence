@@ -1012,3 +1012,7 @@ html:has(.ov) { color-scheme: normal !important; }
 .wl-big { font-size: clamp(26px, 15cqi, 48px); margin-top: 12px !important; overflow-wrap: anywhere; }
 .wl-big small { white-space: nowrap; font: 600 15px/1 var(--body, Geist, sans-serif); color: var(--muted); margin-left: 4px; }
 .wl-usdc { margin-top: 6px !important; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wl-flag { margin-top: 8px !important; font-size: 14px; font-weight: 600; display: inline-block; padding: 2px 10px; }
+.wl-flag.ok { color: #00ec97; background: rgba(0,236,151,.1); }
+.wl-flag.low { color: #1a1200; background: #ffb020; }
+.wl-tile:has(.wl-flag.low) { box-shadow: inset 0 0 0 2px #ffb020; }
