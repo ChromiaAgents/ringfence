@@ -121,7 +121,7 @@ export const TOOL_SAY: Record<string, string> = {
 /** A whole utterance that is only a goodbye ("bye", "okay thanks, bye", "that's all"). Short on purpose: "pay bye.near" is not one. */
 export const isGoodbye = (t: string) => {
   const s = String(t ?? '').toLowerCase().replace(/[^a-z' ]+/g, ' ').trim();
-  return s.split(/\s+/).length <= 6 && /\b(bye|goodbye|bye bye|see you|see ya|that's all|that is all|i'm done|im done|hang up|close the call|end the call|end call)\b/.test(s) && !/\b(send|pay|transfer|packet|to)\b/.test(s);
+  return s.split(/\s+/).length <= 16 && /\b(bye|goodbye|bye bye|see you|see ya|that's all|that is all|i'm done|im done|hang up|close the call|end the call|end call|stop (it )?here|(get|come) back to you( later)?|call (you )?(back )?later|talk (to you )?later|catch you later)\b/.test(s) && !/\b(send|pay|transfer|packet|top up|launch)\b/.test(s);
 };
 
 export const isFiller = (t: string) => /^[\s,.!?…-]*((u+h*m+|u+h+|h+m+|e+r+m*|a+h+|o+h+|mm+)[\s,.!?…-]*)+$/i.test(t);
