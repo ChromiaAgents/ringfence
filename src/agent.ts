@@ -140,6 +140,21 @@ export function announce(callId: string | undefined, text: string, note: string)
   return false;
 }
 
+// ---- late answers: a slow web search finishes after its turn ended; it is spoken at the next quiet moment ----
+const lateHooks: Map<string, (say: string) => void> = ((globalThis as any).__rfLate ??= new Map());
+const lateNotes = new Map<string, string[]>(); // callId -> notes for the model, added at the start of its next turn
+/** The call's channel registers how to speak a late answer (it must wait until nothing else is playing). */
+export function onLate(callId: string, speak: (say: string) => void) { lateHooks.set(callId, speak); }
+function deliverLate(call: Call, question: string, answer: string) {
+  if (call.endedAt) return;
+  const say = answer.startsWith('Ah, sorry') ? answer : `Oh, that's in. ${answer}`; // ponytail: one natural lead-in; vary it if callers hear it often
+  call.turns.push({ at: Date.now(), who: 'agent', text: say });
+  (lateNotes.get(call.id) ?? lateNotes.set(call.id, []).get(call.id)!).push(`The web search for "${question}" finished after that turn, and this was already said to the caller: "${say}". Do not repeat it.`);
+  save();
+  lateHooks.get(call.id)?.(say);
+}
+const SEARCH_WAIT_MS = 4000; // ponytail: no answer started by then → say "I'll tell you when it's in" and free the caller
+
 export function noteToModel(callId: string, note: string) {
   const call = db.calls.find((c) => c.id === callId);
   call?.turns.push({ at: Date.now(), who: 'tool', text: note });
@@ -159,6 +174,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
   if (takePin(call.id, text)) text = '[PIN]';
   call.turns.push({ at: Date.now(), who: 'caller', text });
   h[0] = { role: 'system', content: sys(call) }; // pick up config changes mid-call
+  for (const n of lateNotes.get(call.id)?.splice(0) ?? []) h.push({ role: 'system', content: n });
   h.push({ role: 'user', content: text });
   // The model decides when to hang up; a plain goodbye only reminds it, because it sometimes forgot end_call.
   if (isGoodbye(text)) h.push({ role: 'system', content: 'The caller just said goodbye. Unless they also asked for something, say a short warm goodbye and call end_call.' });
@@ -209,10 +225,24 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
           // The search model already writes a phone-ready answer: speak it as it arrives instead of paying for a second model pass.
           call.desk = desk.id;
           const before = said.length;
-          const r: any = await webSearch(args.question, (d) => { if (timing && timing.firstTokenMs == null) timing.firstTokenMs = Date.now() - t0; emit(split.push(d)); }, countryOf(call.from))
+          // Async: if no answer has started in 4 s, or the caller talks over us, this turn moves on and the answer is
+          // spoken by itself when it lands (onLate), never on top of other speech.
+          let detached = false, started = false;
+          const search: Promise<any> = webSearch(args.question, (d) => { if (detached) return; started = true; if (timing && timing.firstTokenMs == null) timing.firstTokenMs = Date.now() - t0; emit(split.push(d)); }, countryOf(call.from))
             .catch((e) => ({ ok: false, reason: `I can't reach live data right now (${String(e.message).slice(0, 60)}). Try again in a minute.` }));
+          const later = new Promise<'later'>((ok) => {
+            const t = setTimeout(() => !started && ok('later'), SEARCH_WAIT_MS);
+            o.signal?.addEventListener('abort', () => { clearTimeout(t); ok('later'); }, { once: true });
+            search.finally(() => clearTimeout(t));
+          });
+          let r: any = await Promise.race([search, later]);
+          if (r === 'later') {
+            detached = true;
+            search.then((x: any) => { if (started) return; /* the caller already heard part of it */ if (x?.ok) deliverLate(call, args.question, x.answer); else if (!o.signal?.aborted) deliverLate(call, args.question, "Ah, sorry, that one didn't come back. Want me to try again?"); });
+            r = { ok: true, pending: true, note: 'The search is still running. Like a friend on the phone, in a few casual words, say it is taking a sec and you will tell them the moment it is in, and ask if they need anything meanwhile (e.g. "Hang on, still pulling that up. Anything else while I wait?"). Vary the words. Do not guess the answer.' };
+          }
           out = r;
-          if (r.ok) {
+          if (r.ok && !r.pending) {
             emit(split.flush());
             if (said.length === before) emit([...split.push(r.answer), ...split.flush()]); // a cached answer, or one that could not be streamed
             direct = said.slice(before).join(' ') || r.answer;

@@ -2,7 +2,7 @@
 // and the WhatsApp webhook (which starts WebRTC calls). Mounted on the same HTTP server as the UI.
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { WebSocketServer } from 'ws';
-import { isFiller, startCall, reply, endCall, photo, linkOf, registerSpeaker } from './agent.ts';
+import { isFiller, startCall, reply, endCall, photo, linkOf, registerSpeaker, onLate } from './agent.ts';
 import { transcribe } from './ai.ts';
 import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
@@ -66,6 +66,10 @@ export function attachVoice(server: Server) {
     // it used to be dropped without a word. Audio that arrives then is still dropped: the caller was hearing the agent.
     let queued: string | null = null;
     let queuedAudio: Buffer | null = null; // speech that arrived while a turn was finishing: answered next, never dropped
+    // A slow search answered after its turn: spoken when no turn is running, so it never cuts into a reply.
+    const late: string[] = [];
+    const speakLate = () => { while (!busy && late.length) { const s = late.shift()!; ws.send(JSON.stringify({ type: 'agent', text: s })); void line.say(s); } };
+    onLate(call.id, (s) => { late.push(s); speakLate(); });
     const onMessage = async (data: any, isBinary: boolean) => {
       if (!isBinary) {
         const msg = JSON.parse(String(data));
@@ -113,6 +117,7 @@ export function attachVoice(server: Server) {
         ws.send(JSON.stringify({ type: 'error', text: e.message }));
       } finally {
         busy = false;
+        speakLate();
         if (queuedAudio) { const a = queuedAudio; queuedAudio = null; void onMessage(a, true); }
         else if (queued !== null) { const text = queued; queued = null; void onMessage(Buffer.from(JSON.stringify({ type: 'text', text })), false); }
       }

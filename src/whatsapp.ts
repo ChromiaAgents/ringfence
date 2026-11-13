@@ -5,7 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { RTCPeerConnection, RtpHeader, RtpPacket, useOPUS, MediaStreamTrack } from 'werift';
 import OpusScript from 'opusscript';
 import { env } from './config.ts';
-import { isFiller, startCall, reply, endCall, setOnLink, photo, noteToModel, registerSpeaker } from './agent.ts';
+import { isFiller, startCall, reply, endCall, setOnLink, photo, noteToModel, registerSpeaker, onLate } from './agent.ts';
 import { transcribe } from './ai.ts';
 import { wav, warmUp } from './tts.ts';
 import { voiceLine } from './turn.ts';
@@ -240,8 +240,15 @@ async function onCallEvent(c: any) {
   // Typed on the live panel ("Type instead"): handled exactly like speech, minus the speech-to-text.
   live.get(c.id)!.typed = async (text: string) => { const { signal, timing } = line.begin(); await answer(text, signal, timing); };
 
+  // A slow search answered after its turn: spoken when no turn is running, so it never cuts into a reply.
+  let answering = 0;
+  const late: string[] = [];
+  const speakLate = () => { while (!answering && late.length) void line.say(late.shift()!); };
+  onLate(call.id, (s) => { late.push(s); speakLate(); });
+
   async function answer(text: string, signal: AbortSignal, timing: any) {
     line.ackSoon();
+    answering++;
     try {
       let hangUp = false;
       await reply(call.id, text, { signal, timing, onSentence: (s) => line.say(s), onSlowTool: () => line.filler('draw'), onToolStart: (say) => line.toolStart(say), onEndCall: () => (hangUp = true) });
@@ -253,7 +260,7 @@ async function onCallEvent(c: any) {
         await graph(`${env.waPhoneId}/calls`, { messaging_product: 'whatsapp', call_id: c.id, action: 'terminate' }).catch((e) => console.error('wa terminate failed', e?.message ?? e));
         stop();
       }
-    } catch (e: any) { if (!/abort/i.test(e?.message ?? '')) throw e; }
+    } catch (e: any) { if (!/abort/i.test(e?.message ?? '')) throw e; } finally { answering--; speakLate(); }
   }
 }
 

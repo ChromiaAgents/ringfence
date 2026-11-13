@@ -75,6 +75,8 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
   const id = packetIdFrom(a.packet_id) || call.packetId || spokenId(call) || '';
   const p = findPacket(id);
   if (p && !call.packetId) call.packetId = p.id; // from here on, this call is about that packet
+  // No id at all ("how do I open the red packet?" in the live room): open today's free packet instead of asking for one.
+  if (!p && !id && name === 'open_packet') return run(call, 'free_packet', {});
   if (!p) return { ok: false, need: 'packet', reason: id ? `There is no money packet with that id (${id}). Ask them to read it again from the link, letter by letter. ${GUIDE}` : GUIDE };
   if (name === 'get_packet') { const v = publicPacket(p); return { ok: true, from: v.from, total_near: v.near, shares: v.count, opened: v.claims.length, lucky_split: v.lucky, expired: v.expired, dryRun: v.dryRun || undefined }; }
   if (name !== 'open_packet') return { error: 'unknown tool' };
