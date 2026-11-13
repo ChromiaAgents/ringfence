@@ -49,6 +49,9 @@ export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string, payTo
     setLines([]); setLink(null); setChoices([]); setDesk(deskPick === 'auto' ? null : deskPick); setLive(true); setState('Connecting…');
     const s = r.current;
     s.ctx = new AudioContext({ sampleRate: 16000 });
+    // iOS: without the mic, Web Audio follows the silent switch and may start suspended. Mark it as playback and resume inside the tap.
+    if (!mic) { try { (navigator as any).audioSession.type = 'playback'; } catch {} }
+    s.ctx.resume().catch(() => {});
     // Mic is optional: without it (or if refused) the call continues with typed lines.
     if (mic) try {
       s.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
