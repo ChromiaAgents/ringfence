@@ -9,6 +9,7 @@ import type { DeskDef } from './types.ts';
 
 type Draft = Partial<LaunchParams> & { logoModel?: string; logoBytes?: number };
 const drafts = new Map<string, Draft>();
+const logoJobs = new Map<string, Promise<void>>(); // callId -> logo being drawn
 export const draftOf = (callId: string) => drafts.get(callId) ?? {};
 export const carryDraft = (from: string, to: string) => { const d = drafts.get(from); if (d) drafts.set(to, { ...d }); };
 
@@ -80,10 +81,11 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
   }
   if (name === 'make_logo') {
     if (!d.symbol || !d.name) return { ok: false, reason: 'Save the name and ticker first (set_coin).' };
-    const g = await generateLogo(String(a.vibe ?? ''), d.name).catch(async (e) => { console.error('logo', e.message); return drawLogo(d.symbol!); });
-    Object.assign(d, { icon: g.icon, logoModel: g.model, logoBytes: g.bytes });
-    log({ kind: 'logo', desk: 'launch', callId: call.id, detail: `${d.symbol}: ${g.model}, ${g.bytes} bytes` });
-    return { ok: true, by: g.model, note: g.model === 'drawn locally' ? 'The image model was unavailable, so a plain placeholder was drawn. Say so.' : 'Tell them the logo is on the launch page.' };
+    // The image model takes ~10 s: draw in the background so the caller is not left waiting; prepare_launch waits for it.
+    const job = generateLogo(String(a.vibe ?? ''), d.name).catch(async (e) => { console.error('logo', e.message); return drawLogo(d.symbol!); })
+      .then((g) => { Object.assign(d, { icon: g.icon, logoModel: g.model, logoBytes: g.bytes }); log({ kind: 'logo', desk: 'launch', callId: call.id, detail: `${d.symbol}: ${g.model}, ${g.bytes} bytes` }); });
+    logoJobs.set(call.id, job);
+    return { ok: true, drawing: true, note: 'The logo is being drawn now and will be on the launch page in a few seconds. Say so in a few words and carry on (e.g. ask if they want to launch).' };
   }
   if (name === 'set_socials') {
     d.socials = { twitter: url(a.twitter), telegram: url(a.telegram), website: url(a.website) };
@@ -104,6 +106,7 @@ async function run(call: Call, name: string, a: any): Promise<unknown> {
   if (name === 'prepare_launch') {
     if (lp.rules.kill_switch) return refuse('Launches are paused by the desk operator today.');
     if (a.caller_confirmed !== true) return { ok: false, reason: 'Read the summary back and get a clear yes first.' };
+    await logoJobs.get(call.id); // a logo still being drawn in the background
     // No logo asked for yet: make one from the description rather than stall the call on "missing icon".
     if (d.icon == null && d.name && d.symbol) {
       const g = await generateLogo(d.description || d.name, d.name).catch(() => drawLogo(d.symbol!));
