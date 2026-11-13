@@ -1085,6 +1085,13 @@ await t('speech glossary: misheard crypto names from the ASR eval come out right
   assert.equal(pickToken(list as any, 'pizza'), null);
   assert.equal(suggestToken(list as any, 'SHUB'), 'SHIB');
 });
+await t('NEAR misheard before a crypto noun: "latest NIA news", "Nier price"; plain words stay', async () => {
+  const { correct } = await import('../src/terms.ts');
+  assert.match(correct('What is the latest NIA news?'), /NEAR news/);
+  assert.match(correct('what is the nier price today'), /NEAR price/);
+  assert.equal(correct('I live near the station'), 'I live near the station');
+  assert.equal(correct('Nia is my sister'), 'Nia is my sister');
+});
 await t('speech glossary, held-out round: spoken numbers, spelled accounts, coin names and particles, behind the cue gate', async () => {
   const { spokenNumber } = await import('../src/terms.ts');
   const { fixTerms } = await import('../src/ai.ts');

@@ -223,6 +223,8 @@ export function correct(input: string): string {
   t = t.replace(/\b(worth of|into|of|and|with|in|some|my|have)\s+(near|nier|nir|nia|nair|neer)\b(?!\s*(?:the|a|an|here|by|to me|future)\b)/gi, (m, pre: string, w: string) =>
     (w.toLowerCase() === 'near' && !/worth of|into/i.test(pre)) ? m : `${pre} NEAR`);
 
+  // "latest NIA news", "Nier price": a NEAR mishearing right before a crypto noun (never plain "near").
+  t = t.replace(/\b(nier|nir|nia|nair|neer|nil)\s+(news|price|token|coin|protocol|wallet|account|chain|ecosystem|intents|ai)\b/gi, (_m, _w: string, n: string) => `NEAR ${n}`);
   // ---- Tickers by sound, only in a crypto context.
   t = t.replace(/(?<![\w.$-])([A-Za-z][A-Za-z']{1,9})(?![\w.-]*\.near)\b/g, (m: string, w: string, off: number, all: string) => {
     const lw = w.toLowerCase();
