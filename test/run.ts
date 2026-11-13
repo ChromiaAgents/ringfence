@@ -1091,6 +1091,7 @@ await t('NEAR misheard before a crypto noun: "latest NIA news", "Nier price"; pl
   assert.match(correct('what is the nier price today'), /NEAR price/);
   assert.equal(correct('I live near the station'), 'I live near the station');
   assert.equal(correct('Nia is my sister'), 'Nia is my sister');
+  assert.match(correct('send 0.01 nil to lihu00.nil'), /liho00\.near|lihu00\.near/);
 });
 await t('speech glossary, held-out round: spoken numbers, spelled accounts, coin names and particles, behind the cue gate', async () => {
   const { spokenNumber } = await import('../src/terms.ts');

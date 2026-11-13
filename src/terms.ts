@@ -198,6 +198,7 @@ export function correct(input: string): string {
     .replace(/\binterest in ear\b/gi, 'into stNEAR')
     .replace(/\b(?:w|double[ -]?u|dub)[ -]?(?:near|neo|nea|neer|nier|nir|nia|kneel)\b/gi, 'wNEAR')
     .replace(/\bst[ -]?(?:near|nir|nier)\b/gi, 'stNEAR')
+    .replace(/(\w)\.(?:nil|nia|nier|nir|neer|nair)\b/gi, '$1.near') // "lihu00.nil": an account ending heard wrong
     .replace(/\bnear intense\b/gi, 'NEAR Intents')
     .replace(/\b(jazz ?hood|yas ?hood|yash ?hood|just hood|jas hoot|justhood)\b/gi, 'JustHoot')
     .replace(/\blife panel\b/gi, 'live panel')
