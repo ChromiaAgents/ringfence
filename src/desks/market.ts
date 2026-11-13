@@ -126,19 +126,21 @@ export async function webSearch(question: string, onText?: (delta: string) => vo
       .catch((e: AggregateError) => { throw e.errors?.[0] ?? e; });
     if (!r.ok || !r.body) throw new Error(`search ${r.status}`);
     let text = '', buf = '', thinking = false;
-    for await (const chunk of r.body as any) {
-      buf += Buffer.from(chunk).toString();
-      const lines = buf.split('\n'); buf = lines.pop() ?? '';
-      for (const l of lines) {
-        if (!l.startsWith('data:') || l.includes('[DONE]')) continue;
-        try {
-          const d: string = JSON.parse(l.slice(5)).choices?.[0]?.delta?.content ?? '';
-          text += d;
-          thinking ||= text.includes('<think');
-          if (d && !thinking && text.length <= 600) onText?.(d);
-        } catch {}
+    try {
+      for await (const chunk of r.body as any) {
+        buf += Buffer.from(chunk).toString();
+        const lines = buf.split('\n'); buf = lines.pop() ?? '';
+        for (const l of lines) {
+          if (!l.startsWith('data:') || l.includes('[DONE]')) continue;
+          try {
+            const d: string = JSON.parse(l.slice(5)).choices?.[0]?.delta?.content ?? '';
+            text += d;
+            thinking ||= text.includes('<think');
+            if (d && !thinking && text.length <= 600) onText?.(d);
+          } catch {}
+        }
       }
-    }
+    } catch (e) { if (!text.trim()) throw e; } // stalled mid-answer: keep what already arrived (part of it is spoken)
     text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
     text = text.replace(/^(?:I'll|I will|Let me) (?:search|look)[^.\n]*[.\n]\s*/i, '').trim();
     if (!text) throw new Error('no answer');
