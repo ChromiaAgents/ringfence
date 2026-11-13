@@ -1016,3 +1016,6 @@ html:has(.ov) { color-scheme: normal !important; }
 .wl-flag.ok { color: #00ec97; background: rgba(0,236,151,.1); }
 .wl-flag.low { color: #1a1200; background: #ffb020; }
 .wl-tile:has(.wl-flag.low) { box-shadow: inset 0 0 0 2px #ffb020; }
+/* Laptop widths: the top bar keeps its main links and the button on screen */
+@media (max-width: 1440px) { .topbar .tlinks a[href="/ringfence-film.mp4"], .topbar .tlinks a[href="/live"], .topbar .tlinks a[href="/deck.html"] { display: none; } }
+@media (max-width: 1180px) { .topbar .tlinks a[href="/wallet/bind"], .topbar .tlinks a[href="/demo.html"] { display: none; } }
