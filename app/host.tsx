@@ -8,6 +8,8 @@ export type HostHandle = { speak: (url: string) => Promise<void>; unlock: () => 
 export const Host = forwardRef<HostHandle, { className?: string; onTap?: () => void }>(function Host({ className, onTap }, ref) {
   const box = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
+  const [pct, setPct] = useState(0); // the character download, for the splash
+  const [failed, setFailed] = useState(false);
   const level = useRef(0);
   const look = useRef({ x: 0, y: 0 }); // where a finger or the mouse is, -1..1: she turns toward it // 0..1 mouth opening, set by the audio analyser
   const audio = useRef<{ ctx?: AudioContext; busy: boolean }>({ busy: false });
@@ -59,7 +61,7 @@ export const Host = forwardRef<HostHandle, { className?: string; onTap?: () => v
       scene.add(new THREE.AmbientLight(0xffffff, 0.9));
       const loader = new GLTFLoader();
       loader.register((p: any) => new VRMLoaderPlugin(p));
-      const gltf: any = await loader.loadAsync('/brand/host.vrm');
+      const gltf: any = await loader.loadAsync('/brand/host.vrm', (e: ProgressEvent) => e.total && setPct(Math.round((e.loaded / e.total) * 100)));
       if (stop) return;
       const vrm = gltf.userData.vrm;
       VRMUtils.removeUnnecessaryVertices(gltf.scene);
@@ -110,7 +112,7 @@ export const Host = forwardRef<HostHandle, { className?: string; onTap?: () => v
       };
       loop();
       cleanup = () => { io.disconnect(); ro.disconnect(); renderer.dispose(); renderer.domElement.remove(); };
-    })().catch((e) => console.warn('host', e));
+    })().catch((e) => { console.warn('host', e); setFailed(true); });
     return () => { stop = true; cancelAnimationFrame(raf); cleanup(); };
   }, []);
 
@@ -119,5 +121,12 @@ export const Host = forwardRef<HostHandle, { className?: string; onTap?: () => v
     onPointerMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); look.current = { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: ((e.clientY - r.top) / r.height) * 2 - 1 }; }}
     onPointerLeave={() => (look.current = { x: 0, y: 0 })}
     onPointerDown={() => { poke.current = performance.now(); onTap?.(); }}
-    style={{ touchAction: 'manipulation', cursor: 'pointer',  backgroundImage: ready ? undefined : 'url(/brand/host.jpg)', backgroundSize: 'cover', backgroundPosition: 'center top' }} />;
+    style={{ touchAction: 'manipulation', cursor: 'pointer',  backgroundImage: ready ? undefined : 'url(/brand/host.jpg)', backgroundSize: 'cover', backgroundPosition: 'center top' }}>
+    <div className={`host-splash${ready || failed ? ' done' : ''}`} aria-hidden="true">
+      <img src="/brand/near-mark-light.svg" alt="" width={44} height={44} />
+      <b>Ringfence</b>
+      <span>Going live… {pct > 0 && pct < 100 ? `${pct}%` : ''}</span>
+      <i style={{ transform: `scaleX(${Math.max(0.05, pct / 100)})` }} />
+    </div>
+  </div>;
 });

@@ -989,3 +989,13 @@ html:has(.ov) { color-scheme: normal !important; }
 }
 
 .lr-msg .lr-combo { font-style: normal; font-weight: 800; color: #ffd166; margin-left: 4px; }
+
+/* Splash while the 3D host downloads (~4 MB): fades out when she is ready, or if loading fails (the still stays). */
+.host-splash { position: absolute; inset: 0; z-index: 1; display: grid; place-content: center; justify-items: center; gap: 10px; background: radial-gradient(circle at 50% 40%, #2a1f2f, #0c0a08 70%); color: #f4f3f1; transition: opacity .5s ease, visibility .5s; pointer-events: none; }
+.host-splash.done { opacity: 0; visibility: hidden; }
+.host-splash img { animation: hs-pulse 1.4s ease-in-out infinite; }
+.host-splash b { font: 400 32px/1 Battlefin, Geist, sans-serif; }
+.host-splash span { font-size: 14px; color: #b8b2a8; min-height: 1.2em; }
+.host-splash i { display: block; width: 140px; height: 3px; background: #00ec97; transform-origin: left; transition: transform .2s; }
+@keyframes hs-pulse { 50% { opacity: .45; transform: scale(.92); } }
+@media (prefers-reduced-motion: reduce) { .host-splash img { animation: none; } }
