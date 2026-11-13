@@ -36,6 +36,7 @@ const spokenPins = new Map<string, string>();
  *  and the model (and transcript, and logs) only ever see "[PIN]". Returns true when the text was a PIN. */
 /** The call ended: drop its waiting transfer and any PIN taken for it. */
 export function clearPending(callId: string) { pending.delete(callId); spokenPins.delete(callId); }
+export const hasPending = (callId: string) => pending.has(callId);
 export function takePin(callId: string, text: string): boolean {
   if (pending.has(callId)) {
     const pin = normalizePin(text);

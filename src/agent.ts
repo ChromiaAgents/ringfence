@@ -7,7 +7,7 @@ import { db, save, id, log, type Call, type Desk, type Timing } from './store.ts
 import { recap, resume, isKnown } from './memory.ts';
 import type { DeskDef } from './desks/types.ts';
 import { launchDesk } from './desks/launch.ts';
-import { walletDesk, takePin, clearPending, limitCheck, namesLimit } from './desks/wallet.ts';
+import { walletDesk, takePin, hasPending, clearPending, limitCheck, namesLimit } from './desks/wallet.ts';
 import { marketDesk, webSearch, countryOf, localContext } from './desks/market.ts';
 import { packetDesk, autoOpen } from './desks/packet.ts';
 import { topupDesk } from './desks/topup.ts';
@@ -196,6 +196,21 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
     call.turns.push({ at: Date.now(), who: 'tool', text: `prepare_transfer(limit check) → ${JSON.stringify(stop.out)}` });
     h.push({ role: 'assistant', content: null, tool_calls: [tc] }, { role: 'tool', tool_call_id: tc.id, content: JSON.stringify(stop.out) });
   }
+  // A PIN for a waiting send: confirm it in code now (the filler plays at once) instead of waiting ~2.5 s for the
+  // model to choose confirm_transfer. The model then only says the result.
+  let pinOut: unknown = null;
+  if (!stop && text === '[PIN]' && hasPending(call.id)) {
+    const desk = deskOfTool(call, 'confirm_transfer');
+    if (desk) {
+      o.onToolStart?.(TOOL_SAY.confirm_transfer);
+      call.desk = desk.id;
+      const out = pinOut = await desk.run(call, 'confirm_transfer', { pin: '[PIN]' }).catch((e) => ({ ok: false, reason: String(e.message) }));
+      const tc = { id: `pin-${call.turns.length}`, type: 'function' as const, function: { name: 'confirm_transfer', arguments: '{"pin":"[PIN]"}' } };
+      call.turns.push({ at: Date.now(), who: 'tool', text: `confirm_transfer({"pin":"****"}) → ${JSON.stringify(out)}` });
+      h.push({ role: 'assistant', content: null, tool_calls: [tc] }, { role: 'tool', tool_call_id: tc.id, content: JSON.stringify(out) },
+        { role: 'system', content: 'confirm_transfer already ran on that PIN (result above). Do not call it again; tell the caller what happened, briefly. "Sending that on NEAR now" was already said.' });
+    }
+  }
   const tools = toolsFor(call);
   const before = new Set(linksOf(call).map((l) => l.url));
   const said: string[] = [];
@@ -221,6 +236,7 @@ export async function reply(callId: string, text: string, o: ReplyOpts = {}): Pr
         let out: unknown;
         if (name === 'end_call') { console.log(`[call ${call.id}] end_call by the model`); o.onEndCall?.(); clearPending(call.id); call.endedAt = Date.now(); out = { ok: true, note: 'Hanging up. Say nothing more: your goodbye was already said.' }; }
         else if (!desk) out = { error: 'unknown tool' };
+        else if (name === 'confirm_transfer' && pinOut) out = pinOut; // already confirmed on this PIN: same result, nothing re-run
         else if (name === 'web_search') {
           // The search model already writes a phone-ready answer: speak it as it arrives instead of paying for a second model pass.
           call.desk = desk.id;

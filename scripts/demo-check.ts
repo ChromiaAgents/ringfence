@@ -71,16 +71,14 @@ try {
   });
 
   let launchUrl = '';
-  await step('launch desk: refuses ticker NEAR, then prepares a launch over the call socket', async () => {
+  await step('launch desk: any meme ticker is allowed (like pump.fun); prepares a launch over the call socket', async () => {
     const r = await call('launch', [
       "It's a coin about a sleepy otter",
-      'Call it Sleepy Otter, ticker NEAR',
       'Call it Sleepy Otter, ticker ZZOTR',
       'Logo vibe: a sleepy otter on a pillow',
       'One hour, soft cap 100 NEAR',
       'Yes, set it up',
     ]);
-    must(r.said.some((s) => /existing asset/i.test(s)), 'no refusal for NEAR: ' + r.said.join(' | '));
     must(r.link?.url.includes('/launch/'), 'no launch link: ' + r.said.join(' | '));
     launchUrl = r.link!.url;
     return launchUrl;
@@ -104,10 +102,10 @@ try {
     must(!r.link, 'a link was sent');
     return r.said.at(-1);
   });
-  await step('ledger records the refusal and the launch', async () => {
+  await step('ledger records the launch', async () => {
     const s = JSON.parse((await get('/api/state')).text);
     const kinds = s.ledger.map((l: any) => l.kind);
-    for (const k of ['refused', 'launch_prepared']) must(kinds.includes(k), `no ${k} in the ledger`);
+    for (const k of ['launch_prepared']) must(kinds.includes(k), `no ${k} in the ledger`);
     must(!kinds.includes('booking'), 'a booking was made');
     return `${s.ledger.length} entries`;
   });
