@@ -9,6 +9,10 @@ import { useCall } from '../call';
 import { Host, type HostHandle } from '../host';
 import { WaIcon } from '../ui';
 
+// The caller's own line, shown in the room chat (which may be on a stream): a PIN never shows, said as digits or words.
+const DIGIT = '(?:\\d|zero|oh|one|two|three|four|five|six|seven|eight|nine)';
+const maskPin = (t: string) => t.replace(new RegExp(`\\b${DIGIT}(?:[\\s,.-]*${DIGIT}){3,5}\\b`, 'gi'), (m) => (/[.]\d/.test(m) ? m : '••••'));
+
 export const Route = createFileRoute('/room/$account')({
   head: ({ params }) => ({ meta: [{ title: `${params.account} live · Ringfence` }, { name: 'description', content: `Send ${params.account} real NEAR gifts by phone call, grab money packets live, and watch the AI host thank you.` }, { property: 'og:title', content: `${params.account} is live on Ringfence` }, { property: 'og:description', content: 'Gift real NEAR by phone call. Grab the money packet. On NEAR mainnet.' }] }),
   component: Room,
@@ -129,10 +133,12 @@ function Room() {
     // Gifts from the last hour only; older ones stay in the total and top gifters.
     ...feed.filter((g) => Date.now() - g.at < 3_600_000).map((g) => ({ kind: 'gift' as const, at: g.at, from: g.from, near: g.near, landing: !!g.landsAt, text: '', n: 1 })),
     ...chats.map((c) => ({ kind: 'chat' as const, at: c.at, from: c.name, near: 0, landing: false, text: c.text, n: 1 })),
-    ...call.lines.map((l, i) => ({ l, i })).filter(({ l }) => l.who === 'agent').map(({ l, i }) => ({ kind: 'agent' as const, at: seenAt(i), from: 'Ringfence', near: 0, landing: false, text: l.text, n: 1 })),
+    ...call.lines.map((l, i) => ({ l, i })).filter(({ l }) => l.who === 'agent' || l.who === 'caller').map(({ l, i }) => l.who === 'agent'
+      ? { kind: 'agent' as const, at: seenAt(i), from: 'Ringfence', near: 0, landing: false, text: l.text, n: 1 }
+      : { kind: 'you' as const, at: seenAt(i), from: 'You', near: 0, landing: false, text: maskPin(l.text), n: 1 }),
   ].sort((a, b) => a.at - b.at)
     // The same gift from the same sender, back to back: one line with ×N, like a live-stream combo.
-    .reduce<{ kind: 'gift' | 'chat' | 'agent'; at: number; from: string; near: number; landing: boolean; text: string; n: number }[]>((out, m) => {
+    .reduce<{ kind: 'gift' | 'chat' | 'agent' | 'you'; at: number; from: string; near: number; landing: boolean; text: string; n: number }[]>((out, m) => {
       const last = out[out.length - 1];
       if (m.kind === 'gift' && last?.kind === 'gift' && last.from === m.from && last.near === m.near && !m.landing && !last.landing) { last.n += 1; last.at = m.at; } else out.push({ ...m });
       return out;
@@ -188,7 +194,7 @@ function Room() {
             {idleNote && <p className="lr-sys">{idleNote}</p>}
             {stream.map((m, i) => m.kind === 'gift'
               ? <p key={i} className="lr-msg"><span className="lv">{Math.min(99, Math.ceil(m.near * 100))}</span><b>{m.from}:</b> sent {iconOf(m.near)} {m.near} NEAR{m.n > 1 ? <em className="lr-combo"> ×{m.n}</em> : null}{m.landing ? ' (landing)' : ''}</p>
-              : <p key={i} className={`lr-msg ${m.kind}`}><span className="lv">{m.kind === 'agent' ? 'AI' : '1'}</span><b>{m.from}:</b> {m.text}</p>)}
+              : <p key={i} className={`lr-msg ${m.kind}`}><span className="lv">{m.kind === 'agent' ? 'AI' : m.kind === 'you' ? 'You' : '1'}</span><b>{m.from}:</b> {m.text}</p>)}
           {(call.link || call.approval || call.choices.length > 0) && (
               <div className="lr-cards">
                 {call.approval && (

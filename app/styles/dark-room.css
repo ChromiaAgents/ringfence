@@ -999,3 +999,7 @@ html:has(.ov) { color-scheme: normal !important; }
 .host-splash i { display: block; width: 140px; height: 3px; background: #00ec97; transform-origin: left; transition: transform .2s; }
 @keyframes hs-pulse { 50% { opacity: .45; transform: scale(.92); } }
 @media (prefers-reduced-motion: reduce) { .host-splash img { animation: none; } }
+
+.lr-msg.you { margin-left: auto; background: rgba(0,236,151,.16); }
+.lr-msg.you .lv { background: #3b3733; color: #f4f3f1; }
+.lr-msg.you b { color: #d9d2c6; }
