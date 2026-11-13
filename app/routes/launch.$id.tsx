@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useRef, useState } from 'react';
 import walletCss from '../styles/wallet-modal.css?url';
-import { Makers, SiteFooter, Wordmark, TopBar } from '../ui';
+import { Makers, SiteFooter, Wordmark, TopBar, seo } from '../ui';
 
 type Launch = {
   id: string; network: 'mainnet' | 'testnet'; contract: string; tokenId: string | null; tokenUrl: string | null; status: 'prepared' | 'signed' | 'live' | 'failed';
@@ -23,7 +23,7 @@ const getLaunch = createServerFn({ method: 'GET' }).validator((id: string) => id
 export const Route = createFileRoute('/launch/$id')({
   loader: ({ params }) => getLaunch({ data: params.id }),
   head: ({ loaderData }) => ({
-    meta: [{ title: loaderData ? `Launch $${loaderData.params.symbol} · Ringfence` : 'Launch · Ringfence' }],
+    meta: seo({ title: loaderData ? `${loaderData.params.name} ($${loaderData.params.symbol}), launched by voice` : 'Launch a coin by voice · Ringfence', description: loaderData ? `${loaderData.params.name} ($${loaderData.params.symbol}) on JustHoot, set up on a Ringfence phone call and signed in the caller's own NEAR wallet. Trades on RHEA once signed.` : 'Name, ticker and logo by voice; you sign it in your own NEAR wallet on JustHoot.', path: loaderData ? `/launch/${loaderData.id}` : '/', image: 'launch' }),
     links: [{ rel: 'stylesheet', href: walletCss }],
   }),
   component: LaunchPage,

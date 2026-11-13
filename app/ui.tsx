@@ -1,5 +1,5 @@
 // Small pieces shared by the screens.
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 export const Phone = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -137,4 +137,38 @@ export function TopBar({ children, onTry }: { children?: ReactNode; onTry?: (e: 
       <a className="btn" href={onTry ? '#call' : '/#call'} onClick={onTry}>Try a call</a>
     </nav>
   );
+}
+
+/** A number that rolls to its new value (ease-out, 0.8 s) instead of jumping; counts up from 0 on first show.
+ *  Respects reduced motion. ponytail: rAF tween, no library. */
+export function Num({ value, digits = 4 }: { value: number | null; digits?: number }) {
+  const [shown, setShown] = useState(0);
+  const from = useRef(0);
+  useEffect(() => {
+    if (value == null) return;
+    if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) { setShown(value); from.current = value; return; }
+    const a = from.current, t0 = performance.now();
+    let raf = 0;
+    const step = (t: number) => { const k = Math.min(1, (t - t0) / 800), v = a + (value - a) * (1 - (1 - k) ** 3); setShown(v); from.current = v; if (k < 1) raf = requestAnimationFrame(step); };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  if (value == null) return <>n/a</>;
+  const d = Math.min(digits, (String(value).split('.')[1] ?? '').length); // whole numbers roll as whole numbers
+  return <>{shown.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })}</>;
+}
+
+const SITE = 'https://ringfence.evalengine.ai';
+/** Server-rendered share card for one page: title, description, and its own 1200x630 image (public/og/<image>.png). */
+export function seo(p: { title: string; description: string; path: string; image?: string; alt?: string }) {
+  const img = `${SITE}/og/${p.image ?? 'home'}.png`;
+  return [
+    { title: p.title }, { name: 'description', content: p.description },
+    { property: 'og:title', content: p.title }, { property: 'og:description', content: p.description },
+    { property: 'og:url', content: SITE + p.path }, { property: 'og:image', content: img },
+    { property: 'og:image:width', content: '1200' }, { property: 'og:image:height', content: '630' },
+    { property: 'og:image:alt', content: p.alt ?? p.title },
+    { name: 'twitter:card', content: 'summary_large_image' }, { name: 'twitter:title', content: p.title },
+    { name: 'twitter:description', content: p.description }, { name: 'twitter:image', content: img },
+  ];
 }

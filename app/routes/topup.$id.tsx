@@ -2,10 +2,10 @@
 // deposit address to send to. The funds go from the caller's wallet straight to NEAR Intents, never through us.
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { SiteFooter, TopBar } from '../ui';
+import { SiteFooter, TopBar, seo } from '../ui';
 
 export const Route = createFileRoute('/topup/$id')({
-  head: () => ({ meta: [{ title: 'Top up · Ringfence' }] }),
+  head: () => ({ meta: seo({ title: 'Top up from any chain · Ringfence', description: 'Send USDT, USDC, SOL, ETH or BTC from any chain; NEAR Intents swaps it into your phone wallet as USDC.', path: '/', image: 'topup' }) }),
   component: Topup,
 });
 

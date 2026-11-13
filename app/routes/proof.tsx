@@ -1,12 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { AttRow, Makers, ROLE, SiteFooter, Wordmark, type Att, TopBar } from '../ui';
+import { AttRow, Makers, ROLE, SiteFooter, Wordmark, type Att, TopBar, seo } from '../ui';
 
 const passed = (a: Att) => !('error' in a) && a.intel.verified && a.quoteBindsKey && a.gpu.verified;
 
 // Public: anyone can see which TEE each model runs in and what this server checked. No call data here.
 export const Route = createFileRoute('/proof')({
-  head: () => ({ meta: [{ title: 'Proof the AI runs privately · Ringfence' }] }),
+  head: () => ({ meta: seo({ title: 'Proof the AI runs privately · Ringfence', description: 'The chat, speech-to-text and logo models run in NEAR AI Cloud TEEs. This page re-checks their Intel TDX and NVIDIA attestation live, with a fresh nonce.', path: '/proof', image: 'proof' }) }),
   component: Proof,
 });
 

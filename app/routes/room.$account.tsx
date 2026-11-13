@@ -7,14 +7,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useCall } from '../call';
 
 import { Host, type HostHandle } from '../host';
-import { WaIcon } from '../ui';
+import { WaIcon, seo } from '../ui';
 
 // The caller's own line, shown in the room chat (which may be on a stream): a PIN never shows, said as digits or words.
 const DIGIT = '(?:\\d|zero|oh|one|two|three|four|five|six|seven|eight|nine)';
 const maskPin = (t: string) => t.replace(new RegExp(`\\b${DIGIT}(?:[\\s,.-]*${DIGIT}){3,5}\\b`, 'gi'), (m) => (/[.]\d/.test(m) ? m : '••••'));
 
 export const Route = createFileRoute('/room/$account')({
-  head: ({ params }) => ({ meta: [{ title: `${params.account} live · Ringfence` }, { name: 'description', content: `Send ${params.account} real NEAR gifts by phone call, grab money packets live, and watch the AI host thank you.` }, { property: 'og:title', content: `${params.account} is live on Ringfence` }, { property: 'og:description', content: 'Gift real NEAR by phone call. Grab the money packet. On NEAR mainnet.' }] }),
+  head: ({ params }) => ({ meta: seo({ title: `${params.account} is live on Ringfence`, description: `Gift ${params.account} real NEAR by phone call, grab a share of the money packet by saying the words, and hear the AI host thank you. On NEAR mainnet.`, path: `/room/${params.account}`, image: 'room' }) }),
   component: Room,
 });
 

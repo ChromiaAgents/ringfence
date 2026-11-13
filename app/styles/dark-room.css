@@ -1003,3 +1003,10 @@ html:has(.ov) { color-scheme: normal !important; }
 .lr-msg.you { margin-left: auto; background: rgba(0,70,48,.82); color: #fff; box-shadow: inset 0 0 0 1px rgba(0,236,151,.5); }
 .lr-msg.you .lv { background: #3b3733; color: #f4f3f1; }
 .lr-msg.you b { color: #d9d2c6; }
+
+/* /wallets: the tile is a link; numbers fit their column and roll when they change */
+.wl-tile { display: block; color: inherit; text-decoration: none; transition: background .15s; }
+.wl-tile:hover { background: #221e1a; } .wl-tile:hover .wl-acct { color: var(--accent); }
+.wl-big { font-size: clamp(32px, 3vw, 48px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 12px !important; }
+.wl-big small { font: 600 15px/1 var(--body, Geist, sans-serif); color: var(--muted); margin-left: 4px; }
+.wl-usdc { margin-top: 6px !important; font-weight: 600; font-variant-numeric: tabular-nums; }

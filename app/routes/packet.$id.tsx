@@ -4,7 +4,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useState } from 'react';
-import { Makers, SiteFooter, Wordmark, TopBar } from '../ui';
+import { Makers, SiteFooter, Wordmark, TopBar, seo } from '../ui';
 
 type Claim = { to: string; near: number; at: number; url: string | null; luckiest: boolean };
 type Packet = {
@@ -22,7 +22,7 @@ const getPacket = createServerFn({ method: 'GET' }).validator((id: string) => id
 
 export const Route = createFileRoute('/packet/$id')({
   loader: ({ params }) => getPacket({ data: params.id }),
-  head: ({ loaderData }) => ({ meta: [{ title: loaderData?.packet ? `A money packet from ${loaderData.packet.from} · Ringfence` : 'Money packet · Ringfence' }] }),
+  head: ({ loaderData, params }) => { const p = loaderData?.packet; return { meta: seo({ title: p ? `${p.from} sent you a money packet 🧧` : 'A money packet on NEAR · Ringfence', description: p ? `${p.near} NEAR shared ${p.lucky ? 'by luck' : 'equally'} between ${p.count}. Call and say the words to open your share, on NEAR mainnet.` : 'Say the words on a phone call to open your share of a real NEAR money packet.', path: `/packet/${params.id}`, image: 'packet' }) }; },
   component: PacketPage,
 });
 

@@ -4,14 +4,14 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
 import walletCss from '../styles/wallet-modal.css?url';
-import { Makers, SiteFooter, Wordmark, TopBar } from '../ui';
+import { Makers, SiteFooter, Wordmark, TopBar, seo } from '../ui';
 import { useNearWallet } from '../near-wallet';
 
 const getNet = createServerFn({ method: 'GET' }).handler(async () => ({ network: (await import('../../src/config.ts')).env.network }));
 
 export const Route = createFileRoute('/wallet/claim')({
   loader: () => getNet(),
-  head: () => ({ meta: [{ title: 'Claim your wallet · Ringfence' }], links: [{ rel: 'stylesheet', href: walletCss }] }),
+  head: () => ({ meta: seo({ title: 'Claim your phone wallet · Ringfence', description: 'Made a wallet by WhatsApp? Claim it with your own NEAR account and it is yours.', path: '/wallet/claim', image: 'bind' }), links: [{ rel: 'stylesheet', href: walletCss }] }),
   component: Claim,
 });
 

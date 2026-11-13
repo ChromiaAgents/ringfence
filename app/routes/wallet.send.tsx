@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useState } from 'react';
 import walletCss from '../styles/wallet-modal.css?url';
-import { Makers, SiteFooter, Wordmark, TopBar } from '../ui';
+import { Makers, SiteFooter, Wordmark, TopBar, seo } from '../ui';
 import { useNearWallet } from '../near-wallet';
 
 const getNet = createServerFn({ method: 'GET' }).handler(async () => ({ network: (await import('../../src/config.ts')).env.network }));
@@ -11,7 +11,7 @@ const getNet = createServerFn({ method: 'GET' }).handler(async () => ({ network:
 export const Route = createFileRoute('/wallet/send')({
   loader: () => getNet(),
   validateSearch: (s: Record<string, unknown>) => ({ to: String(s.to ?? ''), amount: String(s.amount ?? '') }),
-  head: () => ({ meta: [{ title: 'Sign a transfer · Ringfence' }], links: [{ rel: 'stylesheet', href: walletCss }] }),
+  head: () => ({ meta: seo({ title: 'Sign a transfer · Ringfence', description: 'Over the phone limit? Sign it yourself in your own NEAR wallet.', path: '/wallet/send', image: 'home' }), links: [{ rel: 'stylesheet', href: walletCss }] }),
   component: Send,
 });
 

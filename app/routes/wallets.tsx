@@ -3,7 +3,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useState } from 'react';
-import { SiteFooter, TopBar } from '../ui';
+import { Num, SiteFooter, TopBar, seo } from '../ui';
 
 type Data = { network: string; explorer: string; rows: Row[]; at: number };
 type Row = { role: string; account: string; near: number | null; usdc: number | null; note: string };
@@ -33,11 +33,9 @@ const getWallets = createServerFn({ method: 'GET' }).handler(async (): Promise<D
 
 export const Route = createFileRoute('/wallets')({
   loader: () => getWallets(),
-  head: () => ({ meta: [{ title: 'Wallets · Ringfence' }] }),
+  head: () => ({ meta: seo({ title: 'Ringfence wallets, live on NEAR', description: 'Every NEAR account behind Ringfence with its live balance: the demo phone wallet, the room host, the money packets contract and the AI agent key. Open any of them on NearBlocks.', path: '/wallets', image: 'wallets' }) }),
   component: Wallets,
 });
-
-const fmt = (x: number | null, d = 4) => (x == null ? 'n/a' : x.toLocaleString('en-US', { maximumFractionDigits: d }));
 
 function Wallets() {
   const [s, setS] = useState<Data>(Route.useLoaderData() as Data);
@@ -50,11 +48,11 @@ function Wallets() {
         <p className="st-lead">NEAR {s.network}. Balances read from the chain every 15 seconds. Tap an account to open it on NearBlocks.</p>
         <div className="st-grid">
           {s.rows.map((r) => (
-            <a className="st-tile" key={r.account} href={`${s.explorer}/address/${r.account}`} target="_blank" rel="noreferrer">
+            <a className="st-tile wl-tile" key={r.account} href={`${s.explorer}/address/${r.account}`} target="_blank" rel="noreferrer">
               <p className="st-label">{r.role}</p>
-              <p className="st-big">{fmt(r.near)} NEAR</p>
-              {r.usdc != null && <p className="st-label">{fmt(r.usdc, 2)} USDC</p>}
-              <p className="st-note" style={{ wordBreak: 'break-all' }}>{r.account} ↗</p>
+              <p className="st-big wl-big"><Num value={r.near} /><small> NEAR</small></p>
+              {r.usdc != null && <p className="wl-usdc"><Num value={r.usdc} digits={2} /> USDC</p>}
+              <p className="st-note wl-acct" style={{ wordBreak: 'break-all' }}>{r.account} ↗</p>
               <p className="st-note">{r.note}</p>
             </a>
           ))}

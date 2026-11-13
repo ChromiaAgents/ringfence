@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { useCall, type Desk } from '../call';
-import { CODE_URL, Makers, TopBar, Phone, SiteFooter, WaIcon, Wordmark } from '../ui';
+import { CODE_URL, Makers, TopBar, Phone, SiteFooter, WaIcon, Wordmark, seo } from '../ui';
 
 // What the page needs from the config, read on the server.
 const getInfo = createServerFn({ method: 'GET' }).handler(async () => {
@@ -17,7 +17,7 @@ const getInfo = createServerFn({ method: 'GET' }).handler(async () => {
 
 export const Route = createFileRoute('/')({
   loader: () => getInfo(),
-  head: () => ({ meta: [{ title: 'Ringfence: money packets by phone call, on NEAR' }, { name: 'description', content: 'Mum sends a money gift by phone call. You open it by saying the magic words. Money packets and payments on NEAR; a NEAR contract caps what the AI may spend.' }] }),
+  head: () => ({ meta: seo({ title: 'Ringfence: a phone call is the wallet, on NEAR', description: 'Pay, send money packets, top up from any chain and launch a coin, all by phone call. A NEAR contract caps what the AI can spend. Built at NEAR HACKATHON 2026.', path: '/', image: 'home' }) }),
   component: Landing,
 });
 

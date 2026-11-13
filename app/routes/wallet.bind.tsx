@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { useEffect, useState } from 'react';
 import walletCss from '../styles/wallet-modal.css?url';
-import { Makers, SiteFooter, Wordmark, TopBar } from '../ui';
+import { Makers, SiteFooter, Wordmark, TopBar, seo } from '../ui';
 import { useNearWallet } from '../near-wallet';
 
 const getCfg = createServerFn({ method: 'GET' }).handler(async () => {
@@ -13,7 +13,7 @@ const getCfg = createServerFn({ method: 'GET' }).handler(async () => {
 
 export const Route = createFileRoute('/wallet/bind')({
   loader: () => getCfg(),
-  head: () => ({ meta: [{ title: 'Bind your wallet · Ringfence' }], links: [{ rel: 'stylesheet', href: walletCss }] }),
+  head: () => ({ meta: seo({ title: 'Bind your number to a NEAR wallet · Ringfence', description: 'Own your phone wallet: link your number to your NEAR account and set the limits the AI must stay inside.', path: '/wallet/bind', image: 'bind' }), links: [{ rel: 'stylesheet', href: walletCss }] }),
   component: Bind,
 });
 

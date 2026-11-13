@@ -2,10 +2,10 @@
 // A visitor (a judge) leaves their WhatsApp number; the owner adds it in the Meta dashboard and they can call.
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
-import { Makers, SiteFooter, WaIcon, Wordmark, TopBar } from '../ui';
+import { Makers, SiteFooter, WaIcon, Wordmark, TopBar, seo } from '../ui';
 
 export const Route = createFileRoute('/whatsapp')({
-  head: () => ({ meta: [{ title: 'Try it on WhatsApp · Ringfence' }] }),
+  head: () => ({ meta: seo({ title: 'Call Ringfence on WhatsApp', description: 'Call the number and say what you want: send NEAR, make a money packet, top up or launch a coin. A NEAR contract caps what the AI can spend.', path: '/whatsapp', image: 'whatsapp' }) }),
   component: WhatsApp,
 });
 
