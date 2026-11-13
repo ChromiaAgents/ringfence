@@ -436,7 +436,7 @@ What the tests do not show:
 - Storage is one JSON file.
 - NEAR Intents top up: one real swap so far (row 16). The caller pastes a refund address on the top-up page and sends from their own wallet; the server never holds funds.
 - A DAO-owned wallet must be set up through the API or `npm run dao:wallet`; the bind page only takes a connected wallet as owner. Whether 200 Tgas is enough for `create_wallet` through a proposal is untested on chain.
-- Coin launches on JustHoot are a side feature, not the main demo. "Launch a coin about a sleepy otter, ticker ZZOTR" prepares a `launch_meme` call that you sign in your own wallet. Tickers and names that impersonate an asset, a brand or a trending coin are refused in code. $FENCE (`fence.v2-launchpad.justhoot.near`) exists on mainnet; the launch is signed in the launcher's own wallet, never by Ringfence. Code: `src/desks/launch.ts`, `src/justhoot.ts`.
+- Coin launches on JustHoot are a side feature, not the main demo. "Launch a coin about a sleepy otter, ticker ZZOTR" prepares a `launch_meme` call that you sign in your own wallet. Any meme name or ticker works, like pump.fun; only length and characters are checked. $FENCE (`fence.v2-launchpad.justhoot.near`) exists on mainnet; the launch is signed in the launcher's own wallet, never by Ringfence. Code: `src/desks/launch.ts`, `src/justhoot.ts`.
 
 ## Next, not built
 

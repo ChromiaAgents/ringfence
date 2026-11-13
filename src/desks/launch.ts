@@ -1,6 +1,5 @@
 // The launch desk: a caller describes a memecoin, the desk prepares a JustHoot launch (NEAR mainnet) the caller
 // signs with their own wallet. Every rule in launchpad.yaml is enforced here, in code, before anything is prepared.
-import { trendingTickers } from './market.ts';
 import { launchpad, env, type Launchpad } from '../config.ts';
 import { db, save, id, log, type Call } from '../store.ts';
 import { view, type LaunchParams } from '../near.ts';
@@ -23,18 +22,13 @@ export function checkTicker(raw: string, lp: Launchpad = launchpad()): Verdict &
   const t = String(raw ?? '').replace(/^\$/, '').trim().toUpperCase();
   const { ticker_min: min, ticker_max: max } = lp.rules;
   if (!new RegExp(`^[A-Z0-9]{${min},${max}}$`).test(t)) return no(`Tickers are ${min} to ${max} letters or digits, A to Z and 0 to 9 only.`);
-  if (lp.blocked_tickers.map((x) => x.toUpperCase()).includes(t)) return no(`${t} is the ticker of an existing asset; launching it would look like impersonation.`);
-  if (trendingTickers.has(t)) return no(`${t} is the ticker of a coin trending right now; launching it would look like impersonation.`);
-  const brand = lp.blocked_names.map((n) => n.replace(/\s/g, '').toUpperCase()).find((n) => n === t || (n.length >= 4 && t.includes(n)));
-  if (brand) return no(`${t} is a brand or a real person's name; the desk won't launch it.`);
+  // Any meme name or ticker, like pump.fun: the launcher signs it in their own wallet, and the launchpad's own rules apply.
   return { ok: true, ticker: t };
 }
 
 export function checkName(name: string, lp: Launchpad = launchpad()): Verdict {
   const n = String(name ?? '').trim();
   if (n.length < 2 || n.length > lp.rules.name_max) return no(`Names are 2 to ${lp.rules.name_max} characters.`);
-  const hit = lp.blocked_names.find((b) => ` ${norm(n)} `.includes(` ${norm(b)} `));
-  if (hit) return no(`The name uses "${hit}", a brand or a real person. The desk won't launch coins that impersonate them.`);
   return { ok: true };
 }
 

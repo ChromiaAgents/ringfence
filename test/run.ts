@@ -44,7 +44,6 @@ await t('justhoot args + ticker rule', async () => {
   assert.equal(checkTicker('Z', lp).ok, true);
   assert.equal(checkTicker('TENLETTERS', lp).ok, true);
   assert.equal(checkTicker('ELEVENCHARS', lp).ok, false);
-  assert.equal(checkTicker('NEAR', lp).ok, false); // blocked tickers still apply
 });
 await t('justhoot: no auction, and prepare_launch builds launch_meme from the views', async () => {
   const { startCall } = await import('../src/agent.ts');
@@ -92,8 +91,8 @@ await t('ticker format', () => {
   assert.equal(checkTicker('TOOLONGTICK', lp).ok, false);
   assert.equal(checkTicker('ab-c', lp).ok, false);
 });
-await t('ticker impersonation', () => {
-  for (const x of ['NEAR', 'usdc', '$BTC', 'PEPE', 'TRUMP', 'ELONCAT', 'TESLA']) assert.equal(checkTicker(x, lp).ok, false, x);
+await t('any meme ticker is allowed, like pump.fun', () => {
+  for (const x of ['TRUMP', '$PEPE', 'ELONCAT']) assert.equal(checkTicker(x, lp).ok, true, x);
 });
 await t('website demo wallet: browser calls use it, Approve card on the page, no shared lockout or freeze', async () => {
   const { env } = await import('../src/config.ts');
@@ -330,23 +329,18 @@ await t('usdc: read back, tiers, fallback limit, approval card unit', async () =
   assert.match(((await walletDesk.run(c, 'prepare_transfer', { to: 'grocer.testnet', amount: '100', asset: 'usdc' })) as any).reason, /25 USDC per-transfer/);
   assert.match(((await walletDesk.run(c, 'prepare_transfer', { to: 'grocer.testnet', amount: '1.1234567', asset: 'usdc' })) as any).reason, /6 decimals/);
 });
-await t('market: a ticker trending right now is refused like a blocked one; live tools never move money', async () => {
-  const { trendingTickers, marketDesk } = await import('../src/desks/market.ts');
-  assert.equal(checkTicker('ZZPNG', lp).ok, true);
-  trendingTickers.add('ZZPNG');
-  assert.match((checkTicker('zzpng', lp) as any).reason, /trending right now/);
-  trendingTickers.delete('ZZPNG');
+await t('market: live tools never move money', async () => {
+  const { marketDesk } = await import('../src/desks/market.ts');
   const names = marketDesk.tools.map((x: any) => x.function.name).sort();
   assert.deepEqual(names, ['check_account', 'get_price', 'get_trends', 'web_search']);
   assert.match(JSON.stringify(await marketDesk.run({} as any, 'check_account', { account: 'not an account!' })), /does not look like/);
   assert.equal((await marketDesk.run({} as any, 'web_search', { question: '  ' }) as any).ok, false, 'empty search refused');
   assert.match(JSON.stringify(await marketDesk.run({} as any, 'get_price', { currency: 'xyz' })), /I can quote NEAR in/);
 });
-await t('name impersonation', () => {
-  assert.equal(checkName('Elon Musk Inu', lp).ok, false);
-  assert.equal(checkName('Bitcoin Cat', lp).ok, false);
+await t('any meme name is allowed', () => {
+  assert.equal(checkName('Trump Coin', lp).ok, true);
   assert.equal(checkName('Sleepy Otter', lp).ok, true);
-  assert.equal(checkName('Metaphor', lp).ok, true); // "meta" only blocks as a whole word
+  assert.equal(checkName('x', lp).ok, false); // length only
 });
 await t('no promised returns', () => {
   assert.ok(filterClaims('This will 100x for sure', lp).hit);
