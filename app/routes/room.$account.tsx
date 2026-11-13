@@ -158,7 +158,7 @@ function Room() {
           <div className="lr-top">
             <div className="lr-anchor">
               <span className="lr-ava">{account[0]?.toUpperCase()}</span>
-              <div><b>{account.replace(/\.near$/, '')}</b><small>{total} NEAR gifted today</small></div>
+              <div><b>{account.replace(/\.near$/, '')}</b><small style={{ whiteSpace: 'nowrap' }}>{total} NEAR gifted</small></div>
               <button type="button" className={`lr-follow ${follow ? 'on' : ''}`} onClick={() => setFollow((f) => !f)}>{follow ? 'Following' : 'Follow'}</button>
             </div>
             <div className="lr-right">
@@ -211,7 +211,7 @@ function Room() {
             if (call.live) call.say(t); // on a call, typing talks to the agent
             else { // off a call: post to the room chat, then start a call so she answers it
               fetch(`/api/stream/${encodeURIComponent(account)}/chat`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'viewer', text: t }) }).catch(() => {});
-              host.current?.unlock(); liveRef.current = true; host.current?.stop(); queued.current = t; call.start();
+              host.current?.unlock(); liveRef.current = true; host.current?.stop(); queued.current = t; call.start(false); // typed: no mic prompt
             }
             setChatText('');
           }}>

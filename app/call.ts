@@ -45,12 +45,12 @@ export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string, payTo
     setState('Call ended');
   }
 
-  async function start() {
+  async function start(mic = true) {
     setLines([]); setLink(null); setChoices([]); setDesk(deskPick === 'auto' ? null : deskPick); setLive(true); setState('Connecting…');
     const s = r.current;
     s.ctx = new AudioContext({ sampleRate: 16000 });
     // Mic is optional: without it (or if refused) the call continues with typed lines.
-    try {
+    if (mic) try {
       s.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       const src = s.ctx.createMediaStreamSource(s.stream);
       const proc = s.ctx.createScriptProcessor(1024, 1, 1); // ~64 ms frames
@@ -165,5 +165,5 @@ export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string, payTo
 
   // On unmount only release the mic and socket (no state updates).
   useEffect(() => () => { const s = r.current; s.ws?.close(); s.stream?.getTracks().forEach((t) => t.stop()); s.ctx?.close().catch(() => {}); }, []);
-  return { lines, state, live, link, choices, desk, approval, tap, sendPhoto, start: () => start().catch((e) => { add('tool', e.message); stop(); }), stop, say };
+  return { lines, state, live, link, choices, desk, approval, tap, sendPhoto, start: (mic?: boolean) => start(mic).catch((e) => { add('tool', e.message); stop(); }), stop, say };
 }
