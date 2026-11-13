@@ -1085,6 +1085,9 @@ await t('speech glossary: misheard crypto names from the ASR eval come out right
   assert.equal(pickToken(list as any, 'pizza'), null);
   assert.equal(suggestToken(list as any, 'SHUB'), 'SHIB');
 });
+await t('noise is not a turn: "♪ ♪" and "..." are ignored; words are not', async () => {
+  assert.equal(isFiller('♪ ♪'), true); assert.equal(isFiller('...'), true); assert.equal(isFiller('hi'), false); assert.equal(isFiller('你好'), false);
+});
 await t('NEAR misheard before a crypto noun: "latest NIA news", "Nier price"; plain words stay', async () => {
   const { correct } = await import('../src/terms.ts');
   assert.match(correct('What is the latest NIA news?'), /NEAR news/);

@@ -124,7 +124,8 @@ export const isGoodbye = (t: string) => {
   return s.split(/\s+/).length <= 16 && /\b(bye|goodbye|bye bye|see you|see ya|that's all|that is all|i'm done|im done|hang up|close the call|end the call|end call|stop (it )?here|(get|come) back to you( later)?|call (you )?(back )?later|talk (to you )?later|catch you later)\b/.test(s) && !/\b(send|pay|transfer|packet|top up|launch)\b/.test(s);
 };
 
-export const isFiller = (t: string) => /^[\s,.!?…-]*((u+h*m+|u+h+|h+m+|e+r+m*|a+h+|o+h+|mm+)[\s,.!?…-]*)+$/i.test(t);
+// No letter or digit at all ("♪ ♪", "..."): speech-to-text heard music or noise, not a person.
+export const isFiller = (t: string) => !/[\p{L}\p{N}]/u.test(t) || /^[\s,.!?…-]*((u+h*m+|u+h+|h+m+|e+r+m*|a+h+|o+h+|mm+)[\s,.!?…-]*)+$/i.test(t);
 
 /** Something the channel did on its own (e.g. a link text WhatsApp refused, and the code it read out instead): the model
  *  must know, or it denies it later. Goes into both the transcript and the model's history. */
