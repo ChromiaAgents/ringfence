@@ -145,20 +145,28 @@ export type ChatOpts = { onText?: (delta: string) => void; signal?: AbortSignal;
  *  yet, so the same request is safe to make once more. A caller hanging up (abort) is not retried. */
 async function again(signal: AbortSignal | undefined, f: () => Promise<Response>): Promise<Response> {
   try { return await f(); } catch (e: any) {
-    if (signal?.aborted || e?.name === 'AbortError') throw e;
+    if (signal?.aborted || e?.name === 'AbortError' || e?.name === 'TimeoutError') throw e;
     await new Promise((ok) => setTimeout(ok, 200));
     return f();
   }
 }
 
+/** Headers must arrive within `ms`, else TimeoutError (withAiKey then tries the fallback). The body stream is not timed. */
+async function within(ms: number, signal: AbortSignal | undefined, f: (s: AbortSignal) => Promise<Response>): Promise<Response> {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(new DOMException('no answer in time', 'TimeoutError')), ms);
+  try { return await f(signal ? AbortSignal.any([signal, c.signal]) : c.signal); } finally { clearTimeout(t); }
+}
+const FIRST_BYTE_MS = 6000; // ponytail: a phone caller won't wait longer; the fallback usually answers in <1 s
+
 export async function chat(messages: Msg[], tools: unknown[], model = env.llmModel, o: ChatOpts = {}): Promise<{ msg: Extract<Msg, { role: 'assistant' }>; proof: Proof }> {
   if (env.mockLlm) return mockChat(messages, tools, o);
-  const pre = await attest(model).catch(() => null);
+  const pre = attest(model).catch(() => null); // only the later signature check needs it: never hold the reply for it
   const body = JSON.stringify({
     model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}), temperature: 0.3, max_tokens: o.maxTokens ?? 400,
     stream: true, chat_template_kwargs: { enable_thinking: false }, // Qwen3: no reasoning pass on a phone call
   });
-  const { r, slot } = await withAiKey((key, base) => again(o.signal, () => fetch(`${base}/chat/completions`, {
+  const { r, slot } = await withAiKey((key, base) => again(o.signal, () => within(base === baseOf(0) && env.nearAiKeyFallback ? FIRST_BYTE_MS : 120_000, o.signal, (signal) => fetch(`${base}/chat/completions`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${key}`,
@@ -168,8 +176,8 @@ export async function chat(messages: Msg[], tools: unknown[], model = env.llmMod
       accept: 'text/event-stream',
     },
     body,
-    signal: o.signal,
-  })));
+    signal,
+  }))));
   if (!r.ok || !r.body) throw new Error(`chat ${r.status}: ${(await r.text()).slice(0, 300)}`);
   const hash = createHash('sha256');
   const dec = new TextDecoder();
@@ -202,7 +210,7 @@ export async function chat(messages: Msg[], tools: unknown[], model = env.llmMod
   if (pending.trim().startsWith('data:')) onEvent(pending.trim().slice(5).trim());
   const proof: Proof = { chatId: id, model, requestHash: sha256(body), responseHash: hash.digest('hex'), status: 'pending', slot };
   // The signature is recorded a moment after the reply; check it in the background.
-  verifyLater(proof, pre).catch(() => (proof.status = 'unverified'));
+  pre.then((a) => verifyLater(proof, a)).catch(() => (proof.status = 'unverified'));
   const tool_calls = calls.filter(Boolean);
   return { msg: { role: 'assistant', content: content || null, ...(tool_calls.length ? { tool_calls } : {}) }, proof };
 }
