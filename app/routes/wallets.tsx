@@ -15,6 +15,7 @@ const getWallets = createServerFn({ method: 'GET' }).handler(async (): Promise<D
   const demo = env.demoPhone ? bindingOf(env.demoPhone) : undefined;
   const list: Omit<Row, 'near' | 'usdc'>[] = [
     demo?.contract && { role: 'Demo wallet', account: demo.contract, note: 'The shared phone wallet the site and room use (PIN 4821). Its contract holds the limits.' },
+    { role: 'Named phone wallet', account: 'liho.ringfence-wallet.near', note: 'A phone wallet with a readable name, used on the WhatsApp line.' },
     { role: 'Room host', account: 'liho00.near', note: 'Gifts in /room/liho00.near land here.' },
     env.packetsAccountId && { role: 'Money packets contract', account: env.packetsAccountId, note: 'Holds the NEAR locked in open packets.' },
     env.agentAccountId && { role: 'AI agent key', account: env.agentAccountId, note: 'Can only ask a wallet contract to send; pays gas.' },
@@ -24,7 +25,7 @@ const getWallets = createServerFn({ method: 'GET' }).handler(async (): Promise<D
   const rows = await Promise.all(list.map(async (r) => {
     const near = await rpc('query', { request_type: 'view_account', finality: 'final', account_id: r.account })
       .then((a: any) => yoctoToNear(a.amount)).catch(() => null);
-    const usdc = r.role === 'Demo wallet' ? await ftBalance(env.usdcToken, r.account).then((x) => Number(x) / 1e6).catch(() => null) : null;
+    const usdc = /wallet\.near$/.test(r.account) && r.role.includes('wallet') ? await ftBalance(env.usdcToken, r.account).then((x) => Number(x) / 1e6).catch(() => null) : null;
     return { ...r, near, usdc };
   }));
   return { network: env.network, explorer: net(env.network).explorer('').replace(/\/txns\/$/, ''), rows, at: Date.now() };
