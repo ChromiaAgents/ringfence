@@ -53,14 +53,14 @@ Partial things, said plainly: the contracts are unaudited; the browser demo uses
 - **Coin launch on JustHoot.** Say "launch a coin about a sleepy otter, ticker ZZOTR". The agent prepares a `launch_meme` call and you sign it in your own NEAR wallet.
 - **Live room and OBS overlay.** Viewers gift real NEAR by phone call, an AI host thanks each gift aloud, and streamers add `/stream/<account>` to OBS.
 - **Private AI with proof.** The models run in NEAR AI Cloud TEEs; the server checks the Intel TDX and NVIDIA attestation, shown on [/proof](https://ringfence.evalengine.ai/proof).
-- **NEARON.** AI calls can run on a NEARON key, so staking rewards pay for the AI, with NEAR AI Cloud as fallback.
+- **NEARON.** AI calls run on NEAR AI Cloud production, with a NEARON key (staking rewards pay for the AI) as the fallback.
 
 ## Built with
 
 | | Partner | What it does in Ringfence |
 |---|---|---|
 | <img src="public/brand/justhoot.png" width="28" alt="JustHoot"> | [JustHoot](https://justhoot.fun) | Coin launches by voice: the agent prepares the `launch_meme` call, you sign it; it trades on RHEA at once ($FENCE, $JENSEN) |
-| <img src="public/brand/nearon.svg" width="28" alt="NEARON"> | [NEARON](https://nearon.dev) | Stake NEAR, earn AI credit: Ringfence's AI calls can run on a NEARON key (staking rewards pay for the AI), with NEAR AI Cloud production as fallback |
+| <img src="public/brand/nearon.svg" width="28" alt="NEARON"> | [NEARON](https://nearon.dev) | Stake NEAR, earn AI credit: Ringfence's AI calls fall back to a NEARON key (staking rewards pay for the AI) when NEAR AI Cloud production is slow or down |
 | <img src="public/brand/near-mark-light.svg" width="28" alt="NEAR"> | [NEAR AI Cloud](https://cloud.near.ai) | Chat, speech-to-text and logo models in TEEs, attested live on [/proof](https://ringfence.evalengine.ai/proof) |
 | | [NEAR Intents](https://near-intents.org) | Top up from any chain (1Click): row 16 |
 
