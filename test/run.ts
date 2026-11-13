@@ -54,7 +54,7 @@ await t('justhoot: no auction, and prepare_launch builds launch_meme from the vi
   const call = startCall('whatsapp', '15550000002').call;
   call.turns.push({ at: Date.now(), who: 'caller', text: 'an owl coin' });
   for (const n of ['set_launchpad', 'set_auction', 'set_team_allocation']) assert.ok(!launchDesk.tools.some((x: any) => x.function.name === n), n);
-  assert.equal(((await launchDesk.run(call, 'set_coin', { name: 'Elon Hoot', ticker: 'HOOT' })) as any).ok, false);
+  assert.equal(((await launchDesk.run(call, 'set_coin', { name: 'Elon Hoot', ticker: 'HOOT' })) as any).ok, true); // any meme name
   assert.equal(((await launchDesk.run(call, 'set_coin', { name: 'Night Owl', ticker: 'HOOTHOOT1', description: 'owl' })) as any).ok, true);
   const { draftOf } = await import('../src/desks/launch.ts');
   Object.assign(draftOf(call.id), { icon: (await drawLogo('HOOT')).icon });
