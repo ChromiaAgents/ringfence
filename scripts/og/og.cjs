@@ -13,10 +13,6 @@ const CARDS = {
   topup: ['NEAR Intents', 'Top up from any chain, by asking.', '1 USDT on Solana became 0.9996 USDC in a phone wallet. USDT, USDC, SOL, ETH, BTC.', 'demo/topup.jpg'],
   launch: ['JustHoot', 'Launch a coin by voice.', 'Name, ticker and logo on the call. You sign it in your own NEAR wallet; it trades on RHEA at once.', 'demo/launch.jpg'],
   proof: ['Private AI', 'Checked live, in a TEE.', 'Chat, speech-to-text and logo models on NEAR AI Cloud. Intel TDX and NVIDIA attestation, fresh nonce.', 'demo/proof.jpg'],
-  wallets: ['Live balances', 'Every wallet, in the open.', 'The demo phone wallet, the room host, the packets contract and the AI key, read from NEAR every 15 s.', null,
-    ['Demo phone wallet', 'Room host', 'Packets contract', 'AI agent key', 'Wallet factory', 'Custody']],
-  stats: ['The line, in numbers', 'Every call. Every no.', 'Calls answered, packets opened by voice, sends on mainnet and every time the contract refused.', null,
-    ['Calls answered', 'Packets opened', 'Sends on mainnet', 'No: over a limit', 'No: wrong PIN', 'No: wrong words']],
   whatsapp: ['WhatsApp', 'Call her on WhatsApp.', 'Say what you want: send NEAR, a money packet, a top up or a coin. The contract keeps the AI inside its limits.', 'demo/room.jpg'],
   bind: ['Own it', 'Your number, your NEAR wallet.', 'Link your phone number to your own NEAR account and set the limits the AI must stay inside.', null,
     ['Per-send limit', 'Per-day limit', 'Saved recipients', '60 s hold', 'Freeze', 'Revoke the AI']],
@@ -61,5 +57,51 @@ p { margin-top: 26px; font-size: 28px; line-height: 1.35; color: #b8b2a8; max-wi
     await p.screenshot({ path: path.join(root, 'public/og', `${slug}.png`) });
     console.log('og/' + slug + '.png');
   }
+  await b.close();
+})();
+
+// ---- Live cards: the server fills in today's numbers (src/og.ts). Here: a base image with empty number slots, the
+// slot positions, and one image per digit in Battlefin, so the server needs no fonts.
+const LIVE = {
+  stats: ['The line, in numbers', 'Every call, counted.', 'Live from NEAR mainnet: calls answered, packets opened by voice, sends, and every time the contract refused.',
+    ['calls answered', 'packet shares opened', 'sends on NEAR', 'times the answer was no']],
+  wallets: ['Live balances', 'Every wallet, in the open.', 'Read from NEAR mainnet. Open any account on NearBlocks from ringfence.evalengine.ai/wallets.',
+    ['NEAR · demo phone wallet', 'NEAR · room host', 'NEAR · money packets', 'NEAR · AI agent key']],
+};
+const liveHtml = ([kicker, head, line, labels]) => html([kicker, head, line, null, labels])
+  .replace(/<div class="list">[\s\S]*?<\/div><\/div>\n<div class="fence">/, `<div class="list live">${labels.map((l, i) => `<div class="row"><span class="slot" id="s${i}"></span><span class="lab">${esc(l)}</span></div>`).join('')}</div></div>\n<div class="fence">`)
+  .replace('</style>', `h1 { font-size: 68px; max-width: 11ch; } .list.live { width: 400px; padding: 14px 30px; display: block; } .live .row { display: block; padding: 12px 0; border-bottom: 2px solid #2a2520; } .live .row:last-child { border: 0; } .live .slot { display: block; height: 58px; } .live .lab { display: block; font-size: 22px; color: #b8b2a8; margin-top: 2px; }</style>`);
+
+(async () => {
+  const fs = require('fs');
+  const out = path.join(root, 'assets/og');
+  fs.mkdirSync(out + '/digits', { recursive: true });
+  const b = await chromium.launch({ channel: 'chrome' });
+  const p = await b.newPage({ viewport: { width: 1200, height: 630 } });
+  const slots = {};
+  for (const [slug, c] of Object.entries(LIVE)) {
+    const f = require('os').tmpdir() + `/og-live-${slug}.html`;
+    fs.writeFileSync(f, liveHtml(c));
+    await p.goto('file://' + f, { waitUntil: 'load' });
+    await p.evaluate(() => document.fonts.ready);
+    slots[slug] = await p.$$eval('.slot', (els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y) }; }));
+    await p.screenshot({ path: `${out}/${slug}-base.png` });
+    await p.screenshot({ path: path.join(root, 'public/og', `${slug}.png`) }); // fallback when the live card can't be drawn
+  }
+  // Digits: transparent PNGs, 58 px tall, each as wide as its advance.
+  const chars = '0123456789.,';
+  const widths = {};
+  for (const ch of chars) {
+    const f = require('os').tmpdir() + '/og-digit.html';
+    fs.writeFileSync(f, `<!doctype html><style>@font-face{font-family:B;src:url(${pub('fonts/battlefin-black.woff2')})}*{margin:0}body{background:transparent}span{font:400 52px/58px B;color:#f4f3f1;display:inline-block;height:58px;font-variant-numeric:tabular-nums}</style><span>${ch}</span>`);
+    await p.goto('file://' + f, { waitUntil: 'load' });
+    await p.evaluate(() => document.fonts.ready);
+    const el = await p.$('span');
+    const box = await el.boundingBox();
+    widths[ch] = Math.ceil(box.width);
+    await el.screenshot({ path: `${out}/digits/${ch === '.' ? 'dot' : ch === ',' ? 'comma' : ch}.png`, omitBackground: true });
+  }
+  fs.writeFileSync(`${out}/layout.json`, JSON.stringify({ slots, widths }, null, 1));
+  console.log('live cards and digits written');
   await b.close();
 })();

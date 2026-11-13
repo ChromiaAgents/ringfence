@@ -31,6 +31,7 @@ import { Route as WalletClaimRouteImport } from './routes/wallet.claim'
 import { Route as WalletSendRouteImport } from './routes/wallet.send'
 import { Route as ApiFundIdRouteImport } from './routes/api/fund/$id'
 import { Route as ApiLaunchIdRouteImport } from './routes/api/launch/$id'
+import { Route as ApiOgSlugRouteImport } from './routes/api/og.$slug'
 import { Route as ApiWalletBindRouteImport } from './routes/api/wallet/bind'
 import { Route as ApiWalletBoundRouteImport } from './routes/api/wallet/bound'
 import { Route as ApiWalletClaimRouteImport } from './routes/api/wallet/claim'
@@ -151,6 +152,11 @@ const ApiLaunchIdRoute = ApiLaunchIdRouteImport.update({
   path: '/api/launch/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOgSlugRoute = ApiOgSlugRouteImport.update({
+  id: '/api/og/$slug',
+  path: '/api/og/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWalletBindRoute = ApiWalletBindRouteImport.update({
   id: '/api/wallet/bind',
   path: '/api/wallet/bind',
@@ -220,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/wallet/send': typeof WalletSendRoute
   '/api/fund/$id': typeof ApiFundIdRoute
   '/api/launch/$id': typeof ApiLaunchIdRouteWithChildren
+  '/api/og/$slug': typeof ApiOgSlugRoute
   '/api/wallet/bind': typeof ApiWalletBindRoute
   '/api/wallet/bound': typeof ApiWalletBoundRoute
   '/api/wallet/claim': typeof ApiWalletClaimRoute
@@ -253,6 +260,7 @@ export interface FileRoutesByTo {
   '/wallet/send': typeof WalletSendRoute
   '/api/fund/$id': typeof ApiFundIdRoute
   '/api/launch/$id': typeof ApiLaunchIdRouteWithChildren
+  '/api/og/$slug': typeof ApiOgSlugRoute
   '/api/wallet/bind': typeof ApiWalletBindRoute
   '/api/wallet/bound': typeof ApiWalletBoundRoute
   '/api/wallet/claim': typeof ApiWalletClaimRoute
@@ -287,6 +295,7 @@ export interface FileRoutesById {
   '/wallet/send': typeof WalletSendRoute
   '/api/fund/$id': typeof ApiFundIdRoute
   '/api/launch/$id': typeof ApiLaunchIdRouteWithChildren
+  '/api/og/$slug': typeof ApiOgSlugRoute
   '/api/wallet/bind': typeof ApiWalletBindRoute
   '/api/wallet/bound': typeof ApiWalletBoundRoute
   '/api/wallet/claim': typeof ApiWalletClaimRoute
@@ -322,6 +331,7 @@ export interface FileRouteTypes {
     | '/wallet/send'
     | '/api/fund/$id'
     | '/api/launch/$id'
+    | '/api/og/$slug'
     | '/api/wallet/bind'
     | '/api/wallet/bound'
     | '/api/wallet/claim'
@@ -355,6 +365,7 @@ export interface FileRouteTypes {
     | '/wallet/send'
     | '/api/fund/$id'
     | '/api/launch/$id'
+    | '/api/og/$slug'
     | '/api/wallet/bind'
     | '/api/wallet/bound'
     | '/api/wallet/claim'
@@ -388,6 +399,7 @@ export interface FileRouteTypes {
     | '/wallet/send'
     | '/api/fund/$id'
     | '/api/launch/$id'
+    | '/api/og/$slug'
     | '/api/wallet/bind'
     | '/api/wallet/bound'
     | '/api/wallet/claim'
@@ -422,6 +434,7 @@ export interface RootRouteChildren {
   WalletSendRoute: typeof WalletSendRoute
   ApiFundIdRoute: typeof ApiFundIdRoute
   ApiLaunchIdRoute: typeof ApiLaunchIdRouteWithChildren
+  ApiOgSlugRoute: typeof ApiOgSlugRoute
   ApiWalletBindRoute: typeof ApiWalletBindRoute
   ApiWalletBoundRoute: typeof ApiWalletBoundRoute
   ApiWalletClaimRoute: typeof ApiWalletClaimRoute
@@ -587,6 +600,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLaunchIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/og/$slug': {
+      id: '/api/og/$slug'
+      path: '/api/og/$slug'
+      fullPath: '/api/og/$slug'
+      preLoaderRoute: typeof ApiOgSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/wallet/bind': {
       id: '/api/wallet/bind'
       path: '/api/wallet/bind'
@@ -690,6 +710,7 @@ const rootRouteChildren: RootRouteChildren = {
   WalletSendRoute: WalletSendRoute,
   ApiFundIdRoute: ApiFundIdRoute,
   ApiLaunchIdRoute: ApiLaunchIdRouteWithChildren,
+  ApiOgSlugRoute: ApiOgSlugRoute,
   ApiWalletBindRoute: ApiWalletBindRoute,
   ApiWalletBoundRoute: ApiWalletBoundRoute,
   ApiWalletClaimRoute: ApiWalletClaimRoute,

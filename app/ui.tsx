@@ -161,7 +161,8 @@ export function Num({ value, digits = 4 }: { value: number | null; digits?: numb
 const SITE = 'https://ringfence.evalengine.ai';
 /** Server-rendered share card for one page: title, description, and its own 1200x630 image (public/og/<image>.png). */
 export function seo(p: { title: string; description: string; path: string; image?: string; alt?: string }) {
-  const img = `${SITE}/og/${p.image ?? 'home'}.png`;
+  // stats and wallets carry today's numbers, drawn on the server (src/og.ts)
+  const img = p.image === 'stats' || p.image === 'wallets' ? `${SITE}/api/og/${p.image}.png` : `${SITE}/og/${p.image ?? 'home'}.png`;
   return [
     { title: p.title }, { name: 'description', content: p.description },
     { property: 'og:title', content: p.title }, { property: 'og:description', content: p.description },
