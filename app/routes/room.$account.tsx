@@ -209,7 +209,10 @@ function Room() {
           <form className="lr-bar" onSubmit={async (e) => {
             e.preventDefault(); const t = chatText.trim(); if (!t) return;
             if (call.live) call.say(t); // on a call, typing talks to the agent
-            else await fetch(`/api/stream/${encodeURIComponent(account)}/chat`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'viewer', text: t }) }).catch(() => {});
+            else { // off a call: post to the room chat, then start a call so she answers it
+              fetch(`/api/stream/${encodeURIComponent(account)}/chat`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'viewer', text: t }) }).catch(() => {});
+              host.current?.unlock(); liveRef.current = true; host.current?.stop(); queued.current = t; call.start();
+            }
             setChatText('');
           }}>
             <input value={chatText} onChange={(e) => setChatText(e.target.value)} placeholder={call.live ? 'Type to the agent…' : 'Say something…'} maxLength={120} aria-label="Chat" />
