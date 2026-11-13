@@ -103,7 +103,9 @@ export function countryOf(phone?: string): string | null {
 /** Top three Google News headlines for the topic in the question (or the caller's country), spoken as one line. */
 export async function news(question: string, country?: string | null) {
   const MONTHS = 'january|february|march|april|may|june|july|august|september|october|november|december';
-  const topic = question.toLowerCase().replace(/\([^)]*\)/g, ' ').replace(new RegExp(`\\b(\\d{1,2}(st|nd|rd|th)?\\s+)?(${MONTHS})(\\s+\\d{1,2}(st|nd|rd|th)?)?(,?\\s+\\d{4})?\\b|\\b(19|20)\\d{2}\\b`, 'g'), ' ').replace(/\b(what|what's|whats|is|are|the|today'?s?|todays|latest|top|news|headlines?|current|now|right|tell|me|about|in|on|of|any|can|you|give|please)\b|[?.!,]/g, ' ').replace(/\s+/g, ' ').trim() || country || 'world';
+  let topic = question.toLowerCase().replace(/\([^)]*\)/g, ' ').replace(new RegExp(`\\b(\\d{1,2}(st|nd|rd|th)?\\s+)?(${MONTHS})(\\s+\\d{1,2}(st|nd|rd|th)?)?(,?\\s+\\d{4})?\\b|\\b(19|20)\\d{2}\\b`, 'g'), ' ').replace(/\b(what|what's|whats|is|are|the|today'?s?|todays|latest|top|news|headlines?|current|now|right|tell|me|about|in|on|of|any|can|you|give|please)\b|[?.!,]/g, ' ').replace(/\s+/g, ' ').trim() || country || 'world';
+  // "near" alone pulls English headlines ("crash near SeaTac"): search the project by name.
+  if (/^(near|near protocol|near ai)$/i.test(topic)) topic = topic.toLowerCase() === 'near ai' ? 'NEAR AI' : 'NEAR Protocol';
   return cached(`news:${topic}`, async () => {
     const r = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(`${topic} when:1d`)}&hl=en-US&gl=US&ceid=US:en`, { signal: AbortSignal.timeout(4000) });
     if (!r.ok) return null;
