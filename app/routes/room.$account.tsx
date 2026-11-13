@@ -44,7 +44,7 @@ function Room() {
   const got = [...pcall.lines].reverse().find((l) => l.who === 'agent' && /\d+(\.\d+)?\s*NEAR/.test(l.text) && /(got|opened|yours|share)/i.test(l.text))?.text;
   const gotNear = got?.match(/(\d+\.\d+|\d+)\s*NEAR/)?.[1];
   const liveRef = useRef(false);
-  useEffect(() => { liveRef.current = call.live; if (call.live) lastTalk.current = Date.now(); }, [call.live]); // on a call the agent talks, the host only moves its lips
+  useEffect(() => { liveRef.current = call.live; if (call.live) { lastTalk.current = Date.now(); host.current?.stop(); } }, [call.live]); // on a call the agent talks, the host only moves its lips
   const queued = useRef<string | null>(null);
   const host = useRef<HostHandle>(null);
   const [sheet, setSheet] = useState(false);
@@ -207,7 +207,7 @@ function Room() {
             setChatText('');
           }}>
             <input value={chatText} onChange={(e) => setChatText(e.target.value)} placeholder={call.live ? 'Type to the agent…' : 'Say something…'} maxLength={120} aria-label="Chat" />
-            <button type="button" className={`ico mic ${call.live ? 'on' : ''}`} onClick={() => { host.current?.unlock(); call.live ? call.stop() : call.start(); }} aria-label={call.live ? 'Hang up' : 'Talk to her'}>{call.live ? '⏹' : '🎙'}</button>
+            <button type="button" className={`ico mic ${call.live ? 'on' : ''}`} onClick={() => { host.current?.unlock(); if (!call.live) { liveRef.current = true; host.current?.stop(); } call.live ? call.stop() : call.start(); }} aria-label={call.live ? 'Hang up' : 'Talk to her'}>{call.live ? '⏹' : '🎙'}</button>
             <button type="button" className="ico" onClick={() => { const g = GIFTS[0]; setPick(g.name); setConfirm(g); setSheet(true); }} aria-label="Send a heart">💖</button>
             <button type="button" className="ico" onClick={() => setSheet(true)} aria-label="Gifts">🎁</button>
             <button type="button" className="ico share" onClick={() => { const u = location.href; (navigator as any).share ? (navigator as any).share({ title: `${account} is live`, url: u }).catch(() => {}) : navigator.clipboard?.writeText(u); }} aria-label="Share">↗</button>

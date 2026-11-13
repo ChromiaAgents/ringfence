@@ -3,7 +3,7 @@
 // Model: VRM1_Constraint_Twist_Sample, (c) 2022 pixiv Inc., VRM Public License 1.0 (vrm.dev/licenses/1.0).
 import { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
 
-export type HostHandle = { speak: (url: string) => Promise<void>; unlock: () => void };
+export type HostHandle = { speak: (url: string) => Promise<void>; unlock: () => void; stop: () => void };
 
 export const Host = forwardRef<HostHandle, { className?: string; onTap?: () => void }>(function Host({ className, onTap }, ref) {
   const box = useRef<HTMLDivElement>(null);
@@ -12,7 +12,7 @@ export const Host = forwardRef<HostHandle, { className?: string; onTap?: () => v
   const [failed, setFailed] = useState(false);
   const level = useRef(0);
   const look = useRef({ x: 0, y: 0 }); // where a finger or the mouse is, -1..1: she turns toward it // 0..1 mouth opening, set by the audio analyser
-  const audio = useRef<{ ctx?: AudioContext; busy: boolean }>({ busy: false });
+  const audio = useRef<{ ctx?: AudioContext; busy: boolean; src?: AudioBufferSourceNode; gen: number }>({ busy: false, gen: 0 });
 
   const poke = useRef(0); // when the character was last tapped: a happy reaction for a moment
   useImperativeHandle(ref, () => ({
@@ -23,10 +23,13 @@ export const Host = forwardRef<HostHandle, { className?: string; onTap?: () => v
       a.ctx.resume().catch(() => {});
       const b = a.ctx.createBuffer(1, 1, 22050), src = a.ctx.createBufferSource(); src.buffer = b; src.connect(a.ctx.destination); src.start();
     },
+    // A call starts: the host's own line stops, so two voices never talk at once.
+    stop() { const a = audio.current; a.gen++; try { a.src?.stop(); } catch {} a.src = undefined; },
     async speak(url: string) {
       const a = audio.current;
       if (a.busy) return;
       a.busy = true;
+      const gen = a.gen;
       try {
         a.ctx ??= new AudioContext();
         if (a.ctx.state === 'suspended') await a.ctx.resume().catch(() => {});
@@ -36,9 +39,10 @@ export const Host = forwardRef<HostHandle, { className?: string; onTap?: () => v
         const data = new Uint8Array(an.fftSize);
         let on = true;
         const read = () => { if (!on) return; an.getByteTimeDomainData(data); let s = 0; for (const v of data) s += ((v - 128) / 128) ** 2; level.current = Math.min(1, Math.sqrt(s / data.length) * 6); requestAnimationFrame(read); };
-        src.start(); read();
+        if (gen !== a.gen) return; // a call started while this clip was loading
+        a.src = src; src.start(); read();
         await new Promise((ok) => (src.onended = ok));
-        on = false; level.current = 0;
+        on = false; level.current = 0; a.src = undefined;
       } catch { /* no audio (autoplay blocked or TTS down): the character just stays idle */ } finally { a.busy = false; }
     },
   }));
