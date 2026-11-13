@@ -194,7 +194,7 @@ function Room() {
             {idleNote && <p className="lr-sys">{idleNote}</p>}
             {stream.map((m, i) => m.kind === 'gift'
               ? <p key={i} className="lr-msg"><span className="lv">{Math.min(99, Math.ceil(m.near * 100))}</span><b>{m.from}:</b> sent {iconOf(m.near)} {m.near} NEAR{m.n > 1 ? <em className="lr-combo"> ×{m.n}</em> : null}{m.landing ? ' (landing)' : ''}</p>
-              : <p key={i} className={`lr-msg ${m.kind}`}><span className="lv">{m.kind === 'agent' ? 'AI' : m.kind === 'you' ? 'You' : '1'}</span><b>{m.from}:</b> {m.text}</p>)}
+              : <p key={i} className={`lr-msg ${m.kind}`}><span className="lv">{m.kind === 'agent' ? 'AI' : m.kind === 'you' ? 'You' : '1'}</span>{m.kind === 'you' ? null : <b>{m.from}:</b>} {m.text}</p>)}
           {(call.link || call.approval || call.choices.length > 0) && (
               <div className="lr-cards">
                 {call.approval && (
