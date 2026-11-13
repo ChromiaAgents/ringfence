@@ -42,7 +42,7 @@ function Stats() {
             <div className="st-tile" key={label}><p className="st-big">{big}</p><p className="st-label">{label}</p><p className="st-note">{note}</p></div>
           ))}
         </div>
-        <p className="st-lead"><a href="/proof">Private AI proof</a> · <a href="/packet/demo">Open a money packet</a></p>
+        <p className="st-lead"><a href="/wallets">Wallets and balances</a> · <a href="/proof">Private AI proof</a> · <a href="/packet/demo">Open a money packet</a></p>
       </main>
       <SiteFooter />
     </>

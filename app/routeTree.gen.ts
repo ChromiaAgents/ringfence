@@ -14,6 +14,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LiveRouteImport } from './routes/live'
 import { Route as ProofRouteImport } from './routes/proof'
 import { Route as StatsRouteImport } from './routes/stats'
+import { Route as WalletsRouteImport } from './routes/wallets'
 import { Route as WhatsappRouteImport } from './routes/whatsapp'
 import { Route as ApiProofRouteImport } from './routes/api/proof'
 import { Route as ApiQrRouteImport } from './routes/api/qr'
@@ -63,6 +64,11 @@ const ProofRoute = ProofRouteImport.update({
 const StatsRoute = StatsRouteImport.update({
   id: '/stats',
   path: '/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WalletsRoute = WalletsRouteImport.update({
+  id: '/wallets',
+  path: '/wallets',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WhatsappRoute = WhatsappRouteImport.update({
@@ -197,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/live': typeof LiveRoute
   '/proof': typeof ProofRoute
   '/stats': typeof StatsRoute
+  '/wallets': typeof WalletsRoute
   '/whatsapp': typeof WhatsappRoute
   '/api/proof': typeof ApiProofRoute
   '/api/qr': typeof ApiQrRoute
@@ -229,6 +236,7 @@ export interface FileRoutesByTo {
   '/live': typeof LiveRoute
   '/proof': typeof ProofRoute
   '/stats': typeof StatsRoute
+  '/wallets': typeof WalletsRoute
   '/whatsapp': typeof WhatsappRoute
   '/api/proof': typeof ApiProofRoute
   '/api/qr': typeof ApiQrRoute
@@ -262,6 +270,7 @@ export interface FileRoutesById {
   '/live': typeof LiveRoute
   '/proof': typeof ProofRoute
   '/stats': typeof StatsRoute
+  '/wallets': typeof WalletsRoute
   '/whatsapp': typeof WhatsappRoute
   '/api/proof': typeof ApiProofRoute
   '/api/qr': typeof ApiQrRoute
@@ -296,6 +305,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/proof'
     | '/stats'
+    | '/wallets'
     | '/whatsapp'
     | '/api/proof'
     | '/api/qr'
@@ -328,6 +338,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/proof'
     | '/stats'
+    | '/wallets'
     | '/whatsapp'
     | '/api/proof'
     | '/api/qr'
@@ -360,6 +371,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/proof'
     | '/stats'
+    | '/wallets'
     | '/whatsapp'
     | '/api/proof'
     | '/api/qr'
@@ -393,6 +405,7 @@ export interface RootRouteChildren {
   LiveRoute: typeof LiveRoute
   ProofRoute: typeof ProofRoute
   StatsRoute: typeof StatsRoute
+  WalletsRoute: typeof WalletsRoute
   WhatsappRoute: typeof WhatsappRoute
   ApiProofRoute: typeof ApiProofRoute
   ApiQrRoute: typeof ApiQrRoute
@@ -453,6 +466,13 @@ declare module '@tanstack/react-router' {
       path: '/stats'
       fullPath: '/stats'
       preLoaderRoute: typeof StatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wallets': {
+      id: '/wallets'
+      path: '/wallets'
+      fullPath: '/wallets'
+      preLoaderRoute: typeof WalletsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/whatsapp': {
@@ -653,6 +673,7 @@ const rootRouteChildren: RootRouteChildren = {
   LiveRoute: LiveRoute,
   ProofRoute: ProofRoute,
   StatsRoute: StatsRoute,
+  WalletsRoute: WalletsRoute,
   WhatsappRoute: WhatsappRoute,
   ApiProofRoute: ApiProofRoute,
   ApiQrRoute: ApiQrRoute,
