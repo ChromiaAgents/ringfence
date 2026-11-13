@@ -168,5 +168,5 @@ export function useCall(deskPick: Desk | 'auto' = 'auto', packet?: string, payTo
 
   // On unmount only release the mic and socket (no state updates).
   useEffect(() => () => { const s = r.current; s.ws?.close(); s.stream?.getTracks().forEach((t) => t.stop()); s.ctx?.close().catch(() => {}); }, []);
-  return { lines, state, live, link, choices, desk, approval, tap, sendPhoto, start: (mic?: boolean) => start(mic).catch((e) => { add('tool', e.message); stop(); }), stop, say };
+  return { lines, state, live, link, choices, desk, approval, tap, sendPhoto, start: (mic?: unknown) => start(mic !== false).catch((e) => { add('tool', e.message); stop(); }), stop, say };
 }
