@@ -8,7 +8,7 @@
     "start": "NODE_ENV=production tsx --env-file-if-exists=.env server.ts",
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
-    "test": "DB_FILE=data/test-db.json tsx test/run.ts",
+    "test": "DB_FILE=data/test-db.json tsx test/run.ts && tsx test/stall.ts",
     "demo:check": "vite build --logLevel error && tsx scripts/demo-check.ts",
     "attest": "tsx scripts/attest.ts",
     "test:justhoot": "tsx test/justhoot-cost.ts",

@@ -1,5 +1,5 @@
 // NEAR AI Cloud: chat + speech-to-text on TEE models, and the proof that a reply came from one.
-import { withAiKey, keyOf, baseOf, type KeySlot } from './aikey.ts';
+import { withAiKey, keyOf, baseOf, markSlowSlot, type KeySlot } from './aikey.ts';
 import { createHash, randomBytes } from 'node:crypto';
 import { verifyMessage } from 'ethers';
 import { env } from './config.ts';
@@ -157,15 +157,17 @@ async function within(ms: number, signal: AbortSignal | undefined, f: (s: AbortS
   const t = setTimeout(() => c.abort(new DOMException('no answer in time', 'TimeoutError')), ms);
   try { return await f(signal ? AbortSignal.any([signal, c.signal]) : c.signal); } finally { clearTimeout(t); }
 }
+const STALL_MS = Number(process.env.AI_STALL_MS ?? 8000);
 const FIRST_BYTE_MS = 6000; // ponytail: a phone caller won't wait longer; the fallback usually answers in <1 s
 
-export async function chat(messages: Msg[], tools: unknown[], model = env.llmModel, o: ChatOpts = {}): Promise<{ msg: Extract<Msg, { role: 'assistant' }>; proof: Proof }> {
+export async function chat(messages: Msg[], tools: unknown[], model = env.llmModel, o: ChatOpts = {}, retried = false): Promise<{ msg: Extract<Msg, { role: 'assistant' }>; proof: Proof }> {
   if (env.mockLlm) return mockChat(messages, tools, o);
   const pre = attest(model).catch(() => null); // only the later signature check needs it: never hold the reply for it
   const body = JSON.stringify({
     model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}), temperature: 0.3, max_tokens: o.maxTokens ?? 400,
     stream: true, chat_template_kwargs: { enable_thinking: false }, // Qwen3: no reasoning pass on a phone call
   });
+  const stall = new AbortController(); // the stream went quiet: see the watchdog below
   const { r, slot } = await withAiKey((key, base) => again(o.signal, () => within(base === baseOf(0) && env.nearAiKeyFallback ? FIRST_BYTE_MS : 120_000, o.signal, (signal) => fetch(`${base}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -176,7 +178,7 @@ export async function chat(messages: Msg[], tools: unknown[], model = env.llmMod
       accept: 'text/event-stream',
     },
     body,
-    signal,
+    signal: AbortSignal.any([signal, stall.signal]),
   }))));
   if (!r.ok || !r.body) throw new Error(`chat ${r.status}: ${(await r.text()).slice(0, 300)}`);
   const hash = createHash('sha256');
@@ -197,7 +199,12 @@ export async function chat(messages: Msg[], tools: unknown[], model = env.llmMod
       if (tc.function?.arguments) c.function.arguments += tc.function.arguments;
     }
   };
+  // Watchdog: a stream that goes quiet for 8 s is cut. Nothing said yet: ask the other key once. Something said: keep it.
+  let last = Date.now(), stalled = false;
+  const dog = setInterval(() => { if (Date.now() - last > STALL_MS) { stalled = true; stall.abort(new DOMException('stream stalled', 'TimeoutError')); } }, 500);
+  try {
   for await (const chunk of r.body as any as AsyncIterable<Uint8Array>) {
+    last = Date.now();
     hash.update(chunk);
     pending += dec.decode(chunk, { stream: true });
     let nl;
@@ -207,7 +214,14 @@ export async function chat(messages: Msg[], tools: unknown[], model = env.llmMod
       if (line.startsWith('data:')) onEvent(line.slice(5).trim());
     }
   }
-  if (pending.trim().startsWith('data:')) onEvent(pending.trim().slice(5).trim());
+  } catch (e) { if (!stalled) throw e; } finally { clearInterval(dog); }
+  if (stalled) {
+    console.log(`[ai] stream stalled on slot ${slot} after ${content.length} chars`);
+    if (!content && !retried) { markSlowSlot(slot); return chat(messages, tools, model, o, true); }
+    if (!content) throw new Error('the AI stopped answering');
+    calls.length = 0; // a half-streamed tool call is not safe to run
+  }
+  if (!stalled && pending.trim().startsWith('data:')) onEvent(pending.trim().slice(5).trim());
   const proof: Proof = { chatId: id, model, requestHash: sha256(body), responseHash: hash.digest('hex'), status: 'pending', slot };
   // The signature is recorded a moment after the reply; check it in the background.
   pre.then((a) => verifyLater(proof, a)).catch(() => (proof.status = 'unverified'));

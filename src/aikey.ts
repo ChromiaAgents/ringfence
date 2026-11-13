@@ -47,5 +47,8 @@ export async function withAiKey(f: (key: string, base: string) => Promise<Respon
   throw last ?? new Error('no NEAR AI key answered');
 }
 
+/** A slot that stalled mid-answer: skip the primary for a while (the fallback is never benched, it is the last resort). */
+export const markSlowSlot = (slot: KeySlot) => { if (slot === 0 && env.nearAiKeyFallback) { primaryDownUntil = Date.now() + BREAK_MS; console.log('[ai] primary stalled, using the fallback for 10 minutes'); } };
+
 /** For tests. */
 export const resetAiKeys = () => { primaryDownUntil = 0; fallbackDead = false; };
