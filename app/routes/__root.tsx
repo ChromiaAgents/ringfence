@@ -16,7 +16,7 @@ export const Route = createRootRoute({
       { property: 'og:image:alt', content: 'Ringfence: a phone call is the wallet. WhatsApp calls, money packets, NEAR contract limits, top up via NEAR Intents, launch on JustHoot, live-room gifts.' },
       { name: 'twitter:card', content: 'summary_large_image' }, { name: 'twitter:image', content: 'https://ringfence.evalengine.ai/og.png' },
       { name: 'twitter:title', content: 'Ringfence: a phone call is the wallet, on NEAR' },
-      { name: 'twitter:description', content: 'Pay, gift and send money packets by phone call. A NEAR contract caps what the AI can spend. Built at NEAR HACKATHON 2026 #NEARHackathon.' }, { name: 'twitter:site', content: '@NEARProtocol' },
+      { name: 'twitter:description', content: 'Pay, gift and send money packets by phone call. A NEAR contract caps what the AI can spend. Built at NEAR HACKATHON 2026 #NEARHackathon.' }, { name: 'twitter:site', content: '@NEARProtocol' }, { name: 'twitter:creator', content: '@eval_engine' },
       { name: 'keywords', content: 'NEAR, NEAR Protocol, NEAR AI, NEAR Intents, WhatsApp wallet, voice payments, red packet, money packet, AI agent, crypto by phone call, live stream gifts, JustHoot, NEARON, NEAR HACKATHON, NEAR Hackathon 2026, NEARHackathon, NEAR hackathon project, Social Money, Real-World Money, AI agent wallet' }],
     links: [{ rel: 'preload', href: '/fonts/geist-latin.woff2', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' }, { rel: 'preload', href: '/fonts/battlefin-black.woff2', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' }, { rel: 'stylesheet', href: css }, { rel: 'stylesheet', href: skin }, { rel: 'icon', href: '/favicon.svg' }],
   }),

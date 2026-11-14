@@ -34,6 +34,9 @@ export const WaIcon = ({ size = 18 }: { size?: number }) => (
 );
 
 export const CODE_URL = 'https://github.com/ChromiaAgents/ringfence';
+export const X_URL = 'https://x.com/eval_engine';
+export const X_POST = 'https://x.com/eval_engine/status/2121168440409120848';
+export const BLOG_URL = 'https://www.evalengine.ai/posts/ringfence-phone-call-wallet-near';
 
 // The site footer: picture credits (the landing page passes them), links, year and licence.
 export function SiteFooter({ credits }: { credits?: ReactNode }) {
@@ -49,7 +52,7 @@ export function SiteFooter({ credits }: { credits?: ReactNode }) {
       </p>
       <footer className="site-foot">
         <span className="foot-id"><span>Ringfence, built for the NEAR hackathon</span><Makers size="lg" /></span>
-        <nav aria-label="Site"><a href="/packet/demo">Open a packet</a><a href="/#call">Try a call</a><a href="/demo.html">Demos</a><a href="/deck.html">Deck</a><a href="/stats">Stats</a><a href="/wallets">Wallets</a><a href="/proof">Proof</a><a href="/wallet/bind">Bind your number</a><a href={CODE_URL}>Code</a></nav>
+        <nav aria-label="Site"><a href="/packet/demo">Open a packet</a><a href="/#call">Try a call</a><a href="/demo.html">Demos</a><a href="/deck.html">Deck</a><a href="/stats">Stats</a><a href="/wallets">Wallets</a><a href="/proof">Proof</a><a href="/wallet/bind">Bind your number</a><a href={CODE_URL}>Code</a><a href={X_POST} target="_blank" rel="noreferrer">Launch post on X</a><a href={X_URL} target="_blank" rel="noreferrer">@eval_engine</a><a href={BLOG_URL} target="_blank" rel="noreferrer">Blog</a></nav>
         <span className="r">2026 · MIT licence</span>
       </footer>
     </>
@@ -133,6 +136,7 @@ export function TopBar({ children, onTry }: { children?: ReactNode; onTry?: (e: 
         <a className="code" href="/wallets">Wallets</a>
         <a className="code" href="/proof">Proof</a>
         <a className="code" href={CODE_URL}>Code</a>
+        <a className="code" href={X_POST} target="_blank" rel="noreferrer" aria-label="Ringfence on X">𝕏</a>
       </span>
       <a className="btn" href={onTry ? '#call' : '/#call'} onClick={onTry}>Try a call</a>
     </nav>
