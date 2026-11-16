@@ -57,7 +57,7 @@ function Landing() {
               <a className="btn" href="/packet/demo">Open a money packet</a>
               <a href="#call" onClick={tryCall}>Send one by call</a>
               <a href={d.waUrl} target="_blank" rel="noopener"><WaIcon />Message on WhatsApp</a>
-              <a href="/ringfence-film.mp4">▶ Watch the film (64 s)</a>
+              <a href="#real-call">▶ Watch a real WhatsApp call</a>
             </div>
             <p className="note rise" style={i(4)}>No app needed: both buttons work in this browser. The contracts are unaudited, so amounts are tiny.</p>
             <ul className="feats rise" style={i(5)} aria-label="What it does">
@@ -95,6 +95,19 @@ function Landing() {
       </section>
 
       <main>
+        <section id="real-call" className="real-call rise" aria-label="A real call, unedited">
+          <video controls preload="metadata" poster="/real-call.jpg" width={720} height={1280} playsInline>
+            <source src="/real-call.mp4" type="video/mp4" />
+          </video>
+          <div>
+            <h2>A real call, unedited</h2>
+            <p>One WhatsApp call, filmed on 16 November 2026, sound on. Nothing is acted. The caller asks for the balance, sends 0.01 NEAR with a spoken PIN, checks the NEAR price and opens a money packet by saying &ldquo;happy new year&rdquo;.</p>
+            <ul>
+              <li><a href="https://nearblocks.io/txns/J6aqNZkYgNQsPoGafhhihEmqcLD7jeecrmixTMjFTpct" target="_blank" rel="noreferrer">The 0.01 NEAR send, held 60 s for a new recipient ↗</a></li>
+              <li><a href="https://nearblocks.io/txns/EgJaQ5Kdd1s4xxt8rtUq8GbdT8xJG2SMvoeFbZ1oua7L" target="_blank" rel="noreferrer">The packet share, 0.0022 NEAR ↗</a></li>
+            </ul>
+          </div>
+        </section>
         <section className="film rise" aria-label="The film">
           <video controls preload="none" poster="/ringfence-film.jpg" width={1920} height={1080} playsInline>
             <source src="/ringfence-film.mp4" type="video/mp4" />
